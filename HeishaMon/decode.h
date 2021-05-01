@@ -5,8 +5,10 @@
 
 #define MQTT_RETAIN_VALUES 1
 
-void decode_heatpump_data(char* data, String actData[], PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime);
-void decode_optional_heatpump_data(char* data, String actOptData[], PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime);
+void decode_heatpump_data(char* data, String actData[], PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base);
+void decode_optional_heatpump_data(char* data, String actOptData[], PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base);
+void broadcast_heatpump_data(String actData[], PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base);
+void broadcast_optional_heatpump_data(String actData[], PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base);
 
 String unknown(byte input);
 String getBit1and2(byte input);
@@ -76,6 +78,16 @@ static const byte knownModels[NUMBER_OF_KNOWN_MODELS][10] = { //stores the bytes
 
 #define NUMBER_OF_TOPICS 106 //last topic number + 1
 #define NUMBER_OF_OPT_TOPICS 7 //last topic number + 1
+
+static const char *optTopics[] PROGMEM = {
+  "Z1_Water_Pump", // OPT0
+  "Z1_Mixing_Valve", // OPT1
+  "Z2_Water_Pump", // OPT2
+  "Z2_Mixing_Valve", // OPT3
+  "Pool_Water_Pump", // OPT4
+  "Solar_Water_Pump", // OPT5
+  "Alarm_State", // OPT6
+};
 
 static const char * topics[] = {
   "Heatpump_State",          //TOP0
