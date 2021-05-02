@@ -134,8 +134,8 @@ void log_message(char* string)
 
     if (!mqtt_client.publish(log_topic, string)) {
       Serial1.print(millis());
-      Serial1.print(": ");
-      Serial1.println("MQTT publish log message failed!");
+      Serial1.print(F(": "));
+      Serial1.println(F("MQTT publish log message failed!"));
       mqtt_client.disconnect();
     }
   }
@@ -274,7 +274,8 @@ bool send_command(byte* command, int length) {
   byte chk = calcChecksum(command, length);
   int bytesSent = Serial.write(command, length); //first send command
   bytesSent += Serial.write(chk); //then calculcated checksum byte afterwards
-  sprintf(log_msg, "sent bytes: %d including checksum value: %d ", bytesSent, int(chk)); log_message(log_msg);
+  sprintf_P(log_msg, PSTR("sent bytes: %d including checksum value: %d "), bytesSent, int(chk));
+  log_message(log_msg);
 
   if (heishamonSettings.logHexdump) logHex((char*)command, length);
 
@@ -301,7 +302,8 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
       rawcommand = (byte *) malloc(length);
       memcpy(rawcommand, msg, length);
 
-      sprintf(log_msg, "sending raw value"); log_message(log_msg);
+      sprintf_P(log_msg, PSTR("sending raw value"));
+      log_message(log_msg);
       send_command(rawcommand, length);
     } else if (strncmp(topic_command, mqtt_topic_s0, 2) == 0)  // this is a s0 topic, check for watthour topic and restore it
     {
@@ -312,7 +314,9 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
       //unsubscribe after restoring the watthour values
       char mqtt_topic[256];
       sprintf(mqtt_topic, "%s", topic);
-      if (mqtt_client.unsubscribe(mqtt_topic)) log_message((char*)"Unsubscribed from S0 watthour restore topic");
+      if (mqtt_client.unsubscribe(mqtt_topic)) {
+        log_message((char*)"Unsubscribed from S0 watthour restore topic");
+      }
     } else if (strncmp(topic_command, mqtt_topic_commands, 8) == 0)  // check for optional pcb commands
     {
       char* topic_sendcommand = topic_command + 9; //strip the first 9 "commands/" from the topic to get what we need
@@ -583,13 +587,13 @@ void setup() {
 }
 
 void send_panasonic_query() {
-  String message = "Requesting new panasonic data";
+  String message = F("Requesting new panasonic data");
   log_message((char*)message.c_str());
   send_command(panasonicQuery, PANASONICQUERYSIZE);
 }
 
 void send_optionalpcb_query() {
-  String message = "Sending optional PCB data";
+  String message = F("Sending optional PCB data");
   log_message((char*)message.c_str());
   send_command(optionalPCBQuery, OPTIONALPCBQUERYSIZE);
 }
@@ -597,7 +601,7 @@ void send_optionalpcb_query() {
 void read_panasonic_timeout(void) {
   if (sending) {
     log_message((char*)"Previous read data attempt failed due to timeout!");
-    sprintf(log_msg, "Received %d bytes data", data_length);
+    sprintf_P(log_msg, PSTR("Received %d bytes data"), data_length);
     log_message(log_msg);
     if (heishamonSettings.logHexdump) {
       logHex(data, data_length);
@@ -657,7 +661,6 @@ void loop() {
     log_message((char *)"Sending command from buffer");
     popCommandBuffer();
   }
-
 
   if ((!sending) && (!heishamonSettings.listenonly) && (heishamonSettings.optionalPCB)) {
     send_optionalpcb_query(); //send this as fast as possible or else we could get warnings on heatpump

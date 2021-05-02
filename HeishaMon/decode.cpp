@@ -89,8 +89,8 @@ String getOpMode(byte input) {
 String getModel(char* data) { // TOP92 //
   byte model[10] = { data[129], data[130], data[131], data[132], data[133], data[134], data[135], data[136], data[137], data[138]};
   byte modelResult = -1;
-  for (unsigned int i = 0 ; i < NUMBER_OF_KNOWN_MODELS ; i++) {
-    if (memcmp(model, knownModels[i], 10) == 0) {
+  for (unsigned int i = 0 ; i < sizeof(knownModels)/sizeof(knownModels[0]) ; i++) {
+    if (memcmp_P(model, knownModels[i], 10) == 0) {
       modelResult = i;
     }
   }
@@ -171,14 +171,18 @@ void decode_heatpump_data(char* data, String actData[], PubSubClient &mqtt_clien
         Topic_Value = getModel(data);
         break;
       default:
-        Input_Byte = data[topicBytes[Topic_Number]];
+        byte cpy;
+        memcpy_P(&cpy, &topicBytes[Topic_Number], sizeof(byte));
+        Input_Byte = data[cpy];
         Topic_Value = topicFunctions[Topic_Number](Input_Byte);
         break;
     }
     if (( actData[Topic_Number] != Topic_Value )) {
       actData[Topic_Number] = Topic_Value;
-      sprintf(log_msg, "received TOP%d %s: %s", Topic_Number, topics[Topic_Number], Topic_Value.c_str()); log_message(log_msg);
-      sprintf(mqtt_topic, "%s/%s/%s", mqtt_topic_base, mqtt_topic_values, topics[Topic_Number]); mqtt_client.publish(mqtt_topic, Topic_Value.c_str(), MQTT_RETAIN_VALUES);
+      sprintf_P(log_msg, PSTR("received TOP%d %s: %s"), Topic_Number, topics[Topic_Number], Topic_Value.c_str());
+      log_message(log_msg);
+      sprintf(mqtt_topic, "%s/%s/%s", mqtt_topic_base, mqtt_topic_values, topics[Topic_Number]);
+      mqtt_client.publish(mqtt_topic, Topic_Value.c_str(), MQTT_RETAIN_VALUES);
     }
   }
 }
@@ -229,8 +233,10 @@ void decode_optional_heatpump_data(char* data, String actOptData[], PubSubClient
     }
     if (( actOptData[Topic_Number] != Topic_Value )) {
       actOptData[Topic_Number] = Topic_Value;
-      sprintf(log_msg, "received OPT%d %s: %s", Topic_Number, optTopics[Topic_Number], Topic_Value.c_str()); log_message(log_msg);
-      sprintf(mqtt_topic, "%s/%s/%s", mqtt_topic_base, mqtt_topic_pcbvalues, optTopics[Topic_Number]); mqtt_client.publish(mqtt_topic, Topic_Value.c_str(), MQTT_RETAIN_VALUES);
+      sprintf_P(log_msg, PSTR("received OPT%d %s: %s"), Topic_Number, optTopics[Topic_Number], Topic_Value.c_str());
+      log_message(log_msg);
+      sprintf(mqtt_topic, "%s/%s/%s", mqtt_topic_base, mqtt_topic_pcbvalues, optTopics[Topic_Number]);
+      mqtt_client.publish(mqtt_topic, Topic_Value.c_str(), MQTT_RETAIN_VALUES);
     }
   }
   //response to heatpump should contain the data from heatpump on byte 4 and 5
