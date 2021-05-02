@@ -57,7 +57,7 @@ void broadcastDallasTemp(PubSubClient &mqtt_client, void (*log_message)(char*), 
   char valueStr[20];
 
   for (int i = 0; i < dallasDevicecount; i++) {
-    sprintf(log_msg, "Received 1wire sensor temperature (%s): %.2f", actDallasData[i].address, actDallasData[i].temperature);
+    sprintf(log_msg, PSTR("Received 1wire sensor temperature (%s): %.2f"), actDallasData[i].address, actDallasData[i].temperature);
     log_message(log_msg);
     sprintf(valueStr, "%.2f", actDallasData[i].temperature);
     sprintf(mqtt_topic, "%s/%s/%s", mqtt_topic_base, mqtt_topic_1wire, actDallasData[i].address);

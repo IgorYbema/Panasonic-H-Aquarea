@@ -389,8 +389,49 @@ void timer_cb(int nr) {
       timerqueue_insert(heishamonSettings.updateAllTime, 0, TIMER_PANASONIC_REPORT);
     } break;
     case TIMER_LOG: {
-      String message = "Heishamon stats: Uptime: " + getUptime() + " ## Free memory: " + getFreeMemory() + "% " + ESP.getFreeHeap() + " bytes ## Wifi: " + getWifiQuality() + "% ## Mqtt reconnects: " + mqttReconnects;
+      if (totalreads > 0 ) readpercentage = (((float)goodreads / (float)totalreads) * 100);
+      String message = F("Heishamon stats: Uptime: ");
+      message += getUptime();
+      message += F(" ## Free memory: ");
+      message += getFreeMemory();
+      message += F("% ");
+      message += ESP.getFreeHeap();
+      message += F(" bytes ## Wifi: ");
+      message += getWifiQuality();
+      message += F("% ## Mqtt reconnects: ");
+      message += mqttReconnects;
+      message += F(" ## Correct data: ");
+      message += readpercentage;
+      message += F("%");
       log_message((char*)message.c_str());
+
+      String stats = F("{\"uptime\":");
+      message += String(millis());
+      message += F(",\"voltage\":");
+      message += ESP.getVcc() / 1024.0;
+      message += F(",\"free memory\":");
+      message += getFreeMemory();
+      message += F(",\"wifi\":");
+      message += getWifiQuality();
+      message += F(",\"mqtt reconnects\":");
+      message += mqttReconnects;
+      message += F(",\"total reads\":");
+      message += totalreads;
+      message += F(",\"good reads\":");
+      message += goodreads;
+      message += F(",\"bad crc reads\":");
+      message += badcrcread;
+      message += F(",\"bad header reads\":");
+      message += badheaderread;
+      message += F(",\"too short reads\":");
+      message += tooshortread;
+      message += F(",\"too long reads\":");
+      message += toolongread;
+      message += F(",\"timeout reads\":");
+      message += timeoutread;
+      message += F("}");
+      sprintf(mqtt_topic, "%s/stats", heishamonSettings.mqtt_topic_base);
+      mqtt_client.publish(mqtt_topic, stats.c_str(), MQTT_RETAIN_VALUES);
 
       //Make sure the LWT is set to Online, even if the broker has marked it dead.
       sprintf(mqtt_topic, "%s/%s", heishamonSettings.mqtt_topic_base, mqtt_willtopic);
