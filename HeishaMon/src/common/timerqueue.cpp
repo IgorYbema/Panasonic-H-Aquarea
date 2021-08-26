@@ -20,7 +20,7 @@
 #include "mem.h"
 #include "timerqueue.h"
 
-static unsigned int lasttime;
+static unsigned int lasttime = 0;
 
 static void timerqueue_sort() {
   int a = 1; // parent;
@@ -115,45 +115,41 @@ void timerqueue_update(void) {
 
   curtime = micros();
 
-  if(lasttime > 0) {
-    unsigned int diff = curtime - lasttime;
-    unsigned int sec = diff / 1000000;
-    unsigned int usec = diff - ((diff / 1000000) * 1000000);
-    int a = 0;
+  unsigned int diff = curtime - lasttime;
+  unsigned int sec = diff / 1000000;
+  unsigned int usec = diff - ((diff / 1000000) * 1000000);
+  int a = 0;
 
-    lasttime = curtime;
+  lasttime = curtime;
 
-    for(a=1;a<=timerqueue_size;a++) {
-      timerqueue[a]->sec -= sec;
-      timerqueue[a]->usec -= usec;
-      if(timerqueue[a]->usec < 0) {
-        timerqueue[a]->usec = 1000000 + timerqueue[a]->usec;
-        timerqueue[a]->sec -= 1;
-      }
+  for(a=1;a<=timerqueue_size;a++) {
+    timerqueue[a]->sec -= sec;
+    timerqueue[a]->usec -= usec;
+    if(timerqueue[a]->usec < 0) {
+      timerqueue[a]->usec = 1000000 + timerqueue[a]->usec;
+      timerqueue[a]->sec -= 1;
+    }
 
-      if(timerqueue[a]->sec < 0 || (timerqueue[a]->sec == 0 && timerqueue[a]->usec == 0)) {
-        int nr = timerqueue[a]->nr;
-        if((calls = (unsigned int *)REALLOC(calls, (nrcalls+1)*sizeof(int))) == NULL) {
-          OUT_OF_MEMORY
-        }
-        calls[nrcalls++] = nr;
+    if(timerqueue[a]->sec < 0 || (timerqueue[a]->sec == 0 && timerqueue[a]->usec == 0)) {
+      int nr = timerqueue[a]->nr;
+      if((calls = (unsigned int *)REALLOC(calls, (nrcalls+1)*sizeof(int))) == NULL) {
+        OUT_OF_MEMORY
       }
+      calls[nrcalls++] = nr;
     }
-    for(a=1;a<=timerqueue_size;a++) {
-      if(timerqueue[a]->sec < 0 || (timerqueue[a]->sec == 0 && timerqueue[a]->usec == 0)) {
-        struct timerqueue_t *node = timerqueue_pop();
-        FREE(node);
-        a--;
-      }
-    }
-    for(a=0;a<nrcalls;a++) {
-      timer_cb(calls[a]);
-    }
-    if(nrcalls > 0) {
-      FREE(calls);
-    }
-    nrcalls = 0;
-  } else {
-    lasttime = curtime;
   }
+  for(a=1;a<=timerqueue_size;a++) {
+    if(timerqueue[a]->sec < 0 || (timerqueue[a]->sec == 0 && timerqueue[a]->usec == 0)) {
+      struct timerqueue_t *node = timerqueue_pop();
+      FREE(node);
+      a--;
+    }
+  }
+  for(a=0;a<nrcalls;a++) {
+    timer_cb(calls[a]);
+  }
+  if(nrcalls > 0) {
+    FREE(calls);
+  }
+  nrcalls = 0;
 }
