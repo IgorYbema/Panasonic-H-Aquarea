@@ -20,7 +20,7 @@
 #include "mem.h"
 #include "timerqueue.h"
 
-static unsigned int lastime;
+static unsigned int lasttime;
 
 static void timerqueue_sort() {
   int a = 1; // parent;
@@ -115,13 +115,13 @@ void timerqueue_update(void) {
 
   curtime = micros();
 
-  if(lastime > 0) {
-    unsigned int diff = curtime - lastime;
+  if(lasttime > 0) {
+    unsigned int diff = curtime - lasttime;
     unsigned int sec = diff / 1000000;
     unsigned int usec = diff - ((diff / 1000000) * 1000000);
     int a = 0;
 
-    lastime = curtime;
+    lasttime = curtime;
 
     for(a=1;a<=timerqueue_size;a++) {
       timerqueue[a]->sec -= sec;
@@ -154,6 +154,6 @@ void timerqueue_update(void) {
     }
     nrcalls = 0;
   } else {
-    lastime = curtime;
+    lasttime = curtime;
   }
 }
