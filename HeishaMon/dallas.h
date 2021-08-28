@@ -12,7 +12,7 @@ struct dallasDataStruct {
   char address[17];
 };
 
-void dallasLoop(PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base);
-void initDallasSensors(void (*log_message)(char*), unsigned int updataAllDallasTimeSettings, unsigned int dallasTimerWaitSettings);
+void dallasLoop(PubSubClient &mqtt_client, char* mqtt_topic_base);
+void initDallasSensors(unsigned int updataAllDallasTimeSettings, unsigned int dallasTimerWaitSettings);
 String dallasJsonOutput(void);
 String dallasTableOutput(void);

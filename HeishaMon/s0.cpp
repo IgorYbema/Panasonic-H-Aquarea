@@ -1,4 +1,5 @@
 #include <PubSubClient.h>
+#include "src/common/log.h"
 #include "commands.h"
 #include "s0.h"
 #include <RingBuf.h>
@@ -79,26 +80,25 @@ void restore_s0_Watthour(int s0Port, float watthour) {
   }
 }
 
-void s0SettingsCorrupt(s0SettingsStruct s0Settings[], void (*log_message)(char*)) {
+void s0SettingsCorrupt(s0SettingsStruct s0Settings[]) {
   for (int i = 0 ; i < NUM_S0_COUNTERS ; i++) {
     if ((s0Settings[i].gpiopin != actS0Settings[i].gpiopin) || (s0Settings[i].ppkwh != actS0Settings[i].ppkwh) || (s0Settings[i].lowerPowerInterval != actS0Settings[i].lowerPowerInterval)) {
       char log_msg[256];
-      sprintf_P(log_msg, PSTR("S0 settings got corrupted, rebooting!") ); log_message(log_msg);
+      logprintln_P(F("S0 settings got corrupted, rebooting!"));
       delay(1000);
       ESP.restart();
     }
   }
 }
 
-void s0Loop(PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, s0SettingsStruct s0Settings[]) {
+void s0Loop(PubSubClient &mqtt_client, char* mqtt_topic_base, s0SettingsStruct s0Settings[]) {
 
   //check for corruption
-  s0SettingsCorrupt(s0Settings, log_message);
+  s0SettingsCorrupt(s0Settings);
 
   unsigned long millisThisLoop = millis();
 
   for (int i = 0 ; i < NUM_S0_COUNTERS ; i++) {
-    char tmp_log_msg[256];
     unsigned long pulseInterval = 0;
 
     s0Pulse curPulse;
@@ -109,8 +109,8 @@ void s0Loop(PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_to
       if ( (curPulseWidth >  actS0Settings[i].minimalPulseWidth) && (curPulseWidth < 10 * actS0Settings[i].minimalPulseWidth) ) { //within pulse width and pulse width * 10
         pulseInterval = curPulse.startPulse - actS0Data[i].lastPulse;
         if (pulseInterval > actS0Settings[i].minimalPulseWidth ) {
-          sprintf_P(tmp_log_msg, PSTR("S0 port %i pulse counted as valid! (pulse width: %lu, interval: %lu)"),  i + 1, curPulseWidth, pulseInterval);
-          log_message(tmp_log_msg);
+          logprintf_P(F("S0 port %i pulse counted as valid! (pulse width: %lu, interval: %lu)"), i + 1, curPulseWidth, pulseInterval);
+
           actS0Data[i].goodPulses++;
           if (actS0Data[i].lastPulse > 0) { //Do not calculate watt for the first pulse since reboot because we will always report a too high watt. Better to show 0 watt at first pulse.
             actS0Data[i].watt = (3600000000.0 / pulseInterval) / actS0Settings[i].ppkwh;
@@ -122,13 +122,11 @@ void s0Loop(PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_to
             actS0Data[i].nextReport = 0; // report now
           }
         } else {
-          sprintf_P(tmp_log_msg, PSTR("S0 port %i pulse counted as invalid! (pulse width: %lu, interval: %lu)"),  i + 1, curPulseWidth, pulseInterval);
-          log_message(tmp_log_msg);
+          logprintf_P(F("S0 port %i pulse counted as invalid! (pulse width: %lu, interval: %lu)"), i + 1, curPulseWidth, pulseInterval);
           actS0Data[i].badPulses++;
         }
       } else {
-        sprintf_P(tmp_log_msg, PSTR("S0 port %i pulse reset. Noise detected! (pulse width: %lu)"),  i + 1, curPulseWidth);
-        log_message(tmp_log_msg);
+        logprintf_P(F("S0 port %i pulse reset. Noise detected! (pulse width: %lu)"), i + 1, curPulseWidth);
         actS0Data[i].badPulses++;
       }
 
@@ -161,22 +159,21 @@ void s0Loop(PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_to
 
 
       //report using mqtt
-      char log_msg[256];
       char mqtt_topic[256];
       char valueStr[20];
-      sprintf_P(log_msg, PSTR("Measured Watthour on S0 port %d: %.2f"), (i + 1),  Watthour );
-      log_message(log_msg);
+      logprintf_P(F("Measured Watthour on S0 port %d: %.2f"), (i + 1),  Watthour );
+
       sprintf(valueStr, "%.2f", Watthour);
       sprintf_P(mqtt_topic, PSTR("%s/%s/Watthour/%d"), mqtt_topic_base, mqtt_topic_s0, (i + 1));
       mqtt_client.publish(mqtt_topic, valueStr, MQTT_RETAIN_VALUES);
       float WatthourTotal = (actS0Data[i].pulsesTotal * ( 1000.0 / actS0Settings[i].ppkwh));
-      sprintf(log_msg, PSTR("Measured total Watthour on S0 port %d: %.2f"), (i + 1),  WatthourTotal );
-      log_message(log_msg);
+      logprintf_P(F("Measured total Watthour on S0 port %d: %.2f"), (i + 1),  WatthourTotal );
+
       sprintf(valueStr, "%.2f", WatthourTotal);
       sprintf(mqtt_topic, PSTR("%s/%s/WatthourTotal/%d"), mqtt_topic_base, mqtt_topic_s0, (i + 1));
       mqtt_client.publish(mqtt_topic, valueStr, MQTT_RETAIN_VALUES);
-      sprintf(log_msg, PSTR("Calculated Watt on S0 port %d: %u"), (i + 1), actS0Data[i].watt);
-      log_message(log_msg);
+      logprintf_P(F("Calculated Watt on S0 port %d: %u"), (i + 1), actS0Data[i].watt);
+
       sprintf(valueStr, "%u",  actS0Data[i].watt);
       sprintf(mqtt_topic, PSTR("%s/%s/Watt/%d"), mqtt_topic_base, mqtt_topic_s0, (i + 1));
       mqtt_client.publish(mqtt_topic, valueStr, MQTT_RETAIN_VALUES);

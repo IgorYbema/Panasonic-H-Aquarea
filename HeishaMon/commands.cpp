@@ -1,5 +1,6 @@
-#include "commands.h"
 #include <LittleFS.h>
+#include "src/common/log.h"
+#include "commands.h"
 
 //removed checksum from default query, is calculated in send_command
 byte panasonicQuery[] = {0x71, 0x6c, 0x01, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -39,7 +40,6 @@ static unsigned int temp2hex(float temp) {
   }
   return hextemp;
 }
-
 
 unsigned int set_heatpump_state(char *msg, unsigned char *cmd, char *log_msg) {
   byte heatpump_state = 1;
@@ -742,7 +742,7 @@ unsigned int set_solar_temp(char *msg, char *log_msg) {
 
 
 
-void send_heatpump_command(char* topic, char *msg, bool (*send_command)(byte*, int), void (*log_message)(char*), bool optionalPCB) {
+void send_heatpump_command(char* topic, char *msg, bool (*send_command)(byte*, int), bool optionalPCB) {
   unsigned char cmd[256] = { 0 };
   char log_msg[256] = { 0 };
   unsigned int len = 0;
@@ -750,7 +750,7 @@ void send_heatpump_command(char* topic, char *msg, bool (*send_command)(byte*, i
   for (unsigned int i = 0; i < sizeof(commands) / sizeof(commands[0]); i++) {
     if (strcmp(topic, commands[i].name) == 0) {
       len = commands[i].func(msg, cmd, log_msg);
-      log_message(log_msg);
+      logprintln(log_msg);
       send_command(cmd, len);
     }
   }
@@ -760,13 +760,13 @@ void send_heatpump_command(char* topic, char *msg, bool (*send_command)(byte*, i
     for (unsigned int i = 0; i < sizeof(optionalCommands) / sizeof(optionalCommands[0]); i++) {
       if (strcmp(topic, optionalCommands[i].name) == 0) {
         len = optionalCommands[i].func(msg, log_msg);
-        log_message(log_msg);
+        logprintln(log_msg);
         if ((unsigned long)(millis() - lastOptionalPCBSave) > (1000 * OPTIONALPCBSAVETIME)) {  // only save each 5 minutes
           lastOptionalPCBSave = millis();
           if (saveOptionalPCB(optionalPCBQuery, OPTIONALPCBQUERYSIZE)) {
-            log_message((char*)"Succesfully saved optional PCB data to flash!");
+            logprintln_P(F("Succesfully saved optional PCB data to flash!"));
           } else {
-            log_message((char*)"Failed to save optional PCB data to flash!");
+            logprintln_P(F("Failed to save optional PCB data to flash!"));
           }
         }
       }

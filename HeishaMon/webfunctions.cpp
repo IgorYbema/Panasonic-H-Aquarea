@@ -8,13 +8,11 @@
 #include <ESP8266WebServer.h>
 
 #include <ArduinoJson.h>          //https://github.com/bblanchon/ArduinoJson
+#include "src/common/log.h"
 
 #define UPTIME_OVERFLOW 4294967295 // Uptime overflow value
 
 static int numSsid = 0;
-
-void log_message(char* string);
-
 
 void getWifiScanResults(int networksFound) {
   numSsid = networksFound;
@@ -68,16 +66,16 @@ String getUptime() {
 
 void loadSettings(settingsStruct *heishamonSettings) {
   //read configuration from FS json
-  log_message("mounting FS...");
+  logprintln_P(F("mounting FS..."));
 
   if (LittleFS.begin()) {
-    log_message((char *)"mounted file system");
+    logprintln_P(F("mounted file system"));
     if (LittleFS.exists("/config.json")) {
       //file exists, reading and loading
-      log_message((char *)"reading config file");
+      logprintln_P(F("reading config file"));
       File configFile = LittleFS.open("/config.json", "r");
       if (configFile) {
-        log_message((char *)"opened config file");
+        logprintln_P(F("opened config file"));
         size_t size = configFile.size();
         // Allocate a buffer to store contents of the file.
         std::unique_ptr<char[]> buf(new char[size]);
@@ -87,9 +85,9 @@ void loadSettings(settingsStruct *heishamonSettings) {
         DeserializationError error = deserializeJson(jsonDoc, buf.get());
         char log_msg[512];
         serializeJson(jsonDoc, log_msg);
-        log_message(log_msg);
+        logprintln(log_msg);
         if (!error) {
-          log_message((char *)"\nparsed json");
+          logprintln_P(F("parsed json"));
           //read updated parameters, make sure no overflow
           if ( jsonDoc["wifi_ssid"] ) strncpy(heishamonSettings->wifi_ssid, jsonDoc["wifi_ssid"], sizeof(heishamonSettings->wifi_ssid));
           if ( jsonDoc["wifi_password"] ) strncpy(heishamonSettings->wifi_password, jsonDoc["wifi_password"], sizeof(heishamonSettings->wifi_password));
@@ -124,7 +122,7 @@ void loadSettings(settingsStruct *heishamonSettings) {
           if (jsonDoc["s0_2_interval"] ) heishamonSettings->s0Settings[1].lowerPowerInterval = jsonDoc["s0_2_interval"];
           if (jsonDoc["s0_2_minpulsewidth"]) heishamonSettings->s0Settings[1].minimalPulseWidth = jsonDoc["s0_2_minpulsewidth"];
         } else {
-          log_message("Failed to load json config, forcing config reset.");
+          logprintln_P(F("Failed to load json config, forcing config reset."));
           WiFi.persistent(true);
           WiFi.disconnect();
           WiFi.persistent(false);
@@ -133,7 +131,7 @@ void loadSettings(settingsStruct *heishamonSettings) {
       }
     }
     else {
-      log_message("No config.json exists! Forcing a config reset.");
+      logprintln_P(F("No config.json exists! Forcing a config reset."));
       WiFi.persistent(true);
       WiFi.disconnect();
       WiFi.persistent(false);
@@ -141,10 +139,10 @@ void loadSettings(settingsStruct *heishamonSettings) {
 
     if (LittleFS.exists("/heatcurve.json")) {
       //file exists, reading and loading
-      log_message("reading heatingcurve file");
+      logprintln_P(F("reading heatingcurve file"));
       File configFile = LittleFS.open("/heatcurve.json", "r");
       if (configFile) {
-        log_message("opened heating curve config file");
+        logprintln_P(F("opened heating curve config file"));
         size_t size = configFile.size();
         // Allocate a buffer to store contents of the file.
         std::unique_ptr<char[]> buf(new char[size]);
@@ -168,7 +166,7 @@ void loadSettings(settingsStruct *heishamonSettings) {
       }
     }
   } else {
-    log_message("failed to mount FS");
+    logprintln_P(F("failed to mount FS"));
   }
   //end read
 
@@ -176,7 +174,7 @@ void loadSettings(settingsStruct *heishamonSettings) {
 
 void setupWifi(settingsStruct *heishamonSettings) {
 
-  log_message((char *)"Wifi reconnecting with new configuration...");
+  logprintln_P(F("Wifi reconnecting with new configuration..."));
   //no sleep wifi
   WiFi.setSleepMode(WIFI_NONE_SLEEP);
   WiFi.mode(WIFI_AP_STA);
@@ -184,7 +182,7 @@ void setupWifi(settingsStruct *heishamonSettings) {
   WiFi.softAPdisconnect(true);
 
   if (heishamonSettings->wifi_ssid[0] != '\0') {
-    log_message((char *)"Wifi client mode...");
+    logprintln_P(F("Wifi client mode..."));
     //WiFi.persistent(true); //breaks stuff
 
     if (heishamonSettings->wifi_password[0] == '\0') {
@@ -194,7 +192,7 @@ void setupWifi(settingsStruct *heishamonSettings) {
     }
   }
   else {
-    log_message((char *)"Wifi hotspot mode...");
+    logprintln_P(F("Wifi hotspot mode..."));
     WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
     WiFi.softAP((char*)"HeishaMon-Setup");
   }
@@ -1094,7 +1092,7 @@ void handleREST(ESP8266WebServer *httpServer, bool optionalPCB) {
         if (strcmp(httpServer->argName(i).c_str(), commands[x].name) == 0) {
           len = commands[x].func((char *)httpServer->arg(i).c_str(), cmd, log_msg);
           httptext = httptext + log_msg + "\n";
-          log_message(log_msg);
+          logprintln(log_msg);
           send_command(cmd, len);
         }
       }
@@ -1110,7 +1108,7 @@ void handleREST(ESP8266WebServer *httpServer, bool optionalPCB) {
           if (strcmp(httpServer->argName(i).c_str(), optionalCommands[x].name) == 0) {
             len = optionalCommands[x].func((char *)httpServer->arg(i).c_str(), log_msg);
             httptext = httptext + log_msg + "\n";
-            log_message(log_msg);
+            logprintln(log_msg);
           }
         }
       }

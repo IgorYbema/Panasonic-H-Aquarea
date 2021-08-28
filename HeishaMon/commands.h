@@ -1,3 +1,6 @@
+#ifndef _COMMANDS_H_
+#define _COMMANDS_H_
+
 #include <ESP8266WiFi.h>
 #include <ArduinoJson.h>
 
@@ -130,6 +133,8 @@ struct {
   { "SetOptPCBByte9", set_byte_9 }
 };
 
-void send_heatpump_command(char* topic, char *msg, bool (*send_command)(byte*, int), void (*log_message)(char*), bool optionalPCB);
+void send_heatpump_command(char* topic, char *msg, bool (*send_command)(byte*, int), bool optionalPCB);
 bool saveOptionalPCB(byte* command, int length);
 bool loadOptionalPCB(byte* command, int length);
+
+#endif

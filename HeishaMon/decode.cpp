@@ -1,3 +1,4 @@
+#include "src/common/log.h"
 #include "decode.h"
 #include "commands.h"
 
@@ -129,8 +130,7 @@ String getErrorInfo(char* data) { // TOP44 //
 }
 
 // Decode ////////////////////////////////////////////////////////////////////////////
-void decode_heatpump_data(char* data, String actData[], PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime) {
-  char log_msg[256];
+void decode_heatpump_data(char* data, String actData[], PubSubClient &mqtt_client, char* mqtt_topic_base, unsigned int updateAllTime) {
   char mqtt_topic[256];
   bool updatenow = false;
 
@@ -173,16 +173,15 @@ void decode_heatpump_data(char* data, String actData[], PubSubClient &mqtt_clien
     }
     if ((updatenow) || ( actData[Topic_Number] != Topic_Value )) {
       actData[Topic_Number] = Topic_Value;
-      sprintf_P(log_msg, PSTR("received TOP%d %s: %s"), Topic_Number, topics[Topic_Number], Topic_Value.c_str());
-      log_message(log_msg);
+      logprintf_P(F("received TOP%d %s: %s"), Topic_Number, topics[Topic_Number], Topic_Value.c_str());
+
       sprintf(mqtt_topic, "%s/%s/%s", mqtt_topic_base, mqtt_topic_values, topics[Topic_Number]);
       mqtt_client.publish(mqtt_topic, Topic_Value.c_str(), MQTT_RETAIN_VALUES);
     }
   }
 }
 
-void decode_optional_heatpump_data(char* data, String actOptData[], PubSubClient & mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime) {
-  char log_msg[256];
+void decode_optional_heatpump_data(char* data, String actOptData[], PubSubClient & mqtt_client, char* mqtt_topic_base, unsigned int updateAllTime) {
   char mqtt_topic[256];
   bool updatenow = false;
 
@@ -221,8 +220,8 @@ void decode_optional_heatpump_data(char* data, String actOptData[], PubSubClient
     }
     if ((updatenow) || ( actOptData[Topic_Number] != Topic_Value )) {
       actOptData[Topic_Number] = Topic_Value;
-      sprintf_P(log_msg, PSTR("received OPT%d %s: %s"), Topic_Number, optTopics[Topic_Number], Topic_Value.c_str());
-      log_message(log_msg);
+      logprintf_P(F("received OPT%d %s: %s"), Topic_Number, optTopics[Topic_Number], Topic_Value.c_str());
+
       sprintf(mqtt_topic, "%s/%s/%s", mqtt_topic_base, mqtt_topic_pcbvalues, optTopics[Topic_Number]);
       mqtt_client.publish(mqtt_topic, Topic_Value.c_str(), MQTT_RETAIN_VALUES);
     }

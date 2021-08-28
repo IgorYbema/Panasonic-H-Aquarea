@@ -10,7 +10,9 @@
 
 #include <ArduinoJson.h>
 
+#include "src/common/log.h"
 #include "src/common/timerqueue.h"
+#include "heishamon.h"
 #include "webfunctions.h"
 #include "decode.h"
 #include "commands.h"
@@ -118,7 +120,7 @@ void check_wifi()
      *  also, do not disconnect if wifi network scan is active
      */
     if ((heishamonSettings.wifi_ssid[0] != '\0') && (WiFi.status() != WL_DISCONNECTED) && (WiFi.scanComplete() != -1) && (WiFi.softAPgetStationNum() > 0))  {
-      log_message((char *)"WiFi lost, but softAP station connecting, so stop trying to connect to configured ssid...");
+      logprintln_P(F("WiFi lost, but softAP station connecting, so stop trying to connect to configured ssid..."));
       WiFi.disconnect(true);
     }
 
@@ -128,24 +130,24 @@ void check_wifi()
     if ((heishamonSettings.wifi_ssid[0] != '\0') && ((unsigned long)(millis() - lastWifiRetryTimer) > WIFIRETRYTIMER ) )  {
       lastWifiRetryTimer = millis();
       if (WiFi.softAPSSID() == "") {
-        log_message((char *)"WiFi lost, starting setup hotspot...");
+        logprintln_P(F("WiFi lost, starting setup hotspot..."));
         WiFi.softAP((char*)"HeishaMon-Setup");
       }
       if ((WiFi.status() == WL_DISCONNECTED)  && (WiFi.softAPgetStationNum() == 0 )) {
-        log_message((char *)"Retrying configured WiFi, ...");
+        logprintln_P(F("Retrying configured WiFi, ..."));
         if (heishamonSettings.wifi_password[0] == '\0') {
           WiFi.begin(heishamonSettings.wifi_ssid);
         } else {
           WiFi.begin(heishamonSettings.wifi_ssid, heishamonSettings.wifi_password);
         }
       } else {
-        log_message((char *)"Reconnecting to WiFi failed. Waiting a few seconds before trying again.");
+        logprintln_P(F("Reconnecting to WiFi failed. Waiting a few seconds before trying again."));
         WiFi.disconnect(true);
       }
     }
   } else { //WiFi connected
     if (WiFi.softAPSSID() != "") {
-      log_message((char *)"WiFi (re)connected, shutting down hotspot...");
+      logprintln_P(F("WiFi (re)connected, shutting down hotspot..."));
       WiFi.softAPdisconnect(true);
       MDNS.notifyAPChange();
 
@@ -160,7 +162,7 @@ void check_wifi()
       experimental::ESP8266WiFiGratuitous::stationKeepAliveSetIntervalMs(5000); //necessary for some users with bad wifi routers
 
       if (heishamonSettings.wifi_ssid[0] == '\0') {
-        log_message((char *)"WiFi connected without SSID and password in settings. Must come from persistent memory. Storing in settings.");
+        logprintln_P(F("WiFi connected without SSID and password in settings. Must come from persistent memory. Storing in settings."));
         WiFi.SSID().toCharArray(heishamonSettings.wifi_ssid, 40);
         WiFi.psk().toCharArray(heishamonSettings.wifi_password, 40);
         DynamicJsonDocument jsonDoc(1024);
@@ -185,7 +187,7 @@ void mqtt_reconnect()
   unsigned long now = millis();
   if ((unsigned long)(now - lastMqttReconnectAttempt) > MQTTRECONNECTTIMER) { //only try reconnect each MQTTRECONNECTTIMER seconds or on boot when lastMqttReconnectAttempt is still 0
     lastMqttReconnectAttempt = now;
-    log_message((char*)"Reconnecting to mqtt server ...");
+    logprintln_P(F("Reconnecting to mqtt server ..."));
     char topic[256];
     sprintf(topic, "%s/%s", heishamonSettings.mqtt_topic_base, mqtt_willtopic);
     if (mqtt_client.connect(heishamonSettings.wifi_hostname, heishamonSettings.mqtt_username, heishamonSettings.mqtt_password, topic, 1, true, "Offline"))
@@ -208,33 +210,6 @@ void mqtt_reconnect()
         mqtt_client.subscribe(mqtt_topic);
       }
     }
-
-
-
-  }
-}
-
-void log_message(char* string)
-{
-  if (heishamonSettings.logSerial1) {
-    Serial1.print(millis());
-    Serial1.print(": ");
-    Serial1.println(string);
-  }
-  if (heishamonSettings.logMqtt && mqtt_client.connected())
-  {
-    char log_topic[256];
-    sprintf(log_topic, "%s/%s", heishamonSettings.mqtt_topic_base, mqtt_logtopic);
-
-    if (!mqtt_client.publish(log_topic, string)) {
-      Serial1.print(millis());
-      Serial1.print(F(": "));
-      Serial1.println(F("MQTT publish log message failed!"));
-      mqtt_client.disconnect();
-    }
-  }
-  if (webSocket.connectedClients() > 0) {
-    webSocket.broadcastTXT(string, strlen(string));
   }
 }
 
@@ -246,7 +221,7 @@ void logHex(char *hex, byte hex_len) {
     for (int j = 0; ((j < LOGHEXBYTESPERLINE) && ((i + j) < hex_len)); j++) {
       sprintf(&buffer[3 * j], "%02X ", hex[i + j]);
     }
-    sprintf(log_msg, "data: %s", buffer ); log_message(log_msg);
+    logprintf_P(F("data: %s"), buffer);
   }
 }
 
@@ -275,7 +250,7 @@ bool readSerial()
     data[data_length] = Serial.read(); //read available data and place it after the last received data
     data_length++;
     if (data[0] != 113) { //wrong header received!
-      log_message((char*)"Received bad header. Ignoring this data!");
+      logprintln_P(F("Received bad header. Ignoring this data!"));
       if (heishamonSettings.logHexdump) logHex(data, data_length);
       badheaderread++;
       data_length = 0;
@@ -286,7 +261,7 @@ bool readSerial()
   if (data_length > 1) { //should have received length part of header now
 
     if ((data_length > (data[1] + 3)) || (data_length >= MAXDATASIZE) ) {
-      log_message((char*)"Received more data than header suggests! Ignoring this as this is bad data.");
+      logprintln_P(F("Received more data than header suggests! Ignoring this as this is bad data."));
       if (heishamonSettings.logHexdump) logHex(data, data_length);
       data_length = 0;
       toolongread++;
@@ -294,31 +269,31 @@ bool readSerial()
     }
 
     if (data_length == (data[1] + 3)) { //we received all data (data[1] is header length field)
-      sprintf(log_msg, "Received %d bytes data", data_length); log_message(log_msg);
+      logprintf_P(F("Received %d bytes data"), data_length);
       sending = false; //we received an answer after our last command so from now on we can start a new send request again
       if (heishamonSettings.logHexdump) logHex(data, data_length);
       if (! isValidReceiveChecksum() ) {
-        log_message((char*)"Checksum received false!");
+        logprintln_P(F("Checksum received false!"));
         data_length = 0; //for next attempt
         badcrcread++;
         return false;
       }
-      log_message((char*)"Checksum and header received ok!");
+      logprintln_P(F("Checksum and header received ok!"));
       goodreads++;
 
       if (data_length == 203) { //for now only return true for this datagram because we can not decode the shorter datagram yet
         data_length = 0;
-        decode_heatpump_data(data, actData, mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
+        decode_heatpump_data(data, actData, mqtt_client, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
         return true;
       }
       else if (data_length == 20 ) { //optional pcb acknowledge answer
-        log_message((char*)"Received optional PCB ack answer. Decoding this in OPT topics.");
+        logprintln_P(F("Received optional PCB ack answer. Decoding this in OPT topics."));
         data_length = 0;
-        decode_optional_heatpump_data(data, actOptData, mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
+        decode_optional_heatpump_data(data, actOptData, mqtt_client, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
         return true;
       }
       else {
-        log_message((char*)"Received a shorter datagram. Can't decode this yet.");
+        logprintln_P(F("Received a shorter datagram. Can't decode this yet."));
         data_length = 0;
         return false;
       }
@@ -338,7 +313,7 @@ void popCommandBuffer() {
 
 void pushCommandBuffer(byte* command, int length) {
   if (cmdnrel + 1 > MAXCOMMANDSINBUFFER) {
-    log_message((char *)"Too much commands already in buffer. Ignoring this commands.\n");
+    logprintln_P(F("Too much commands already in buffer. Ignoring this commands.\n"));
     return;
   }
   cmdbuffer[cmdend].length = length;
@@ -349,11 +324,11 @@ void pushCommandBuffer(byte* command, int length) {
 
 bool send_command(byte* command, int length) {
   if ( heishamonSettings.listenonly ) {
-    log_message((char*)"Not sending this command. Heishamon in listen only mode!");
+    logprintln_P(F("Not sending this command. Heishamon in listen only mode!"));
     return false;
   }
   if ( sending ) {
-    log_message((char*)"Already sending data. Buffering this send request");
+    logprintln_P(F("Already sending data. Buffering this send request"));
     pushCommandBuffer(command, length);
     return false;
   }
@@ -362,8 +337,7 @@ bool send_command(byte* command, int length) {
   byte chk = calcChecksum(command, length);
   int bytesSent = Serial.write(command, length); //first send command
   bytesSent += Serial.write(chk); //then calculcated checksum byte afterwards
-  sprintf_P(log_msg, PSTR("sent bytes: %d including checksum value: %d "), bytesSent, int(chk));
-  log_message(log_msg);
+  logprintf_P(F("sent bytes: %d including checksum value: %d "), bytesSent, int(chk));
 
   if (heishamonSettings.logHexdump) logHex((char*)command, length);
   sendCommandReadTime = millis(); //set sendCommandReadTime when to timeout the answer of this command
@@ -373,7 +347,7 @@ bool send_command(byte* command, int length) {
 // Callback function that is called when a message has been pushed to one of your topics.
 void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   if (mqttcallbackinprogress) {
-    log_message((char*)"Already processing another mqtt callback. Ignoring this one");
+    logprintln_P(F("Already processing another mqtt callback. Ignoring this one"));
   }
   else {
     mqttcallbackinprogress = true; //simple semaphore to make sure we don't have two callbacks at the same time
@@ -389,8 +363,7 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
       rawcommand = (byte *) malloc(length);
       memcpy(rawcommand, msg, length);
 
-      sprintf_P(log_msg, PSTR("sending raw value"));
-      log_message(log_msg);
+      logprintln_P(F("sending raw value"));
       send_command(rawcommand, length);
     } else if (strncmp(topic_command, mqtt_topic_s0, 2) == 0)  // this is a s0 topic, check for watthour topic and restore it
     {
@@ -402,12 +375,12 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
       char mqtt_topic[256];
       sprintf(mqtt_topic, "%s", topic);
       if (mqtt_client.unsubscribe(mqtt_topic)) {
-        log_message((char*)"Unsubscribed from S0 watthour restore topic");
+        logprintln_P(F("Unsubscribed from S0 watthour restore topic"));
       }
     } else if (strncmp(topic_command, mqtt_topic_commands, 8) == 0)  // check for optional pcb commands
     {
       char* topic_sendcommand = topic_command + 9; //strip the first 9 "commands/" from the topic to get what we need
-      send_heatpump_command(topic_sendcommand, msg, send_command, log_message, heishamonSettings.optionalPCB);
+      send_heatpump_command(topic_sendcommand, msg, send_command, heishamonSettings.optionalPCB);
     }
     mqttcallbackinprogress = false;
   }
@@ -473,14 +446,14 @@ void setupHttp() {
     handleSmartcontrol(&httpServer, &heishamonSettings, actData);
   });
   httpServer.on("/togglelog", [] {
-    log_message((char*)"Toggled mqtt log flag");
+    logprintln_P(F("Toggled mqtt log flag"));
     heishamonSettings.logMqtt ^= true;
     httpServer.sendHeader("Location", String("/"), true);
     httpServer.send ( 302, "text/plain", "");
     httpServer.client().stop();
   });
   httpServer.on("/togglehexdump", [] {
-    log_message((char*)"Toggled hexdump log flag");
+    logprintln_P(F("Toggled hexdump log flag"));
     heishamonSettings.logHexdump ^= true;
     httpServer.sendHeader("Location", String("/"), true);
     httpServer.send ( 302, "text/plain", "");
@@ -585,24 +558,23 @@ void setupConditionals() {
   //load optional PCB data from flash
   if (heishamonSettings.optionalPCB) {
     if (loadOptionalPCB(optionalPCBQuery, OPTIONALPCBQUERYSIZE)) {
-      log_message((char*)"Succesfully loaded optional PCB data from saved flash!");
+      logprintln_P(F("Succesfully loaded optional PCB data from saved flash!"));
     }
     else {
-      log_message((char*)"Failed to load optional PCB data from flash!");
+      logprintln_P(F("Failed to load optional PCB data from flash!"));
     }
     delay(1500); //need 1.5 sec delay before sending first datagram
     send_optionalpcb_query(); //send one datagram already at start
   }
 
   //these two after optional pcb because it needs to send a datagram fast after boot
-  if (heishamonSettings.use_1wire) initDallasSensors(log_message, heishamonSettings.updataAllDallasTime, heishamonSettings.waitDallasTime);
+  if (heishamonSettings.use_1wire) initDallasSensors(heishamonSettings.updataAllDallasTime, heishamonSettings.waitDallasTime);
   if (heishamonSettings.use_s0) initS0Sensors(heishamonSettings.s0Settings);
 }
 
 
 void timer_cb(int nr) {
-  sprintf_P(log_msg, PSTR("%d seconds timer interval"), nr);
-  log_message(log_msg);
+  logprintf_P(F("%d seconds timer interval"), nr);
 
   timerqueue_insert(nr, 0, nr);
 }
@@ -649,23 +621,20 @@ void setup() {
 }
 
 void send_panasonic_query() {
-  String message = F("Requesting new panasonic data");
-  log_message((char*)message.c_str());
+  logprintln_P(F("Requesting new panasonic data"));
   send_command(panasonicQuery, PANASONICQUERYSIZE);
 }
 
 void send_optionalpcb_query() {
-  String message = F("Sending optional PCB data");
-  log_message((char*)message.c_str());
+  logprintln_P(F("Sending optional PCB data"));
   send_command(optionalPCBQuery, OPTIONALPCBQUERYSIZE);
 }
 
 
 void read_panasonic_data() {
   if (sending && ((unsigned long)(millis() - sendCommandReadTime) > SERIALTIMEOUT)) {
-    log_message((char*)"Previous read data attempt failed due to timeout!");
-    sprintf_P(log_msg, PSTR("Received %d bytes data"), data_length);
-    log_message(log_msg);
+    logprintln_P(F("Previous read data attempt failed due to timeout!"));
+    logprintf_P(F("Received %d bytes data"), data_length);
     if (heishamonSettings.logHexdump) logHex(data, data_length);
     if (data_length == 0) {
       timeoutread++;
@@ -694,15 +663,15 @@ void loop() {
   read_panasonic_data();
 
   if ((!sending) && (cmdnrel > 0)) { //check if there is a send command in the buffer
-    log_message((char *)"Sending command from buffer");
+    logprintln_P(F("Sending command from buffer"));
     popCommandBuffer();
   }
 
-  if (heishamonSettings.use_1wire) dallasLoop(mqtt_client, log_message, heishamonSettings.mqtt_topic_base);
+  if (heishamonSettings.use_1wire) dallasLoop(mqtt_client, heishamonSettings.mqtt_topic_base);
 
-  if (heishamonSettings.use_s0) s0Loop(mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.s0Settings);
+  if (heishamonSettings.use_s0) s0Loop(mqtt_client, heishamonSettings.mqtt_topic_base, heishamonSettings.s0Settings);
 
-  if (heishamonSettings.SmartControlSettings.enableHeatCurve) smartControlLoop(log_message, heishamonSettings.SmartControlSettings, actData, goodreads);
+  if (heishamonSettings.SmartControlSettings.enableHeatCurve) smartControlLoop(heishamonSettings.SmartControlSettings, actData, goodreads);
 
   if ((!sending) && (!heishamonSettings.listenonly) && (heishamonSettings.optionalPCB)) send_optionalpcb_query(); //send this as fast as possible or else we could get warnings on heatpump
 
@@ -712,28 +681,20 @@ void loop() {
     //check mqtt
     if ( (WiFi.isConnected()) && (!mqtt_client.connected()) )
     {
-      log_message((char *)"Lost MQTT connection!");
+      logprintln_P(F("Lost MQTT connection!"));
       mqtt_reconnect();
     }
 
     //log stats
     if (totalreads > 0 ) readpercentage = (((float)goodreads / (float)totalreads) * 100);
-    String message = F("Heishamon stats: Uptime: ");
-    message += getUptime();
-    message += F(" ## Free memory: ");
-    message += getFreeMemory();
-    message += F("% ");
-    message += ESP.getFreeHeap();
-    message += F(" bytes ## Wifi: ");
-    message += getWifiQuality();
-    message += F("% (RSSI: ");
-    message += WiFi.RSSI();
-    message += F(") ## Mqtt reconnects: ");
-    message += mqttReconnects;
-    message += F(" ## Correct data: ");
-    message += readpercentage;
-    message += F("%");
-    log_message((char*)message.c_str());
+    logprintf_P(
+      F("Heishamon stats: Uptime: %s ## \
+Free memory: %d%% %d bytes ## \
+Wifi: %d%% (RSSI: %d) ## \
+Mqtt reconnects: %d## \
+Correct data: %.2f%"),
+        getUptime().c_str(), getFreeMemory(), ESP.getFreeHeap(), getWifiQuality(),
+        WiFi.RSSI(), mqttReconnects, readpercentage);
 
     String stats = F("{\"uptime\":");
     stats += String(millis());

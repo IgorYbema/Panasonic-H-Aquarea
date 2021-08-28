@@ -5,8 +5,8 @@
 
 #define MQTT_RETAIN_VALUES 1
 
-void decode_heatpump_data(char* data, String actData[], PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime);
-void decode_optional_heatpump_data(char* data, String actOptData[], PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime);
+void decode_heatpump_data(char* data, String actData[], PubSubClient &mqtt_client, char* mqtt_topic_base, unsigned int updateAllTime);
+void decode_optional_heatpump_data(char* data, String actOptData[], PubSubClient &mqtt_client, char* mqtt_topic_base, unsigned int updateAllTime);
 
 String unknown(byte input);
 String getBit1and2(byte input);

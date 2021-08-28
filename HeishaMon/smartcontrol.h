@@ -12,4 +12,4 @@ struct SmartControlSettingsStruct {
 
 String getAvgOutsideTemp(void);
 
-void smartControlLoop(void (*log_message)(char*), SmartControlSettingsStruct SmartControlSettings, String actData[], unsigned long goodreads);
+void smartControlLoop(SmartControlSettingsStruct SmartControlSettings, String actData[], unsigned long goodreads);
