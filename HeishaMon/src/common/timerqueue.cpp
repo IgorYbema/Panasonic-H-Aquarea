@@ -78,13 +78,13 @@ void timerqueue_insert(int sec, int usec, int nr) {
     }
   }
 
-  if((timerqueue = (struct timerqueue_t **)REALLOC(timerqueue, sizeof(struct timerqueue_t *)*(timerqueue_size+2))) == NULL) {
-    OUT_OF_MEMORY
+  if((timerqueue = (struct timerqueue_t **)realloc(timerqueue, sizeof(struct timerqueue_t *)*(timerqueue_size+2))) == NULL) {
+    //OUT_OF_MEMORY
   }
 
-  struct timerqueue_t *node = (struct timerqueue_t *)MALLOC(sizeof(struct timerqueue_t));
+  struct timerqueue_t *node = (struct timerqueue_t *)malloc(sizeof(struct timerqueue_t));
   if(node == NULL) {
-    OUT_OF_MEMORY
+    //OUT_OF_MEMORY
   }
   memset(node, 0, sizeof(struct timerqueue_t));
   node->sec = sec;
@@ -132,8 +132,8 @@ void timerqueue_update(void) {
 
     if(timerqueue[a]->sec < 0 || (timerqueue[a]->sec == 0 && timerqueue[a]->usec == 0)) {
       int nr = timerqueue[a]->nr;
-      if((calls = (unsigned int *)REALLOC(calls, (nrcalls+1)*sizeof(int))) == NULL) {
-        OUT_OF_MEMORY
+      if((calls = (unsigned int *)realloc(calls, (nrcalls+1)*sizeof(int))) == NULL) {
+        //OUT_OF_MEMORY
       }
       calls[nrcalls++] = nr;
     }
@@ -141,7 +141,7 @@ void timerqueue_update(void) {
   for(a=1;a<=timerqueue_size;a++) {
     if(timerqueue[a]->sec < 0 || (timerqueue[a]->sec == 0 && timerqueue[a]->usec == 0)) {
       struct timerqueue_t *node = timerqueue_pop();
-      FREE(node);
+      free(node);
       a--;
     }
   }
@@ -149,7 +149,7 @@ void timerqueue_update(void) {
     timer_cb(calls[a]);
   }
   if(nrcalls > 0) {
-    FREE(calls);
+    free(calls);
   }
   nrcalls = 0;
 }
