@@ -24,7 +24,7 @@ unsigned long dallasTimer = 0;
 unsigned int updateAllDallasTime = 30000; // will be set using heishmonSettings
 unsigned int dallasTimerWait = 30000; // will be set using heishmonSettings
 
-void initDallasSensors(void (*log_message)(char*), unsigned int updateAllDallasTimeSettings, unsigned int dallasTimerWaitSettings) {
+void initDallasSensors(void (*log_message)(char*), unsigned int updateAllDallasTimeSettings, unsigned int dallasTimerWaitSettings, unsigned int dallasResolution) {
   char log_msg[256];
   updateAllDallasTime = updateAllDallasTimeSettings;
   dallasTimerWait = dallasTimerWaitSettings;
@@ -41,6 +41,7 @@ void initDallasSensors(void (*log_message)(char*), unsigned int updateAllDallasT
   actDallasData = new dallasDataStruct [dallasDevicecount];
   for (int j = 0 ; j < dallasDevicecount; j++) {
     DS18B20.getAddress(actDallasData[j].sensor, j);
+    DS18B20.setResolution(actDallasData[j].sensor, dallasResolution);
   }
 
   DS18B20.requestTemperatures();
@@ -55,13 +56,17 @@ void initDallasSensors(void (*log_message)(char*), unsigned int updateAllDallasT
   if (DALLASASYNC) DS18B20.setWaitForConversion(false); //async 1wire during next loops
 }
 
+void resetlastalldatatime_dallas() {
+  lastalldatatime_dallas = 0;
+}
+
 void readNewDallasTemp(PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base) {
   char log_msg[256];
   char mqtt_topic[256];
   char valueStr[20];
   bool updatenow = false;
 
-  if ((unsigned long)(millis() > lastalldatatime_dallas) >  (1000 * updateAllDallasTime)) {
+  if ((unsigned long)(millis() - lastalldatatime_dallas) >  (1000 * updateAllDallasTime)) {
     updatenow = true;
     lastalldatatime_dallas = millis();
   }
