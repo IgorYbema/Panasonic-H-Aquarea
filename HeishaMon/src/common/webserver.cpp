@@ -330,6 +330,37 @@ int http_parse_request(struct webserver_t *client, char *buf, uint16_t len) {
     }
     if(client->headerstep == 4) {
       char *ptr = (char *)memchr(client->buffer, ':', client->ptr);
+      uint16_t i = 0, x = 0;
+      while(i < client->ptr-2) {
+        i++;
+        if(strncmp_P(&client->buffer[i], PSTR("\r\n"), 2) == 0) {
+          break;
+        }
+      }
+      if(ptr != NULL) {
+        if(ptr-client->buffer > i) {
+          client->buffer[i] = 0;
+          struct arguments_t args;
+          args.name = NULL;
+          args.value = client->buffer;
+          args.len = i;
+
+          client->step = WEBSERVER_CLIENT_HEADER;
+          if(client->callback != NULL) {
+            if(client->callback(client, &args) == -1) {
+              client->step = WEBSERVER_CLIENT_CLOSE;
+              return -1;
+            }
+          }
+          client->step = WEBSERVER_CLIENT_READ_HEADER;
+
+          memmove(&client->buffer[0], &client->buffer[i+2], client->ptr-(i+2));
+          client->ptr -= (i + 2);
+        }
+      }
+			ptr = (char *)memchr(client->buffer, ':', client->ptr);
+      i = 0;
+
       while(ptr != NULL) {
         struct arguments_t args;
         uint16_t i = ptr-client->buffer, x = 0;
