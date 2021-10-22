@@ -330,36 +330,6 @@ int http_parse_request(struct webserver_t *client, char *buf, uint16_t len) {
     }
     if(client->headerstep == 4) {
       char *ptr = (char *)memchr(client->buffer, ':', client->ptr);
-      uint16_t i = 0, x = 0;
-      while(i < client->ptr-2) {
-        i++;
-        if(strncmp_P(&client->buffer[i], PSTR("\r\n"), 2) == 0) {
-          break;
-        }
-      }
-      if(ptr != NULL) {
-        if(ptr-client->buffer > i) {
-          client->buffer[i] = 0;
-          struct arguments_t args;
-          args.name = NULL;
-          args.value = client->buffer;
-          args.len = i;
-
-          client->step = WEBSERVER_CLIENT_HEADER;
-          if(client->callback != NULL) {
-            if(client->callback(client, &args) == -1) {
-              client->step = WEBSERVER_CLIENT_CLOSE;
-              return -1;
-            }
-          }
-          client->step = WEBSERVER_CLIENT_READ_HEADER;
-
-          memmove(&client->buffer[0], &client->buffer[i+2], client->ptr-(i+2));
-          client->ptr -= (i + 2);
-        }
-      }
-			ptr = (char *)memchr(client->buffer, ':', client->ptr);
-      i = 0;
 
       while(ptr != NULL) {
         struct arguments_t args;
@@ -370,12 +340,16 @@ int http_parse_request(struct webserver_t *client, char *buf, uint16_t len) {
         x = i;
         i++;
         while(i < client->ptr-2) {
-          if(strncmp_P(&client->buffer[i], PSTR("\r\n"), 2) == 0) {
+          if(strncmp_P(&client->buffer[i], PSTR("\r\n"), 2) == 0 ||
+             (client->ptr == WEBSERVER_BUFFER_SIZE && i == WEBSERVER_BUFFER_SIZE-3)) {
             while(client->buffer[x+1] == ' ') {
               x++;
             }
             args.value = &client->buffer[x+1];
-            args.len = i-x;
+            args.len = (i-x)-1;
+            if((client->ptr == WEBSERVER_BUFFER_SIZE && i == WEBSERVER_BUFFER_SIZE-3)) {
+              args.len += 2;
+            }
 
             if(strcmp_P(args.name, PSTR("Content-Length")) == 0) {
               char tmp[args.len+1];
@@ -399,8 +373,14 @@ int http_parse_request(struct webserver_t *client, char *buf, uint16_t len) {
               return 0;
             }
             client->buffer[i] = 0;
-            memmove(&client->buffer[0], &client->buffer[i+2], client->ptr-(i+2));
-            client->ptr -= (i + 2);
+            if((client->ptr == WEBSERVER_BUFFER_SIZE && i == WEBSERVER_BUFFER_SIZE-3)) {
+              memmove(&client->buffer[x], &client->buffer[i+2], client->ptr-(i+2));
+              client->buffer[x-1] = ':';
+              client->ptr -= (i + 2 - x);
+            } else {
+              memmove(&client->buffer[0], &client->buffer[i+2], client->ptr-(i+2));
+              client->ptr -= (i + 2);
+            }
             break;
           }
           i++;
