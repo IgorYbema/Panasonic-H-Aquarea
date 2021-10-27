@@ -930,6 +930,7 @@ int handleRoot(struct webserver_t *client, float readpercentage, int mqttReconne
       } break;
     }
   }
+  return 0;
 }
 
 int handleTableRefresh(struct webserver_t *client, String actData[]) {

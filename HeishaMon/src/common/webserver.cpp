@@ -998,4 +998,5 @@ int webserver_start(int port, webserver_cb_t *callback) {
   server = listen_pcb;
   tcp_accept(server, &webserver_client);
   tcp_arg(server, (void *)callback);
+  return 0;
 }

@@ -648,7 +648,11 @@ int webserver_cb(struct webserver_t *client, void *data) {
       }
       return 0;
     } break;
+    default: {
+      return 0;
+    } break;
   }
+  return 0;
 }
 
 void setupHttp() {
