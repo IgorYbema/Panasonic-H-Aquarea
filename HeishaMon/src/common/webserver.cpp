@@ -784,6 +784,7 @@ static void webserver_client_close(struct webserver_t *client) {
 
   tcp_recv(client->pcb, NULL);
   tcp_sent(client->pcb, NULL);
+  tcp_sent(client->pcb, NULL);
   tcp_poll(client->pcb, NULL, 0);
 
   tcp_close(client->pcb);
@@ -965,7 +966,8 @@ err_t webserver_client(void *arg, tcp_pcb *pcb, err_t err) {
       Serial.print(F(":"));
       Serial.println(clients[i].data.pcb->remote_port);
 
-      //tcp_nagle_disable(pcb);
+      tcp_setprio(pcb, TCP_PRIO_MIN);
+      tcp_nagle_disable(pcb);
       tcp_recv(pcb, &webserver_receive);
       tcp_sent(pcb, &webserver_sent);
       // 15 seconds timer
@@ -982,6 +984,8 @@ int webserver_start(int port, webserver_cb_t *callback) {
     return -1;
   }
 
+  tcp_setprio(server, TCP_PRIO_MIN);
+
   ip_addr_t local_addr;
   local_addr.addr = (uint32_t)IPADDR_ANY;
   uint8_t err = tcp_bind(server, &local_addr, port);
@@ -996,6 +1000,8 @@ int webserver_start(int port, webserver_cb_t *callback) {
     return -1;
   }
   server = listen_pcb;
+  tcp_nagle_disable(server);
+  tcp_setprio(server, TCP_PRIO_MIN);
   tcp_accept(server, &webserver_client);
   tcp_arg(server, (void *)callback);
   return 0;

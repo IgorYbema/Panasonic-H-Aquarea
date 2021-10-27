@@ -11,16 +11,8 @@
 
 #define ESP_RAW_SOCKET 1
 
-#ifndef MTU_SIZE
-  #define MTU_SIZE 2*1460
-#endif
-
 #ifndef WEBSERVER_BUFFER_SIZE
   #define WEBSERVER_BUFFER_SIZE 128
-#endif
-
-#ifndef WEBSERVER_READ_SIZE
-  #define WEBSERVER_READ_SIZE MTU_SIZE
 #endif
 
 #ifndef WEBSERVER_MAX_CLIENTS
