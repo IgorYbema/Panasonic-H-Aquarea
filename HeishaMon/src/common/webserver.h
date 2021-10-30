@@ -9,18 +9,18 @@
 #ifndef _WEBSERVER_H_
 #define _WEBSERVER_H_
 
-#define ESP_RAW_SOCKET 1
+// #ifdef WEBSERVER_ASYNC
 
 #ifndef MTU_SIZE
-  #define MTU_SIZE 2*1460
+  #define MTU_SIZE 1460
+#endif
+
+#ifndef WEBSERVER_READ_SIZE
+  #define WEBSERVER_READ_SIZE 2*MTU_SIZE
 #endif
 
 #ifndef WEBSERVER_BUFFER_SIZE
   #define WEBSERVER_BUFFER_SIZE 128
-#endif
-
-#ifndef WEBSERVER_READ_SIZE
-  #define WEBSERVER_READ_SIZE MTU_SIZE
 #endif
 
 #ifndef WEBSERVER_MAX_CLIENTS
@@ -28,7 +28,21 @@
 #endif
 
 #ifndef WEBSERVER_CLIENT_TIMEOUT
-  #define WEBSERVER_CLIENT_TIMEOUT 15
+  #define WEBSERVER_CLIENT_TIMEOUT 1500
+#endif
+
+#ifdef WEBSERVER_ASYNC
+  #include "lwip/opt.h"
+  #include "lwip/tcp.h"
+  #include "lwip/inet.h"
+  #include "lwip/dns.h"
+  #include "lwip/init.h"
+  #include "lwip/errno.h"
+  #include <errno.h>
+#else
+  #include <Arduino.h>
+  #include <WiFiServer.h>
+  #include <WiFiClient.h>
 #endif
 
 #ifndef ESP8266
@@ -65,8 +79,15 @@ typedef struct sendlist_t {
 } sendlist_t;
 
 typedef struct webserver_t {
+#ifdef WEBSERVER_ASYNC
   tcp_pcb *pcb;
-  uint8_t method:4;
+#else
+  WiFiClient client;
+  unsigned long lastseen;
+#endif
+  uint8_t active:1;
+  uint8_t reqtype:1;
+  uint8_t method:2;
   uint8_t chunked:4;
   uint8_t step:4;
   uint8_t headerstep:4;
@@ -79,6 +100,7 @@ typedef struct webserver_t {
   struct sendlist_t *sendlist_head;
   webserver_cb_t *callback;
   char buffer[WEBSERVER_BUFFER_SIZE];
+  char *boundary;
 } webserver_t;
 
 typedef struct webserver_client_t {
@@ -86,7 +108,8 @@ typedef struct webserver_client_t {
 } webserver_client_t;
 
 enum {
-  WEBSERVER_CLIENT_REQUEST_METHOD = 1,
+  WEBSERVER_CLIENT_CONNECTING = 1,
+  WEBSERVER_CLIENT_REQUEST_METHOD,
   WEBSERVER_CLIENT_REQUEST_URI,
   WEBSERVER_CLIENT_READ_HEADER,
   WEBSERVER_CLIENT_SEND_HEADER,

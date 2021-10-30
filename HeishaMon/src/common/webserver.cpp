@@ -9,26 +9,22 @@
 #include <Arduino.h>
 #include <WiFiClient.h>
 
-#define LWIP_SO_RCVBUF 1
-
-#include "lwip/opt.h"
-#include "lwip/tcp.h"
-#include "lwip/inet.h"
-#include "lwip/dns.h"
-#include "lwip/init.h"
-#include "lwip/errno.h"
-#include <errno.h>
-
 #include "webserver.h"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
 static struct webserver_client_t clients[WEBSERVER_MAX_CLIENTS];
 
-static tcp_pcb *server = NULL;
+#ifdef WEBSERVER_ASYNC
+  static tcp_pcb *server = NULL;
+  static char *rbuffer = NULL;
+#else
+  static WiFiServer server(0);
+  #define ERR_OK 0
+  static uint8_t rbuffer[WEBSERVER_READ_SIZE];
+#endif
 
-static char *rbuffer = NULL;
-
+#ifdef WEBSERVER_ASYNC
 static uint16_t tcp_write_P(tcp_pcb *pcb, PGM_P buf, uint16_t len, uint8_t flags) {
   char *str = (char *)malloc(len+1);
   if(str == NULL) {
@@ -42,6 +38,7 @@ static uint16_t tcp_write_P(tcp_pcb *pcb, PGM_P buf, uint16_t len, uint8_t flags
   free(str);
   return ret;
 }
+#endif
 
 static int urldecode(const char *src, int src_len, char *dst, int dst_len, int is_form_url_encoded) {
   int i, j, a, b;
@@ -224,7 +221,11 @@ static int webserver_parse_post(struct webserver_t *client, uint16_t size) {
   return 1;
 }
 
-int http_parse_request(struct webserver_t *client, char *buf, uint16_t len) {
+#ifdef WEBSERVER_ASYNC
+uint8_t http_parse_request(struct webserver_t *client, char *buf, uint16_t len) {
+#else
+uint8_t http_parse_request(struct webserver_t *client, uint8_t *buf, uint16_t len) {
+#endif
   uint16_t hasread = MIN(WEBSERVER_BUFFER_SIZE-client->ptr, len);
   uint16_t pos = 0;
 
@@ -528,7 +529,6 @@ static uint16_t webserver_create_header(struct webserver_t *client, uint16_t cod
     header.ptr = i;
 
     uint16_t ret = 0;
-    Serial.println("a");
     if(client->callback(client, &header) == -1) {
       if(strstr_P((char *)&p[i], PSTR("\r\n\r\n")) == NULL) {
         if(strstr((char *)&p[i], PSTR("\r\n")) != NULL) {
@@ -541,13 +541,10 @@ static uint16_t webserver_create_header(struct webserver_t *client, uint16_t cod
       i = header.ptr;
       return i;
     }
-    Serial.println("d");
+
     if(header.ptr > i && strstr_P((char *)&p[i], PSTR("\r\n")) == NULL) {
-      Serial.println("d");
       header.ptr += snprintf((char *)&p[header.ptr], sizeof(buffer)-header.ptr, PSTR("\r\n"));
-      Serial.println("e");
     }
-    Serial.println("f");
     i = header.ptr;
     client->step = WEBSERVER_CLIENT_RW;
   }
@@ -556,8 +553,14 @@ static uint16_t webserver_create_header(struct webserver_t *client, uint16_t cod
   i += snprintf_P((char *)&p[i], sizeof(buffer) - i, PSTR("Content-Type: %s\r\n"), mimetype);
   i += snprintf_P((char *)&p[i], sizeof(buffer) - i, PSTR("Content-Length: %d\r\n\r\n"), len);
 
+#ifdef WEBSERVER_ASYNC
   tcp_write(client->pcb, &buffer, i, 0);
   tcp_output(client->pcb);
+#else
+  if(client->client.write(buffer, i) > 0) {
+    client->lastseen = millis();
+  }
+#endif
 
   return i;
 }
@@ -591,7 +594,13 @@ static int webserver_process_send(struct webserver_t *client) {
 
     char chunk_size[12];
     size_t n = snprintf_P((char *)chunk_size, sizeof(chunk_size), PSTR("%X\r\n"), client->totallen - cpylen);
+#ifdef WEBSERVER_ASYNC
     tcp_write(client->pcb, chunk_size, n, 0);
+#else
+    if(client->client.write(chunk_size, n) > 0) {
+      client->lastseen = millis();
+    }
+#endif
     i += n;
   }
 
@@ -601,9 +610,21 @@ static int webserver_process_send(struct webserver_t *client) {
         if(client->totallen >= client->sendlist->size) {
           if(client->sendlist->type == 1) {
             strncpy_P(cpy, &((PGM_P)client->sendlist->ptr)[client->ptr], client->sendlist->size);
+#ifdef WEBSERVER_ASYNC
             tcp_write(client->pcb, cpy, client->sendlist->size, TCP_WRITE_FLAG_MORE);
+#else
+            if(client->client.write(cpy, client->sendlist->size) > 0) {
+              client->lastseen = millis();
+            }
+#endif
           } else {
+#ifdef WEBSERVER_ASYNC
             tcp_write(client->pcb, &((char *)client->sendlist->ptr)[client->ptr], client->sendlist->size, TCP_WRITE_FLAG_MORE);
+#else
+            if(client->client.write(&((char *)client->sendlist->ptr)[client->ptr], client->sendlist->size) > 0) {
+              client->lastseen = millis();
+            }
+#endif
           }
           i += client->sendlist->size;
           client->ptr += client->sendlist->size;
@@ -619,9 +640,21 @@ static int webserver_process_send(struct webserver_t *client) {
         } else {
           if(client->sendlist->type == 1) {
             strncpy_P(cpy, &((PGM_P)client->sendlist->ptr)[client->ptr], client->totallen);
+#ifdef WEBSERVER_ASYNC
             tcp_write(client->pcb, cpy, client->totallen, TCP_WRITE_FLAG_MORE);
+#else
+            if(client->client.write(cpy, client->totallen) > 0) {
+              client->lastseen = millis();
+            }
+#endif
           } else {
+#ifdef WEBSERVER_ASYNC
             tcp_write(client->pcb, &((char *)client->sendlist->ptr)[client->ptr], client->totallen, TCP_WRITE_FLAG_MORE);
+#else
+            if(client->client.write(&((char *)client->sendlist->ptr)[client->ptr], client->totallen) > 0) {
+              client->lastseen = millis();
+            }
+#endif
           }
           i += client->totallen;
           client->ptr += client->totallen;
@@ -630,9 +663,21 @@ static int webserver_process_send(struct webserver_t *client) {
       } else if(client->ptr+client->totallen >= client->sendlist->size) {
         if(client->sendlist->type == 1) {
           strncpy_P(cpy, &((PGM_P)client->sendlist->ptr)[client->ptr], (client->sendlist->size-client->ptr));
+#ifdef WEBSERVER_ASYNC
           tcp_write(client->pcb, cpy, (client->sendlist->size-client->ptr), TCP_WRITE_FLAG_MORE);
+#else
+          if(client->client.write(cpy, (client->sendlist->size-client->ptr)) > 0) {
+            client->lastseen = millis();
+          }
+#endif
         } else {
+#ifdef WEBSERVER_ASYNC
           tcp_write(client->pcb, &((char *)client->sendlist->ptr)[client->ptr], (client->sendlist->size-client->ptr), TCP_WRITE_FLAG_MORE);
+#else
+          if(client->client.write(&((char *)client->sendlist->ptr)[client->ptr], (client->sendlist->size-client->ptr)) > 0) {
+            client->lastseen = millis();
+          }
+#endif
         }
         i += (client->sendlist->size-client->ptr);
         client->totallen -= (client->sendlist->size-client->ptr);
@@ -645,18 +690,37 @@ static int webserver_process_send(struct webserver_t *client) {
       } else {
         if(client->sendlist->type == 1) {
           strncpy_P(cpy, &((PGM_P)client->sendlist->ptr)[client->ptr], client->totallen);
+#ifdef WEBSERVER_ASYNC
           tcp_write(client->pcb, cpy, client->totallen, TCP_WRITE_FLAG_MORE);
+#else
+          if(client->client.write(cpy, client->totallen) > 0) {
+            client->lastseen = millis();
+          }
+#endif
         } else {
+#ifdef WEBSERVER_ASYNC
           tcp_write(client->pcb, &((char *)client->sendlist->ptr)[client->ptr], client->totallen, TCP_WRITE_FLAG_MORE);
+#else
+          if(client->client.write(&((char *)client->sendlist->ptr)[client->ptr], client->totallen) > 0) {
+            client->lastseen = millis();
+          }
+#endif
         }
         client->ptr += client->totallen;
         client->totallen = 0;
       }
     }
     if(client->chunked == 1) {
+#ifdef WEBSERVER_ASYNC
       tcp_write_P(client->pcb, PSTR("\r\n"), 2, TCP_WRITE_FLAG_MORE);
+#else
+      if(client->client.write_P(PSTR("\r\n"), 2) > 0) {
+        client->lastseen = millis();
+      }
+#endif
     }
   }
+
   if(client->sendlist == NULL) {
     client->content++;
     client->step = WEBSERVER_CLIENT_RW;
@@ -667,10 +731,22 @@ static int webserver_process_send(struct webserver_t *client) {
     }
     if(client->sendlist == NULL) {
       if(client->chunked == 1) {
+#ifdef WEBSERVER_ASYNC
         tcp_write_P(client->pcb, PSTR("0\r\n\r\n"), 5, 0);
+#else
+        if(client->client.write_P(PSTR("0\r\n\r\n"), 5) > 0) {
+          client->lastseen = millis();
+        }
+#endif
         i += 5;
       } else {
+#ifdef WEBSERVER_ASYNC
         tcp_write_P(client->pcb, PSTR("\r\n\r\n"), 4, 0);
+#else
+        if(client->client.write_P(PSTR("\r\n\r\n"), 4) > 0) {
+          client->lastseen = millis();
+        }
+#endif
         i += 4;
       }
       client->step = WEBSERVER_CLIENT_CLOSE;
@@ -678,7 +754,9 @@ static int webserver_process_send(struct webserver_t *client) {
       client->content = 0;
     }
   }
+#ifdef WEBSERVER_ASYNC
   tcp_output(client->pcb);
+#endif
  
   return i;
 }
@@ -713,7 +791,11 @@ int webserver_send_content(struct webserver_t *client, char *buf, uint16_t size)
     exit(-1);
   }
   memset(node, 0, sizeof(struct sendlist_t));
-  node->ptr = strdup(buf);
+  if((node->ptr = strdup(buf)) == NULL) {
+    Serial.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
+    ESP.restart();
+    exit(-1);
+  }
   node->size = size;
   node->type = 0;
   if(client->sendlist == NULL) {
@@ -764,8 +846,14 @@ int webserver_send(struct webserver_t *client, uint16_t code, char *mimetype, ui
     i += snprintf((char *)&p[i], sizeof(buffer)-i, PSTR("Transfer-Encoding: chunked\r\n\r\n"));
 
 done:
+#ifdef WEBSERVER_ASYNC
     tcp_write(client->pcb, &buffer, i, 0);
     tcp_output(client->pcb);
+#else
+  if(client->client.write((uint8_t *)&buffer, i) > 0) {
+    client->lastseen = millis();
+  }
+#endif
   } else {
     client->chunked = 0;
     i = webserver_create_header(client, code, mimetype, data_len);
@@ -774,6 +862,7 @@ done:
   return i;
 }
 
+#ifdef WEBSERVER_ASYNC
 static void webserver_client_close(struct webserver_t *client) {
   Serial.print(F("Closing webserver client: "));
   Serial.print(IPAddress(client->pcb->remote_ip.addr).toString().c_str());
@@ -783,6 +872,7 @@ static void webserver_client_close(struct webserver_t *client) {
   client->step = 0;
 
   tcp_recv(client->pcb, NULL);
+  tcp_sent(client->pcb, NULL);
   tcp_sent(client->pcb, NULL);
   tcp_poll(client->pcb, NULL, 0);
 
@@ -820,11 +910,16 @@ err_t webserver_sent(void *arg, tcp_pcb *pcb, uint16_t len) {
 }
 
 err_t webserver_receive(void *arg, tcp_pcb *pcb, struct pbuf *data, err_t err) {
-  char *ptr = NULL;
-  uint16_t pos = 0, i = 0, x = 0;
+  uint8_t i = 0;
   uint16_t size = 0;
+#else
+uint8_t webserver_receive(struct webserver_t *client, uint8_t *rbuffer, uint16_t size) {
+#endif
+  char *ptr = NULL;
+  uint16_t pos = 0, x = 0;
   struct pbuf *b = NULL;
 
+#ifdef WEBSERVER_ASYNC
   if(data == NULL) {
     for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
       if(clients[i].data.pcb == pcb) {
@@ -842,96 +937,103 @@ err_t webserver_receive(void *arg, tcp_pcb *pcb, struct pbuf *data, err_t err) {
 
     for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
       if(clients[i].data.pcb == pcb) {
-        if(clients[i].data.step == WEBSERVER_CLIENT_READ_HEADER) {
-          if(http_parse_request(&clients[i].data, rbuffer, size) == 0) {
-            if(clients[i].data.method == 1) {
-              clients[i].data.step = WEBSERVER_CLIENT_ARGS;
+        struct webserver_t *client = clients[i].data;
+#endif
+        if(client->step == WEBSERVER_CLIENT_READ_HEADER) {
+          if(http_parse_request(client, rbuffer, size) == 0) {
+            if(client->method == 1) {
+              client->step = WEBSERVER_CLIENT_ARGS;
               x = 0;
-              while(x < size-4 && strncmp_P(&rbuffer[x++], PSTR("\r\n\r\n"), 4) != 0);
+              while(x < size-4 && strncmp_P((char *)&rbuffer[x++], PSTR("\r\n\r\n"), 4) != 0);
               x += 3;
               size -= x;
 
-              memset(clients[i].data.buffer, 0, WEBSERVER_BUFFER_SIZE);
-              clients[i].data.ptr = 0;
-              clients[i].data.readlen = 0;
+              memset(client->buffer, 0, WEBSERVER_BUFFER_SIZE);
+              client->ptr = 0;
+              client->readlen = 0;
 
-              if(http_parse_body(&clients[i].data, &rbuffer[x], size) == -1) {
-                clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
+              if(http_parse_body(client, (char *)&rbuffer[x], size) == -1) {
+                client->step = WEBSERVER_CLIENT_CLOSE;
               }
 
-              if(clients[i].data.totallen == clients[i].data.readlen) {
-                urldecode(clients[i].data.buffer,
-                  clients[i].data.ptr+1,
-                  (char *)clients[i].data.buffer,
-                  clients[i].data.ptr+1, 1);
+              if(client->totallen == client->readlen) {
+                urldecode(client->buffer,
+                  client->ptr+1,
+                  (char *)client->buffer,
+                  client->ptr+1, 1);
 
-                if(webserver_post_cb(&clients[i].data, 0) == -1) {
-                  clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
+                if(webserver_post_cb(client, 0) == -1) {
+                  client->step = WEBSERVER_CLIENT_CLOSE;
                 } else {
-                  clients[i].data.step = WEBSERVER_CLIENT_SEND_HEADER;
+                  client->step = WEBSERVER_CLIENT_SEND_HEADER;
                 }
-                clients[i].data.ptr = 0;
-              }
-
-              if(clients[i].data.step == WEBSERVER_CLIENT_ARGS) {
-                break;
+                client->ptr = 0;
               }
             } else {
-              clients[i].data.step = WEBSERVER_CLIENT_SEND_HEADER;
+              client->step = WEBSERVER_CLIENT_SEND_HEADER;
             }
           }
         }
 
-        if(clients[i].data.step == WEBSERVER_CLIENT_ARGS) {
-          if(http_parse_body(&clients[i].data, rbuffer, size) == -1) {
-            clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
+        if(client->step == WEBSERVER_CLIENT_ARGS) {
+          if(http_parse_body(client, (char *)rbuffer, size) == -1) {
+            client->step = WEBSERVER_CLIENT_CLOSE;
           }
 
-          if(clients[i].data.totallen == clients[i].data.readlen) {
-            urldecode(clients[i].data.buffer,
-              clients[i].data.ptr+1,
-              (char *)clients[i].data.buffer,
-              clients[i].data.ptr+1, 1);
+          if(client->totallen == client->readlen) {
+            urldecode(client->buffer,
+              client->ptr+1,
+              (char *)client->buffer,
+              client->ptr+1, 1);
 
-            if(webserver_post_cb(&clients[i].data, 0) == -1) {
-              clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
+            if(webserver_post_cb(client, 0) == -1) {
+              client->step = WEBSERVER_CLIENT_CLOSE;
             } else {
-              clients[i].data.step = WEBSERVER_CLIENT_SEND_HEADER;
+              client->step = WEBSERVER_CLIENT_SEND_HEADER;
             }
-            clients[i].data.ptr = 0;
+            client->ptr = 0;
           }
         }
 
-        if(clients[i].data.step == WEBSERVER_CLIENT_RW ||
-           clients[i].data.step == WEBSERVER_CLIENT_SEND_HEADER) {
-          if((clients[i].data.totallen = tcp_sndbuf(clients[i].data.pcb)) > 0) {
-            if(clients[i].data.callback != NULL) {
-              if(clients[i].data.callback(&clients[i].data, NULL) == -1) {
-                clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
-                break;
+        if(client->step == WEBSERVER_CLIENT_RW ||
+           client->step == WEBSERVER_CLIENT_SEND_HEADER) {
+#ifdef WEBSERVER_ASYNC
+          if((client->totallen = tcp_sndbuf(client->pcb)) > 0) {
+#else
+            client->totallen = MTU_SIZE;
+            client->totallen -= 16;
+#endif
+            if(client->callback != NULL) {
+              if(client->callback(client, NULL) == -1) {
+                client->step = WEBSERVER_CLIENT_CLOSE;
+                return -1;
               }
-              if(clients[i].data.step == WEBSERVER_CLIENT_SEND_HEADER) {
-                clients[i].data.step = WEBSERVER_CLIENT_RW;
+              if(client->step == WEBSERVER_CLIENT_SEND_HEADER) {
+                client->step = WEBSERVER_CLIENT_RW;
               }
-              clients[i].data.ptr = 0;
+              client->ptr = 0;
             } else {
-              clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
-              break;
+              client->step = WEBSERVER_CLIENT_CLOSE;
+              return -1;
             }
+#ifdef WEBSERVER_ASYNC
           }
+#endif
         }
+#ifdef WEBSERVER_ASYNC
         break;
       }
     }
-
     tcp_recved(pcb, b->len);
     b = b->next;
   }
   pbuf_free(data);
+#endif
 
   return ERR_OK;
 }
 
+#ifdef WEBSERVER_ASYNC
 err_t webserver_poll(void *arg, struct tcp_pcb *pcb) {
   uint8_t i = 0;
   for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
@@ -965,7 +1067,8 @@ err_t webserver_client(void *arg, tcp_pcb *pcb, err_t err) {
       Serial.print(F(":"));
       Serial.println(clients[i].data.pcb->remote_port);
 
-      //tcp_nagle_disable(pcb);
+      tcp_setprio(pcb, TCP_PRIO_MIN);
+      tcp_nagle_disable(pcb);
       tcp_recv(pcb, &webserver_receive);
       tcp_sent(pcb, &webserver_sent);
       // 15 seconds timer
@@ -976,11 +1079,148 @@ err_t webserver_client(void *arg, tcp_pcb *pcb, err_t err) {
   return ERR_OK;
 }
 
+#else
+void webserver_reset_client(struct webserver_t *client) {
+  client->readlen = 0;
+  client->reqtype = 0;
+  client->method = 0;
+  client->totallen = 0;
+  client->active = 0;
+  client->step = 0;
+  client->headerstep = 0;
+  client->chunked = 0;
+  client->ptr = 0;
+  client->route = 0;
+  client->lastseen = 0;
+  client->content = 0;
+  client->sendlist = NULL;
+  client->sendlist_head = NULL;
+  client->boundary = NULL;
+  memset(&client->buffer, 0, WEBSERVER_BUFFER_SIZE);
+}
+
+void webserver_loop(void) {
+  uint16_t pos = 0, x = 0, lastseen = 0, size = 0;
+  uint8_t i = 0;
+
+  for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
+    if(clients[i].data.step == 0) {
+      continue;
+    }
+    if(clients[i].data.step > WEBSERVER_CLIENT_CONNECTING) {
+      if((unsigned long)(millis() - clients[i].data.lastseen) > WEBSERVER_CLIENT_TIMEOUT) {
+        clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
+      }
+    }
+    switch(clients[i].data.step) {
+      case WEBSERVER_CLIENT_CONNECTING: {
+        if(clients[i].data.client.available()) {
+          clients[i].data.step = WEBSERVER_CLIENT_READ_HEADER;
+        }
+        clients[i].data.ptr = 0;
+        memset(&clients[i].data.buffer, 0, WEBSERVER_BUFFER_SIZE);
+      } break;
+      case WEBSERVER_CLIENT_ARGS:
+      case WEBSERVER_CLIENT_READ_HEADER: {
+        if(clients[i].data.client.connected() || clients[i].data.client.available()) {
+          if(clients[i].data.client.available()) {
+            uint8_t *p = (uint8_t *)rbuffer;
+            size = clients[i].data.client.read(
+              p,
+              WEBSERVER_READ_SIZE
+            );
+          }
+        } else if(!clients[i].data.client.connected()) {
+          clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
+        } else {
+          continue;
+        }
+        if(size > 0) {
+          clients[i].data.lastseen = millis();
+        }
+
+        if(webserver_receive(&clients[i].data, rbuffer, size) == -1) {
+          clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
+        }
+      } break;
+      case WEBSERVER_CLIENT_RW:
+      case WEBSERVER_CLIENT_SEND_HEADER: {
+        if(clients[i].data.callback != NULL) {
+          if(clients[i].data.step == WEBSERVER_CLIENT_SEND_HEADER) {
+            if(clients[i].data.callback(&clients[i].data, NULL) == -1) {
+              clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
+              continue;
+            }
+          } else if(clients[i].data.step == WEBSERVER_CLIENT_RW) {
+            if(clients[i].data.callback(&clients[i].data, NULL) == -1) {
+              clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
+            } else {
+              clients[i].data.step = WEBSERVER_CLIENT_SENDING;
+            }
+          }
+          if(clients[i].data.step == WEBSERVER_CLIENT_SEND_HEADER) {
+            clients[i].data.step = WEBSERVER_CLIENT_RW;
+          }
+          clients[i].data.ptr = 0;
+        } else {
+          clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
+          continue;
+        }
+      } break;
+      case WEBSERVER_CLIENT_SENDING: {
+        clients[i].data.totallen = MTU_SIZE;
+        /*
+         * Leave room for chunk overhead
+         */
+        clients[i].data.totallen -= 16;
+        webserver_process_send(&clients[i].data);
+      } break;
+      case WEBSERVER_CLIENT_CLOSE: {
+        Serial.print("Closing webserver client: ");
+        Serial.print(clients[i].data.client.remoteIP());
+        Serial.print(":");
+        Serial.println(clients[i].data.client.remotePort());
+
+        clients[i].data.client.stop();
+        webserver_reset_client(&clients[i].data);
+      } break;
+    }
+  }
+
+  if(server.hasClient()) {
+    for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
+      if(clients[i].data.active == 0) {
+        clients[i].data.client = server.available();
+        if(clients[i].data.client) {
+          webserver_reset_client(&clients[i].data);
+
+          clients[i].data.active = 1;
+          clients[i].data.lastseen = millis();
+          clients[i].data.step = WEBSERVER_CLIENT_CONNECTING;
+
+          // clients[i].data.client.setNoDelay(1);
+          // clients[i].data.client.setTimeout(200);
+
+          Serial.print("New webserver client: ");
+          Serial.print(clients[i].data.client.remoteIP());
+          Serial.print(":");
+          Serial.println(clients[i].data.client.remotePort());
+          break;
+        }
+      }
+    }
+  }
+}
+#endif
+
 int webserver_start(int port, webserver_cb_t *callback) {
+#ifdef WEBSERVER_ASYNC
   server = tcp_new();
   if(server == NULL) {
     return -1;
   }
+
+  tcp_setprio(server, TCP_PRIO_MIN);
 
   ip_addr_t local_addr;
   local_addr.addr = (uint32_t)IPADDR_ANY;
@@ -996,7 +1236,20 @@ int webserver_start(int port, webserver_cb_t *callback) {
     return -1;
   }
   server = listen_pcb;
+  tcp_nagle_disable(server);
+  tcp_setprio(server, TCP_PRIO_MIN);
   tcp_accept(server, &webserver_client);
   tcp_arg(server, (void *)callback);
+#else
+  uint8_t i = 0;
+  for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
+    webserver_reset_client(&clients[i].data);
+    clients[i].data.callback = callback;
+  }
+  server.begin(port);
+
+  Serial.print("Webserver server started at port: ");
+  Serial.println(port);
+#endif
   return 0;
 }

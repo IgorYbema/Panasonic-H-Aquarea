@@ -589,9 +589,11 @@ int webserver_cb(struct webserver_t *client, void *data) {
           if(client->step == WEBSERVER_CLIENT_SEND_HEADER) {
             webserver_send(client, 200, (char *)"text/plain", 0);
           } else {
-            char *str = (char *)RESTmsg.c_str();
-            webserver_send_content(client, (char *)str, strlen(str));
-            RESTmsg.clear();
+            if(client->content == 0) {
+              char *str = (char *)RESTmsg.c_str();
+              webserver_send_content(client, (char *)str, strlen(str));
+              RESTmsg.clear();
+            }
           }
           return 0;
         } break;
@@ -830,6 +832,9 @@ void read_panasonic_data() {
 }
 
 void loop() {
+#ifndef WEBSERVER_ASYNC
+  webserver_loop();
+#endif
   // check wifi
   check_wifi();
   // Handle OTA first.
