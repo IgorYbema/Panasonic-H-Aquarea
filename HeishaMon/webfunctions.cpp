@@ -10,7 +10,7 @@
 
 #define UPTIME_OVERFLOW 4294967295 // Uptime overflow value
 
-static int numSsid = 0;
+static String wifiJsonList = "";
 
 struct websettings_t {
   String name;
@@ -22,10 +22,6 @@ static struct websettings_t *websettings = NULL;
 
 void log_message(char* string);
 
-void getWifiScanResults(int networksFound) {
-  numSsid = networksFound;
-}
-
 int dBmToQuality(int dBm) {
   if (dBm == 31)
     return -1;
@@ -35,6 +31,50 @@ int dBmToQuality(int dBm) {
     return 100;
   return 2 * (dBm + 100);
 }
+
+
+void getWifiScanResults(int numSsid) {
+  if (numSsid > 0) { //found wifi networks
+    wifiJsonList = "[";
+    int indexes[numSsid];
+    for (int i = 0; i < numSsid; i++) { //fill the sorted list with normal indexes first
+      indexes[i] = i;
+    }
+    for (int i = 0; i < numSsid; i++) { //then sort
+      for (int j = i + 1; j < numSsid; j++) {
+        if (WiFi.RSSI(indexes[j]) > WiFi.RSSI(indexes[i])) {
+          int temp = indexes[j];
+          indexes[j] = indexes[i];
+          indexes[i] = temp;
+        }
+      }
+    }
+    String ssid;
+    for (int i = 0; i < numSsid; i++) { //then remove duplicates
+      if (indexes[i] == -1) continue;
+      ssid = WiFi.SSID(indexes[i]);
+      for (int j = i + 1; j < numSsid; j++) {
+        if (ssid == WiFi.SSID(indexes[j])) {
+          indexes[j] = -1;
+        }
+      }
+    }
+    bool firstSSID = true;
+    for (int i = 0; i < numSsid; i++) { //then output json
+      if (indexes[i] == -1) {
+        continue;
+      }
+      if (!firstSSID) {
+        wifiJsonList = wifiJsonList + ",";
+      }
+      wifiJsonList = wifiJsonList + "{\"ssid\":\"" + WiFi.SSID(indexes[i]) + "\", \"rssi\": \"" + dBmToQuality(WiFi.RSSI(indexes[i])) + "%\"}";
+      firstSSID = false;
+    }
+    wifiJsonList = wifiJsonList + "]";
+  }
+}
+
+
 
 int getWifiQuality() {
   if (WiFi.status() != WL_CONNECTED)
@@ -777,46 +817,8 @@ int handleWifiScan(struct webserver_t *client) {
   if(client->step == WEBSERVER_CLIENT_SEND_HEADER) {
     webserver_send(client, 200, (char *)"application/json", 0);
   } else if(client->content == 0) {
-    if(numSsid > 0) { //found wifi networks
-      String httptext = "[";
-      int indexes[numSsid];
-      for(int i = 0; i < numSsid; i++) { //fill the sorted list with normal indexes first
-        indexes[i] = i;
-      }
-      for(int i = 0; i < numSsid; i++) { //then sort
-        for(int j = i + 1; j < numSsid; j++) {
-          if(WiFi.RSSI(indexes[j]) > WiFi.RSSI(indexes[i])) {
-            int temp = indexes[j];
-            indexes[j] = indexes[i];
-            indexes[i] = temp;
-          }
-        }
-      }
-      String ssid;
-      for(int i = 0; i < numSsid; i++) { //then remove duplicates
-        if(indexes[i] == -1) continue;
-        ssid = WiFi.SSID(indexes[i]);
-        for(int j = i + 1; j < numSsid; j++) {
-          if (ssid == WiFi.SSID(indexes[j])) {
-            indexes[j] = -1;
-          }
-        }
-      }
-      bool firstSSID = true;
-      for(int i = 0; i < numSsid; i++) { //then output json
-        if(indexes[i] == -1) {
-          continue;
-        }
-        if(!firstSSID) {
-          httptext = httptext + ",";
-        }
-        httptext = httptext + "{\"ssid\":\"" + WiFi.SSID(indexes[i]) + "\", \"rssi\": \"" + dBmToQuality(WiFi.RSSI(indexes[i])) + "%\"}";
-        firstSSID = false;
-      }
-      httptext = httptext + "]";
-      char *str = (char *)httptext.c_str();
-      webserver_send_content(client, str, strlen(str));
-    }
+    char *str = (char *)wifiJsonList.c_str();
+   webserver_send_content(client, str, strlen(str));
   }
   //initatie a new async scan for next try
   WiFi.scanNetworksAsync(getWifiScanResults);
