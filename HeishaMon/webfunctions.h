@@ -51,6 +51,7 @@ int getWifiQuality(void);
 int getFreeMemory(void);
 
 int webserver_cb(struct webserver_t *client, void *data);
+void getWifiScanResults(int numSsid);
 int handleRoot(struct webserver_t *client, float readpercentage, int mqttReconnects, settingsStruct *heishamonSettings);
 int handleTableRefresh(struct webserver_t *client, String actData[]);
 int handleJsonOutput(struct webserver_t *client, String actData[]);
