@@ -882,7 +882,6 @@ int handleRoot(struct webserver_t *client, float readpercentage, int mqttReconne
         if(heishamonSettings->use_s0) {
           webserver_send_content_P(client, webBodyRootS0Tab, strlen_P(webBodyRootS0Tab));
         }
-        webserver_send_content_P(client, webBodyRootS0Tab, strlen_P(webBodyRootS0Tab));
         webserver_send_content_P(client, webBodyRootConsoleTab, strlen_P(webBodyRootConsoleTab));
       } break;
       case 2: {
