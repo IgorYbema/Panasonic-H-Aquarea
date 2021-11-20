@@ -9,7 +9,7 @@
 #ifndef _WEBSERVER_H_
 #define _WEBSERVER_H_
 
-// #ifdef WEBSERVER_ASYNC
+// #define WEBSERVER_ASYNC
 
 #ifndef MTU_SIZE
   #define MTU_SIZE 1460
@@ -31,18 +31,24 @@
   #define WEBSERVER_CLIENT_TIMEOUT 1500
 #endif
 
-#ifdef WEBSERVER_ASYNC
-  #include "lwip/opt.h"
-  #include "lwip/tcp.h"
-  #include "lwip/inet.h"
-  #include "lwip/dns.h"
-  #include "lwip/init.h"
-  #include "lwip/errno.h"
-  #include <errno.h>
-#else
-  #include <Arduino.h>
-  #include <WiFiServer.h>
-  #include <WiFiClient.h>
+#ifndef __linux__
+  #ifdef WEBSERVER_ASYNC
+    #include "lwip/opt.h"
+    #include "lwip/tcp.h"
+    #include "lwip/inet.h"
+    #include "lwip/dns.h"
+    #include "lwip/init.h"
+    #include "lwip/errno.h"
+    #include <errno.h>
+  #else
+    #include <Arduino.h>
+    #include <WiFiServer.h>
+    #include <WiFiClient.h>
+  #endif
+#endif
+
+#ifndef err_t
+  #define err_t uint8_t
 #endif
 
 #ifndef ESP8266
@@ -62,8 +68,9 @@ typedef struct header_t {
 } header_t;
 
 struct webserver_t;
+extern struct webserver_client_t clients[WEBSERVER_MAX_CLIENTS];
 
-typedef int (webserver_cb_t)(struct webserver_t *client, void *data);
+typedef int8_t (webserver_cb_t)(struct webserver_t *client, void *data);
 
 typedef struct arguments_t {
   char *name;
@@ -78,6 +85,17 @@ typedef struct sendlist_t {
   struct sendlist_t *next;
 } sendlist_t;
 
+#ifndef ESP8266
+struct WiFiClient {
+  int (*write)(char *, int i);
+  int (*write_P)(char *, int i);
+  int (*available)();
+  int (*connected)();
+  int (*read)(uint8_t *buffer, int size);
+};
+  #define PGM_P char *
+#endif
+
 typedef struct webserver_t {
 #ifdef WEBSERVER_ASYNC
   tcp_pcb *pcb;
@@ -90,7 +108,7 @@ typedef struct webserver_t {
   uint8_t method:2;
   uint8_t chunked:4;
   uint8_t step:4;
-  uint8_t headerstep:4;
+  uint8_t substep:4;
   uint16_t ptr;
   uint16_t totallen;
   uint16_t readlen;
@@ -107,27 +125,32 @@ typedef struct webserver_client_t {
   struct webserver_t data;
 } webserver_client_t;
 
-enum {
+typedef enum {
   WEBSERVER_CLIENT_CONNECTING = 1,
   WEBSERVER_CLIENT_REQUEST_METHOD,
   WEBSERVER_CLIENT_REQUEST_URI,
   WEBSERVER_CLIENT_READ_HEADER,
-  WEBSERVER_CLIENT_SEND_HEADER,
   WEBSERVER_CLIENT_CREATE_HEADER,
-  WEBSERVER_CLIENT_RW,
+  WEBSERVER_CLIENT_WRITE,
   WEBSERVER_CLIENT_SENDING,
   WEBSERVER_CLIENT_HEADER,
   WEBSERVER_CLIENT_ARGS,
   WEBSERVER_CLIENT_CLOSE,
 } webserver_steps;
 
-int webserver_start(int port, webserver_cb_t *callback);
+int8_t webserver_start(int port, webserver_cb_t *callback);
 void webserver_loop(void);
-int webserver_send_content(struct webserver_t *client, char *buf, uint16_t len);
-#ifdef ESP8266
-int webserver_send_content_P(struct webserver_t *client, PGM_P buf, uint16_t len);
+void webserver_send_content(struct webserver_t *client, char *buf, uint16_t len);
+void webserver_send_content_P(struct webserver_t *client, PGM_P buf, uint16_t len);
+#ifdef WEBSERVER_ASYNC
+err_t webserver_receive(void *arg, tcp_pcb *pcb, struct pbuf *data, err_t err);
+#else
+uint8_t webserver_receive(struct webserver_t *client, uint8_t *rbuffer, uint16_t size);
+void webserver_loop(void);
 #endif
-int webserver_send(struct webserver_t *client, uint16_t code, char *mimetype, uint16_t data_len);
+int16_t urldecode(const char *src, int src_len, char *dst, int dst_len, int is_form_url_encoded);
+int8_t webserver_send(struct webserver_t *client, uint16_t code, char *mimetype, uint16_t data_len);
 void webserver_client_stop(struct webserver_t *client);
+void webserver_reset_client(struct webserver_t *client);
 
 #endif

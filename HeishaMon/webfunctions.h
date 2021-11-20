@@ -50,7 +50,7 @@ void setupWifi(settingsStruct *heishamonSettings);
 int getWifiQuality(void);
 int getFreeMemory(void);
 
-int webserver_cb(struct webserver_t *client, void *data);
+int8_t webserver_cb(struct webserver_t *client, void *data);
 int handleRoot(struct webserver_t *client, float readpercentage, int mqttReconnects, settingsStruct *heishamonSettings);
 int handleTableRefresh(struct webserver_t *client, String actData[]);
 int handleJsonOutput(struct webserver_t *client, String actData[]);

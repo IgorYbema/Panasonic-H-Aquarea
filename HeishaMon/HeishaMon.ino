@@ -434,7 +434,7 @@ void setupOTA() {
   ArduinoOTA.begin();
 }
 
-int webserver_cb(struct webserver_t *client, void *data) {
+int8_t webserver_cb(struct webserver_t *client, void *data) {
   switch(client->step) {
     case WEBSERVER_CLIENT_REQUEST_METHOD: {
       // Serial.println((char *)data);
@@ -552,15 +552,12 @@ int webserver_cb(struct webserver_t *client, void *data) {
       // }
       return 0;
     } break;
-    case WEBSERVER_CLIENT_RW:
-    case WEBSERVER_CLIENT_SEND_HEADER: {
+    case WEBSERVER_CLIENT_WRITE: {
       // Serial.printf("Client route: %d %d\n", client->route, client->content);
       switch(client->route) {
         case 0: {
-          if(client->step == WEBSERVER_CLIENT_SEND_HEADER) {
-            webserver_send(client, 404, (char *)"text/plain", 0);
-            return 0;
-          }
+          webserver_send(client, 404, (char *)"text/plain", 0);
+          return 0;
         } break;
         case 1: {
           return handleRoot(client, readpercentage, mqttReconnects, &heishamonSettings);
@@ -586,14 +583,11 @@ int webserver_cb(struct webserver_t *client, void *data) {
           return handleFactoryReset(client);
         } break;
         case 100: {
-          if(client->step == WEBSERVER_CLIENT_SEND_HEADER) {
+          if(client->content == 0) {
             webserver_send(client, 200, (char *)"text/plain", 0);
-          } else {
-            if(client->content == 0) {
-              char *str = (char *)RESTmsg.c_str();
-              webserver_send_content(client, (char *)str, strlen(str));
-              RESTmsg.clear();
-            }
+            char *str = (char *)RESTmsg.c_str();
+            webserver_send_content(client, (char *)str, strlen(str));
+            RESTmsg.clear();
           }
           return 0;
         } break;
