@@ -752,7 +752,22 @@ void timer_cb(int nr) {
   sprintf_P(log_msg, PSTR("%d seconds timer interval"), nr);
   log_message(log_msg);
 
-  timerqueue_insert(nr, 0, nr);
+  if(nr > 0) {
+    timerqueue_insert(nr, 0, nr);
+  } else {
+    switch(nr) {
+      case -1: {
+        LittleFS.begin();
+        LittleFS.format();
+        WiFi.disconnect(true);
+        timerqueue_insert(1, 0, -2);
+      } break;
+      case -2: {
+        ESP.restart();
+      } break;
+    }
+  }
+
 }
 
 void setup() {

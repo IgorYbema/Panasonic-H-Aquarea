@@ -250,16 +250,7 @@ int handleFactoryReset(struct webserver_t *client) {
       webserver_send_content_P(client, webFooter, strlen_P(webFooter));
     } break;
     case 2: {
-      /*
-       * FIXME: Replace with timerqueue function
-       */
-      delay(1000);
-      LittleFS.begin();
-      LittleFS.format();
-      WiFi.disconnect(true);
-      delay(1000);
-      ESP.restart();
-
+      timerqueue_insert(1, 0, -1); // Start reboot sequence
     } break;
   }
 
@@ -281,11 +272,7 @@ int handleReboot(struct webserver_t *client) {
       webserver_send_content_P(client, webFooter, strlen_P(webFooter));
     } break;
     case 2: {
-      /*
-       * FIXME: Replace with timerqueue function
-       */
-      delay(5000);
-      ESP.restart();
+      timerqueue_insert(5, 0, -2); // Start reboot sequence
     } break;
   }
 
