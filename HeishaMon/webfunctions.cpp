@@ -4,6 +4,7 @@
 #include "htmlcode.h"
 #include "commands.h"
 #include "src/common/webserver.h"
+#include "src/common/timerqueue.h"
 
 #include <ESP8266WiFi.h>
 #include <ArduinoJson.h>          //https://github.com/bblanchon/ArduinoJson
