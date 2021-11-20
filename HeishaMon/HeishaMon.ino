@@ -774,6 +774,10 @@ void setup() {
   doubleResetDetect();
 
   WiFi.printDiag(Serial);
+  //initiate a wifi scan at boot to prefill the wifi scan json list
+  byte numSsid = WiFi.scanNetworks();
+  getWifiScanResults(numSsid);
+
   loadSettings(&heishamonSettings);
 
   setupWifi(&heishamonSettings);

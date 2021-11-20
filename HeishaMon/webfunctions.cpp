@@ -233,8 +233,6 @@ void setupWifi(settingsStruct *heishamonSettings) {
   } else {
     WiFi.hostname(heishamonSettings->wifi_hostname);
   }
-  //initiate a wifi scan at boot to fill the wifi scan list
-  WiFi.scanNetworksAsync(getWifiScanResults);
 }
 
 int handleFactoryReset(struct webserver_t *client) {
