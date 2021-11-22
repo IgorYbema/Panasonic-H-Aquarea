@@ -16,6 +16,6 @@
  * Find the first occurrence of find in s, where the search is limited to the
  * first slen characters of s.
  */
-char *strnstr(char *str1, const char *str2, uint16_t len);
+unsigned char *strnstr(unsigned char *str1, const char *str2, uint16_t len);
 
 #endif

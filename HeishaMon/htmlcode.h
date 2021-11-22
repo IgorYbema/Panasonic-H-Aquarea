@@ -912,3 +912,23 @@ const char populategetsettingsJS[] PROGMEM =
   "};"
   "getSettings();"
   "</script>";
+
+static const char serverIndex[] PROGMEM =
+  "<!DOCTYPE html>"
+  "  <html lang='en'>"
+  "   <head>"
+  "       <meta charset='utf-8'>"
+  "       <meta name='viewport' content='width=device-width,initial-scale=1'/>"
+  "   </head>"
+  "   <body>"
+  "   <form method='POST' action='' enctype='multipart/form-data'>"
+  "       Firmware:<br>"
+  "       <input type='file' accept='.bin,.bin.gz' name='firmware'>"
+  "       <input type='submit' value='Update Firmware'>"
+  "   </form>"
+  "   </body>"
+  "   </html>";
+
+static const char successResponse[] PROGMEM =
+  "<META http-equiv=\"refresh\" content=\"15;URL=/\">Update Success! Rebooting...";
+

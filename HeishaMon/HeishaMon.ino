@@ -3,7 +3,6 @@
 #include <DNSServer.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
-#include <ESP8266HTTPUpdateServer.h>
 #include <DNSServer.h>
 #include <DoubleResetDetect.h>
 
@@ -33,7 +32,6 @@ const byte DNS_PORT = 53;
 #define SERIALTIMEOUT 2000 // wait until all 203 bytes are read, must not be too long to avoid blocking the code
 
 WebSocketsServer webSocket = WebSocketsServer(81);
-// ESP8266HTTPUpdateServer httpUpdater;
 
 settingsStruct heishamonSettings;
 
@@ -478,6 +476,13 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
         // Only accept settings POST requests
         if(strcmp((char *)data, "/savesettings") == 0) {
           client->route = 110;
+        } else if(strcmp((char *)data, "/firmware") == 0) {
+          client->route = 150;
+
+          Update.runAsync(true);
+          if(!Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000)){
+            Update.printError(Serial);
+          }
         } else {
           return -1;
         }
@@ -485,6 +490,8 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
         client->route = 120;
       } else if(strcmp((char *)data, "/getsettings") == 0) {
         client->route = 130;
+      } else if(strcmp((char *)data, "/firmware") == 0) {
+        client->route = 140;
       } else {
         client->route = 0;
       }
@@ -496,9 +503,9 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
       struct arguments_t *args = (struct arguments_t *)data;
       switch(client->route) {
         case 10: {
-          if(strcmp(args->name, "1wire") == 0) {
+          if(strcmp((char *)args->name, "1wire") == 0) {
             client->route = 11;
-          } else if(strcmp(args->name, "s0") == 0) {
+          } else if(strcmp((char *)args->name, "s0") == 0) {
             client->route = 12;
           }
         } break;
@@ -512,7 +519,7 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
           snprintf((char *)&cpy, args->len, "%.*s", args->len, args->value);
 
           for(uint8_t x = 0; x < sizeof(commands) / sizeof(commands[0]); x++) {
-            if(strcmp(args->name, commands[x].name) == 0) {
+            if(strcmp((char *)args->name, commands[x].name) == 0) {
               len = commands[x].func(cpy, cmd, log_msg);
               RESTmsg = RESTmsg + log_msg + "\n";
               log_message(log_msg);
@@ -526,7 +533,7 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
           if(heishamonSettings.optionalPCB) {
             //optional commands
             for (uint8_t x = 0; x < sizeof(optionalCommands) / sizeof(optionalCommands[0]); x++) {
-              if (strcmp(args->name, optionalCommands[x].name) == 0) {
+              if (strcmp((char *)args->name, optionalCommands[x].name) == 0) {
                 len = optionalCommands[x].func(cpy, log_msg);
                 RESTmsg = RESTmsg + log_msg + "\n";
                 log_message(log_msg);
@@ -542,6 +549,14 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
           // }
 
           return cacheSettings(client, args);
+        } break;
+        case 150: {
+          Serial.printf("Uploading new firmware: %d / %d\n", client->readlen, client->totallen);
+          if(!Update.hasError() && strcmp((char *)args->name, "firmware") == 0){
+            if(Update.write((uint8_t *)args->value, args->len) != args->len){
+              Update.printError(Serial);
+            }
+          }
         } break;
       }
     } break;
@@ -618,6 +633,17 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
         } break;
         case 130: {
           return getSettings(client, &heishamonSettings);
+        } break;
+        case 140: {
+          return showFirmware(client);
+        } break;
+        case 150: {
+          if(Update.end(true)){
+            Serial.printf("Update Success:\n");
+            ESP.restart();
+          } else {
+            Update.printError(Serial);
+          }
         } break;
         default: {
           webserver_send(client, 301, (char *)"text/plain", 0);

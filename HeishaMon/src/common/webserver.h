@@ -63,7 +63,7 @@ typedef struct pbuf {
 #endif
 
 typedef struct header_t {
-  char *buffer;
+  unsigned char *buffer;
   uint16_t ptr;
 } header_t;
 
@@ -73,8 +73,8 @@ extern struct webserver_client_t clients[WEBSERVER_MAX_CLIENTS];
 typedef int8_t (webserver_cb_t)(struct webserver_t *client, void *data);
 
 typedef struct arguments_t {
-  char *name;
-  char *value;
+  unsigned char *name;
+  unsigned char *value;
   uint16_t len;
 } arguments_t;
 
@@ -87,13 +87,13 @@ typedef struct sendlist_t {
 
 #ifndef ESP8266
 struct WiFiClient {
-  int (*write)(char *, int i);
-  int (*write_P)(char *, int i);
+  int (*write)(unsigned char *, int i);
+  int (*write_P)(unsigned char *, int i);
   int (*available)();
   int (*connected)();
   int (*read)(uint8_t *buffer, int size);
 };
-  #define PGM_P char *
+  #define PGM_P unsigned char *
 #endif
 
 typedef struct webserver_t {
@@ -110,14 +110,14 @@ typedef struct webserver_t {
   uint8_t step:4;
   uint8_t substep:4;
   uint16_t ptr;
-  uint16_t totallen;
-  uint16_t readlen;
+  uint32_t totallen;
+  uint32_t readlen;
   uint16_t content;
   uint8_t route;
   struct sendlist_t *sendlist;
   struct sendlist_t *sendlist_head;
   webserver_cb_t *callback;
-  char buffer[WEBSERVER_BUFFER_SIZE];
+  unsigned char buffer[WEBSERVER_BUFFER_SIZE];
   char *boundary;
 } webserver_t;
 
@@ -148,7 +148,7 @@ err_t webserver_receive(void *arg, tcp_pcb *pcb, struct pbuf *data, err_t err);
 uint8_t webserver_receive(struct webserver_t *client, uint8_t *rbuffer, uint16_t size);
 void webserver_loop(void);
 #endif
-int16_t urldecode(const char *src, int src_len, char *dst, int dst_len, int is_form_url_encoded);
+int16_t urldecode(const unsigned char *src, int src_len, unsigned char *dst, int dst_len, int is_form_url_encoded);
 int8_t webserver_send(struct webserver_t *client, uint16_t code, char *mimetype, uint16_t data_len);
 void webserver_client_stop(struct webserver_t *client);
 void webserver_reset_client(struct webserver_t *client);

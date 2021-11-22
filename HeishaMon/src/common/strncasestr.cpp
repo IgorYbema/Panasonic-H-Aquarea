@@ -10,9 +10,8 @@
 #include <string.h>
 #include <stdio.h>
 
-char *strncasestr(char *str1, const char *str2, uint16_t size) {
+unsigned char *strncasestr(unsigned char *str1, const char *str2, uint16_t size) {
   uint16_t a = 0, b = 0, c = 0;
-  uint16_t match = 0;
   uint16_t len = strlen(str2);
   for(a=0;a<size;a++) {
     char ch = str1[a];

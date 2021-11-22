@@ -496,7 +496,7 @@ int saveSettings(struct webserver_t *client, settingsStruct *heishamonSettings) 
 int cacheSettings(struct webserver_t *client, struct arguments_t * args) {
   struct websettings_t *tmp = websettings;
   while(tmp) {
-    if(strcmp(tmp->name.c_str(), args->name) == 0) {
+    if(strcmp(tmp->name.c_str(), (char *)args->name) == 0) {
       char *cpy = (char *)malloc(args->len+1);
       memset(cpy, 0, args->len+1);
       memcpy(cpy, args->value, args->len);
@@ -514,7 +514,7 @@ int cacheSettings(struct webserver_t *client, struct arguments_t * args) {
       exit(-1);
     }
     node->next = NULL;
-    node->name += args->name;
+    node->name += (char *)args->name;
 
     if(args->value != NULL) {
       char *cpy = (char *)malloc(args->len+1);
@@ -524,7 +524,7 @@ int cacheSettings(struct webserver_t *client, struct arguments_t * args) {
         exit(-1);
       }
       memset(cpy, 0, args->len+1);
-      strncpy(cpy, args->value, args->len);
+      strncpy(cpy, (char *)args->value, args->len);
       node->value += cpy;
       free(cpy);
     }
@@ -1037,4 +1037,11 @@ int handleJsonOutput(struct webserver_t *client, String actData[]) {
     webserver_send_content_P(client, PSTR("}"), 1);
   }
   return 0;
+}
+
+int showFirmware(struct webserver_t *client) {
+  if(client->content == 0) {
+    webserver_send(client, 200, (char *)"text/html", strlen_P(serverIndex));
+    webserver_send_content_P(client, serverIndex, strlen_P(serverIndex));
+  }
 }
