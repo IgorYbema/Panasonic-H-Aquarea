@@ -1041,7 +1041,67 @@ int handleJsonOutput(struct webserver_t *client, String actData[]) {
 
 int showFirmware(struct webserver_t *client) {
   if(client->content == 0) {
-    webserver_send(client, 200, (char *)"text/html", strlen_P(serverIndex));
-    webserver_send_content_P(client, serverIndex, strlen_P(serverIndex));
+    webserver_send(client, 200, (char *)"text/html", strlen_P(showFirmwarePage));
+    webserver_send_content_P(client, showFirmwarePage, strlen_P(showFirmwarePage));
   }
+  return 0;
+}
+
+int showFirmwareSuccess(struct webserver_t *client) {
+  if(client->content == 0) {
+    webserver_send(client, 200, (char *)"text/html", strlen_P(firmwareSuccessResponse));
+    webserver_send_content_P(client, firmwareSuccessResponse, strlen_P(firmwareSuccessResponse));
+  }
+  return 0;
+}
+
+static void printUpdateError(char **out, uint8_t size){
+	uint8_t len = 0;
+  len = snprintf_P(*out, size, PSTR("<br />ERROR[%u]: "), Update.getError());
+  if(Update.getError() == UPDATE_ERROR_OK){
+    snprintf_P(&(*out)[len], size - len, PSTR("No Error"));
+  } else if(Update.getError() == UPDATE_ERROR_WRITE){
+    snprintf_P(&(*out)[len], size - len, PSTR("Flash Write Failed"));
+  } else if(Update.getError() == UPDATE_ERROR_ERASE){
+    snprintf_P(&(*out)[len], size - len, PSTR("Flash Erase Failed"));
+  } else if(Update.getError() == UPDATE_ERROR_READ){
+    snprintf_P(&(*out)[len], size - len, PSTR("Flash Read Failed"));
+  } else if(Update.getError() == UPDATE_ERROR_SPACE){
+    snprintf_P(&(*out)[len], size - len, PSTR("Not Enough Space"));
+  } else if(Update.getError() == UPDATE_ERROR_SIZE){
+    snprintf_P(&(*out)[len], size - len, PSTR("Bad Size Given"));
+  } else if(Update.getError() == UPDATE_ERROR_STREAM){
+    snprintf_P(&(*out)[len], size - len, PSTR("Stream Read Timeout"));
+#ifdef UPDATE_ERROR_NO_DATA
+  } else if(Update.getError() == UPDATE_ERROR_NO_DATA){
+    snprintf_P(&(*out)[len], size - len, PSTR("No data supplied"));
+#endif
+  } else if(Update.getError() == UPDATE_ERROR_MD5){
+    snprintf_P(&(*out)[len], size - len,PSTR("MD5 Failed\n"));
+  } else if(Update.getError() == UPDATE_ERROR_SIGN){
+    snprintf_P(&(*out)[len], size - len, PSTR("Signature verification failed"));
+  } else if(Update.getError() == UPDATE_ERROR_FLASH_CONFIG){
+    snprintf_P(&(*out)[len], size - len, PSTR("Flash config wrong real: %d IDE: %d\n"), ESP.getFlashChipRealSize(), ESP.getFlashChipSize());
+  } else if(Update.getError() == UPDATE_ERROR_NEW_FLASH_CONFIG){
+    snprintf_P(&(*out)[len], size - len, PSTR("new Flash config wrong real: %d\n"), ESP.getFlashChipRealSize());
+  } else if(Update.getError() == UPDATE_ERROR_MAGIC_BYTE){
+    snprintf_P(&(*out)[len], size - len, PSTR("Magic byte is wrong, not 0xE9"));
+  } else if (Update.getError() == UPDATE_ERROR_BOOTSTRAP){
+    snprintf_P(&(*out)[len], size - len, PSTR("Invalid bootstrapping state, reset ESP8266 before updating"));
+  } else {
+    snprintf_P(&(*out)[len], size - len, PSTR("UNKNOWN"));
+  }
+}
+
+
+int showFirmwareFail(struct webserver_t *client) {
+  if(client->content == 0) {
+    char str[256] = { '\0' }, *p = str;
+    printUpdateError(&p, sizeof(str));
+
+    webserver_send(client, 200, (char *)"text/html", strlen_P(firmwareFailResponse)+strlen(str));
+    webserver_send_content_P(client, firmwareFailResponse, strlen_P(firmwareFailResponse));
+    webserver_send_content(client, str, strlen(str));
+  }
+  return 0;
 }

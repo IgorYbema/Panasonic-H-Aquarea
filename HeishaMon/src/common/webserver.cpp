@@ -1707,6 +1707,11 @@ void webserver_loop(void) {
     }
     if(clients[i].data.step > WEBSERVER_CLIENT_CONNECTING) {
       if((unsigned long)(millis() - clients[i].data.lastseen) > WEBSERVER_CLIENT_TIMEOUT) {
+        Serial.print("Timeout webserver client: ");
+        Serial.print(clients[i].data.client.remoteIP());
+        Serial.print(":");
+        Serial.println(clients[i].data.client.remotePort());
+
         clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
       }
     }

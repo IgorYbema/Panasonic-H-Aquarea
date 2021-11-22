@@ -638,11 +638,14 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
           return showFirmware(client);
         } break;
         case 150: {
+          Serial.printf("Uploading new firmware: %d / %d\n", client->readlen, client->totallen);
           if(Update.end(true)){
-            Serial.printf("Update Success:\n");
-            ESP.restart();
+            Serial.printf("Update Success\n");
+            timerqueue_insert(15, 0, -2); // Start reboot sequence
+            return showFirmwareSuccess(client);
           } else {
             Update.printError(Serial);
+            return showFirmwareFail(client);
           }
         } break;
         default: {
@@ -678,11 +681,6 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
 }
 
 void setupHttp() {
-  /*
-   * FIXME
-   */
-  // httpUpdater.setup(&httpServer, heishamonSettings.update_path, heishamonSettings.update_username, heishamonSettings.ota_password);
-
   webserver_start(80, &webserver_cb);
 
   webSocket.begin();

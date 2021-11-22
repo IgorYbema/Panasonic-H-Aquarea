@@ -913,7 +913,7 @@ const char populategetsettingsJS[] PROGMEM =
   "getSettings();"
   "</script>";
 
-static const char serverIndex[] PROGMEM =
+static const char showFirmwarePage[] PROGMEM =
   "<!DOCTYPE html>"
   "  <html lang='en'>"
   "   <head>"
@@ -929,6 +929,9 @@ static const char serverIndex[] PROGMEM =
   "   </body>"
   "   </html>";
 
-static const char successResponse[] PROGMEM =
-  "<META http-equiv=\"refresh\" content=\"15;URL=/\">Update Success! Rebooting...";
+static const char firmwareSuccessResponse[] PROGMEM =
+  "<META http-equiv=\"refresh\" content=\"15;URL=/\">Update success! Rebooting...";
+
+static const char firmwareFailResponse[] PROGMEM =
+  "<META http-equiv=\"refresh\" content=\"15;URL=/firmware\">Update failed! Please try again...";
 

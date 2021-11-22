@@ -28,7 +28,7 @@
 #endif
 
 #ifndef WEBSERVER_CLIENT_TIMEOUT
-  #define WEBSERVER_CLIENT_TIMEOUT 1500
+  #define WEBSERVER_CLIENT_TIMEOUT 5000
 #endif
 
 #ifndef __linux__

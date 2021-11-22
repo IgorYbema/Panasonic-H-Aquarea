@@ -70,3 +70,5 @@ int cacheSettings(struct webserver_t *client, struct arguments_t * args);
 int handleWifiScan(struct webserver_t *client);
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length);
 int showFirmware(struct webserver_t *client);
+int showFirmwareSuccess(struct webserver_t *client);
+int showFirmwareFail(struct webserver_t *client);
