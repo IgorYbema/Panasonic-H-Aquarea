@@ -32,6 +32,7 @@
 #endif
 
 #ifndef __linux__
+  #include <Arduino.h>
   #ifdef WEBSERVER_ASYNC
     #include "lwip/opt.h"
     #include "lwip/tcp.h"
@@ -41,13 +42,12 @@
     #include "lwip/errno.h"
     #include <errno.h>
   #else
-    #include <Arduino.h>
     #include <WiFiServer.h>
     #include <WiFiClient.h>
   #endif
 #endif
 
-#ifndef err_t
+#if !defined(err_t) && !defined(ESP8266)
   #define err_t uint8_t
 #endif
 

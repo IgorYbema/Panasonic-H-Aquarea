@@ -33,7 +33,6 @@
 
   #define LWIP_SO_RCVBUF 1
 
-  #include "webserver.h"
   #include "strncasestr.h"
   #include "strnstr.h"
 
@@ -45,6 +44,8 @@
     #include "lwip/init.h"
     #include "lwip/errno.h"
   #endif
+
+  #include "webserver.h"
   #include <errno.h>
 #endif
 
@@ -1293,7 +1294,7 @@ static int webserver_process_send(struct webserver_t *client) {
         client->ptr = 0;
       } else {
         if(client->sendlist->type == 1) {
-          memcpy(cpy, &((PGM_P)client->sendlist->ptr)[client->ptr], client->totallen);
+          memcpy_P(cpy, &((PGM_P)client->sendlist->ptr)[client->ptr], client->totallen);
 #ifdef WEBSERVER_ASYNC
           tcp_write(client->pcb, cpy, client->totallen, TCP_WRITE_FLAG_MORE);
 #else
@@ -1455,9 +1456,9 @@ done:
     tcp_write(client->pcb, &buffer, i, 0);
     tcp_output(client->pcb);
 #else
-  if(client->client.write((unsigned char *)&buffer, i) > 0) {
-    client->lastseen = millis();
-  }
+    if(client->client.write((unsigned char *)&buffer, i) > 0) {
+      client->lastseen = millis();
+    }
 #endif
   } else {
     client->chunked = 0;
@@ -1531,16 +1532,18 @@ uint8_t webserver_receive(struct webserver_t *client, uint8_t *rbuffer, uint16_t
   uint16_t x = 0;
 
 #ifdef WEBSERVER_ASYNC
+  uint8_t i = 0;
   if(data == NULL) {
     for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
       if(clients[i].data.pcb == pcb) {
+        printf("%d\n", __LINE__);
         webserver_client_close(&clients[i].data);
       }
     }
     return ERR_OK;
   }
 
-  b = data;
+  struct pbuf *b = data;
 
   while(b != NULL) {
     rbuffer = (char *)b->payload;
@@ -1602,13 +1605,13 @@ uint8_t webserver_receive(struct webserver_t *client, uint8_t *rbuffer, uint16_t
 #ifdef WEBSERVER_ASYNC
         if(client->step == WEBSERVER_CLIENT_WRITE) {
           if((client->totallen = tcp_sndbuf(client->pcb)) > 0) {
-            client->totallen = MTU_SIZE;
             client->totallen -= 16;
             if(client->callback != NULL) {
               if(client->callback(client, NULL) == -1) {
                 client->step = WEBSERVER_CLIENT_CLOSE;
                 return -1;
               }
+              client->content++;
               client->ptr = 0;
             } else {
               client->step = WEBSERVER_CLIENT_CLOSE;
@@ -1678,6 +1681,7 @@ err_t webserver_client(void *arg, tcp_pcb *pcb, err_t err) {
 
 #endif
 
+#ifndef WEBSERVER_ASYNC
 void webserver_reset_client(struct webserver_t *client) {
   client->readlen = 0;
   client->reqtype = 0;
@@ -1811,6 +1815,7 @@ void webserver_loop(void) {
   }
 #endif
 }
+#endif
 
 #ifdef ESP8266
 
@@ -1848,9 +1853,9 @@ int8_t webserver_start(int port, webserver_cb_t *callback) {
     clients[i].data.callback = callback;
   }
   server.begin(port);
-
+#endif
   Serial.print("Webserver server started at port: ");
   Serial.println(port);
-#endif
+  return 0;
 }
 #endif
