@@ -9,8 +9,6 @@
 #ifndef _WEBSERVER_H_
 #define _WEBSERVER_H_
 
-// #define WEBSERVER_ASYNC
-
 #ifndef MTU_SIZE
   #define MTU_SIZE 1460
 #endif
@@ -33,18 +31,15 @@
 
 #ifndef __linux__
   #include <Arduino.h>
-  #ifdef WEBSERVER_ASYNC
-    #include "lwip/opt.h"
-    #include "lwip/tcp.h"
-    #include "lwip/inet.h"
-    #include "lwip/dns.h"
-    #include "lwip/init.h"
-    #include "lwip/errno.h"
-    #include <errno.h>
-  #else
-    #include <WiFiServer.h>
-    #include <WiFiClient.h>
-  #endif
+  #include "lwip/opt.h"
+  #include "lwip/tcp.h"
+  #include "lwip/inet.h"
+  #include "lwip/dns.h"
+  #include "lwip/init.h"
+  #include "lwip/errno.h"
+  #include <errno.h>
+  #include <WiFiServer.h>
+  #include <WiFiClient.h>
 #endif
 
 #if !defined(err_t) && !defined(ESP8266)
@@ -97,15 +92,13 @@ struct WiFiClient {
 #endif
 
 typedef struct webserver_t {
-#ifdef WEBSERVER_ASYNC
   tcp_pcb *pcb;
-#else
   WiFiClient client;
   unsigned long lastseen;
-#endif
   uint8_t active:1;
   uint8_t reqtype:1;
-  uint8_t method:2;
+  uint8_t async:1;
+  uint8_t method:1;
   uint8_t chunked:4;
   uint8_t step:4;
   uint8_t substep:4;
@@ -138,16 +131,13 @@ typedef enum {
   WEBSERVER_CLIENT_CLOSE,
 } webserver_steps;
 
-int8_t webserver_start(int port, webserver_cb_t *callback);
+int8_t webserver_start(int port, webserver_cb_t *callback, uint8_t async);
 void webserver_loop(void);
 void webserver_send_content(struct webserver_t *client, char *buf, uint16_t len);
 void webserver_send_content_P(struct webserver_t *client, PGM_P buf, uint16_t len);
-#ifdef WEBSERVER_ASYNC
-err_t webserver_receive(void *arg, tcp_pcb *pcb, struct pbuf *data, err_t err);
-#else
-uint8_t webserver_receive(struct webserver_t *client, uint8_t *rbuffer, uint16_t size);
+err_t webserver_async_receive(void *arg, tcp_pcb *pcb, struct pbuf *data, err_t err);
+uint8_t webserver_sync_receive(struct webserver_t *client, uint8_t *rbuffer, uint16_t size);
 void webserver_loop(void);
-#endif
 int16_t urldecode(const unsigned char *src, int src_len, unsigned char *dst, int dst_len, int is_form_url_encoded);
 int8_t webserver_send(struct webserver_t *client, uint16_t code, char *mimetype, uint16_t data_len);
 void webserver_client_stop(struct webserver_t *client);

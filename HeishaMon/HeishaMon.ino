@@ -681,7 +681,7 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
 }
 
 void setupHttp() {
-  webserver_start(80, &webserver_cb);
+  webserver_start(80, &webserver_cb, 0);
 
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
