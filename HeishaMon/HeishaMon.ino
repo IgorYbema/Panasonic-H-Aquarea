@@ -826,8 +826,8 @@ void setup() {
   setupMqtt();
   setupHttp();
 
-  switchSerial(); //switch serial to gpio13/gpio15
-  WiFi.printDiag(Serial1);
+  // switchSerial(); //switch serial to gpio13/gpio15
+  // WiFi.printDiag(Serial1);
 
   setupConditionals(); //setup for routines based on settings
 

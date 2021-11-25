@@ -57,7 +57,9 @@
 
 struct webserver_client_t clients[WEBSERVER_MAX_CLIENTS];
 static tcp_pcb *async_server = NULL;
+#ifdef ESP8266
 static WiFiServer sync_server(0);
+#endif
 static uint8_t *rbuffer = NULL;
 
 #if defined(ESP8266)
@@ -604,13 +606,13 @@ int8_t http_parse_request(struct webserver_t *client, uint8_t **buf, uint16_t *l
          */
         while(i <= client->ptr-4) {
           if(memcmp_P(&client->buffer[i], PSTR("\r\n"), 2) == 0 ||
-             (client->ptr == WEBSERVER_BUFFER_SIZE && i == WEBSERVER_BUFFER_SIZE-3)) {
+             (client->ptr == WEBSERVER_BUFFER_SIZE && i == WEBSERVER_BUFFER_SIZE-4)) {
             while(client->buffer[x+1] == ' ') {
               x++;
             }
             args.value = &client->buffer[x+1];
             args.len = (i-x)-1;
-            if((client->ptr == WEBSERVER_BUFFER_SIZE && i == WEBSERVER_BUFFER_SIZE-3)) {
+            if((client->ptr == WEBSERVER_BUFFER_SIZE && i == WEBSERVER_BUFFER_SIZE-4)) {
               args.len += 2;
             }
 
@@ -651,7 +653,7 @@ int8_t http_parse_request(struct webserver_t *client, uint8_t **buf, uint16_t *l
             client->step = WEBSERVER_CLIENT_READ_HEADER;
 
             client->buffer[i] = 0;
-            if((client->ptr == WEBSERVER_BUFFER_SIZE && i == WEBSERVER_BUFFER_SIZE-3)) {
+            if((client->ptr == WEBSERVER_BUFFER_SIZE && i == WEBSERVER_BUFFER_SIZE-4)) {
               memmove(&client->buffer[x], &client->buffer[i+2], client->ptr-(i+2));
               client->buffer[x-1] = ':';
               client->ptr -= (i + 2 - x);
@@ -1633,8 +1635,10 @@ err_t webserver_poll(void *arg, struct tcp_pcb *pcb) {
   }
   return ERR_OK;
 }
+#endif
 
 void webserver_reset_client(struct webserver_t *client) {
+#ifdef ESP8266
   if(client->pcb != NULL) {
     tcp_close(client->pcb);
     client->pcb = NULL;
@@ -1642,6 +1646,7 @@ void webserver_reset_client(struct webserver_t *client) {
   if(client->active == 1) {
     client->client.stop();
   }
+#endif
 
   client->readlen = 0;
   client->reqtype = 0;
@@ -1662,6 +1667,7 @@ void webserver_reset_client(struct webserver_t *client) {
   memset(&client->buffer, 0, WEBSERVER_BUFFER_SIZE);
 }
 
+#ifdef ESP8266
 err_t webserver_client(void *arg, tcp_pcb *pcb, err_t err) {
   uint8_t i = 0;
   for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
@@ -1698,11 +1704,12 @@ void webserver_loop(void) {
     }
     if(clients[i].data.step > WEBSERVER_CLIENT_CONNECTING) {
       if((unsigned long)(millis() - clients[i].data.lastseen) > WEBSERVER_CLIENT_TIMEOUT) {
+#ifdef ESP8266
         Serial.print("Timeout webserver client: ");
         Serial.print(clients[i].data.client.remoteIP());
         Serial.print(":");
         Serial.println(clients[i].data.client.remotePort());
-
+#endif
         clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
       }
     }
@@ -1842,7 +1849,7 @@ int8_t webserver_start(int port, webserver_cb_t *callback, uint8_t async) {
     tcp_accept(async_server, &webserver_client);
     tcp_arg(async_server, (void *)callback);
   } else {
-    uint8_t *rbuffer = (uint8_t *)malloc(WEBSERVER_READ_SIZE);
+    rbuffer = (uint8_t *)malloc(WEBSERVER_READ_SIZE);
     if(rbuffer == NULL) {
 #ifdef ESP8266
       Serial.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
