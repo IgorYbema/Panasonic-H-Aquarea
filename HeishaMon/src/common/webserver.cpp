@@ -56,6 +56,7 @@
 struct webserver_client_t clients[WEBSERVER_MAX_CLIENTS];
 static tcp_pcb *async_server = NULL;
 static WiFiServer sync_server(0);
+static uint8_t *rbuffer = NULL;
 
 #if defined(ESP8266)
 static uint16_t tcp_write_P(tcp_pcb *pcb, PGM_P buf, uint16_t len, uint8_t flags) {
@@ -1580,7 +1581,7 @@ err_t webserver_async_receive(void *arg, tcp_pcb *pcb, struct pbuf *data, err_t 
   struct pbuf *b = data;
 
   while(b != NULL) {
-    uint8_t *rbuffer = (uint8_t *)b->payload;
+    rbuffer = (uint8_t *)b->payload;
     size = b->len;
 
     for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
@@ -1713,14 +1714,6 @@ void webserver_loop(void) {
       } break;
       case WEBSERVER_CLIENT_ARGS:
       case WEBSERVER_CLIENT_READ_HEADER: {
-        uint8_t *rbuffer = (uint8_t *)malloc(WEBSERVER_READ_SIZE);
-        if(rbuffer == NULL) {
-#ifdef ESP8266
-            Serial.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
-            ESP.restart();
-            exit(-1);
-#endif
-        }
         if(clients[i].data.client.connected() || clients[i].data.client.available()) {
           if(clients[i].data.client.available()) {
             uint8_t *p = (uint8_t *)rbuffer;
@@ -1740,7 +1733,6 @@ void webserver_loop(void) {
             clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
           }
         }
-        free(rbuffer);
       } break;
       case WEBSERVER_CLIENT_WRITE: {
         if(clients[i].data.callback != NULL) {
@@ -1848,6 +1840,15 @@ int8_t webserver_start(int port, webserver_cb_t *callback, uint8_t async) {
     tcp_accept(async_server, &webserver_client);
     tcp_arg(async_server, (void *)callback);
   } else {
+    uint8_t *rbuffer = (uint8_t *)malloc(WEBSERVER_READ_SIZE);
+    if(rbuffer == NULL) {
+#ifdef ESP8266
+      Serial.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
+      ESP.restart();
+      exit(-1);
+#endif
+    }
+
     for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
       webserver_reset_client(&clients[i].data);
       clients[i].data.callback = callback;
