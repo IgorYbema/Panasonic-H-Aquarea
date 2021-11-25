@@ -28,6 +28,8 @@
   #include "strnstr.h"
   #include "unittest.h"
 #else
+  #define LWIP_INTERNAL
+
   #include <Arduino.h>
   #include <WiFiClient.h>
   #include <WiFiServer.h>
