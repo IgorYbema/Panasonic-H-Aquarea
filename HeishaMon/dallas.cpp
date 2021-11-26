@@ -110,9 +110,10 @@ void dallasJsonOutput(struct webserver_t *client) {
 
   for(int i = 0; i < dallasDevicecount; i++) {
     webserver_send_content_P(client, PSTR("{\"Sensor\":\""), 11);
-    char *str = (char *)String(actDallasData[i].address).c_str();
-    webserver_send_content(client, str, strlen(str));
-    str = (char *)String(actDallasData[i].temperature).c_str();
+    webserver_send_content(client, actDallasData[i].address, strlen(actDallasData[i].address));
+    webserver_send_content_P(client, PSTR("\",\"Temperature\":\""), 17);
+    char str[64];
+    dtostrf(actDallasData[i].temperature,0,2,str);
     webserver_send_content(client, str, strlen(str));
     if(i < dallasDevicecount - 1) {
       webserver_send_content_P(client, PSTR("\"},"), 3);
@@ -126,10 +127,10 @@ void dallasJsonOutput(struct webserver_t *client) {
 void dallasTableOutput(struct webserver_t *client) {
   for (int i = 0; i < dallasDevicecount; i++) {
     webserver_send_content_P(client, PSTR("<tr><td>"), 8);
-    char *str = (char *)String(actDallasData[i].address).c_str();
-    webserver_send_content(client, str, strlen(str));
+    webserver_send_content(client, actDallasData[i].address, strlen(actDallasData[i].address));
     webserver_send_content_P(client, PSTR("</td><td>"), 9);
-    str = (char *)String(actDallasData[i].temperature).c_str();
+    char str[64];
+    dtostrf(actDallasData[i].temperature,0,2,str);
     webserver_send_content(client, str, strlen(str));
     webserver_send_content_P(client, PSTR("</td></tr>"), 10);
   }

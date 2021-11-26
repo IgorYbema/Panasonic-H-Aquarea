@@ -802,6 +802,7 @@ int handleDebug(struct webserver_t *client, char *hex, byte hex_len) {
     webserver_send(client, 200, (char *)"text/plain", 0);
     char log_msg[254];
 
+
     #define LOGHEXBYTESPERLINE 32
     for (int i = 0; i < hex_len; i += LOGHEXBYTESPERLINE) {
       char buffer [(LOGHEXBYTESPERLINE * 3) + 1];
