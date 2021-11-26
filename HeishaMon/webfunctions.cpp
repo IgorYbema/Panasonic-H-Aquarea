@@ -355,14 +355,6 @@ int saveSettings(struct webserver_t *client, settingsStruct *heishamonSettings) 
 
   settingsToJson(jsonDoc, heishamonSettings); //stores current settings in a json document
 
-  struct websettings_t *tmp = websettings;
-  while(tmp) {
-    Serial1.print(tmp->name);
-    Serial1.print(":");
-    Serial1.println(tmp->value);
-    tmp = tmp->next;
-  }
-
   jsonDoc["listenonly"] = String("");
   jsonDoc["logMqtt"] = String("");
   jsonDoc["logHexdump"] = String("");
@@ -371,7 +363,7 @@ int saveSettings(struct webserver_t *client, settingsStruct *heishamonSettings) 
   jsonDoc["use_1wire"] = String("");
   jsonDoc["use_s0"] = String("");
 
-  tmp = websettings;
+  struct websettings_t *tmp = websettings;
   while(tmp) {
     if(strcmp(tmp->name.c_str(), "wifi_hostname") == 0) {
       jsonDoc["wifi_hostname"] = tmp->value;
