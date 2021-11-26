@@ -112,7 +112,7 @@ char *getUptime(void) {
   unsigned int len = snprintf_P(NULL, 0, PSTR("%d day%s %d hour%s %d minute%s %d second%s"), d, (d == 1) ? "" : "s", h, (h == 1) ? "" : "s", m, (m == 1) ? "" : "s", sec, (sec == 1) ? "" : "s");
   char *str = (char *)malloc(len+2);
   if(str == NULL) {
-    Serial.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
+    Serial1.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
     ESP.restart();
     exit(-1);
   }
@@ -357,9 +357,9 @@ int saveSettings(struct webserver_t *client, settingsStruct *heishamonSettings) 
 
   struct websettings_t *tmp = websettings;
   while(tmp) {
-    Serial.print(tmp->name);
-    Serial.print(":");
-    Serial.println(tmp->value);
+    Serial1.print(tmp->name);
+    Serial1.print(":");
+    Serial1.println(tmp->value);
     tmp = tmp->next;
   }
 
@@ -509,7 +509,7 @@ int cacheSettings(struct webserver_t *client, struct arguments_t * args) {
   if(tmp == NULL) {
     websettings_t *node = new websettings_t;
     if(node == NULL) {
-      Serial.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
+      Serial1.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
       ESP.restart();
       exit(-1);
     }
@@ -519,7 +519,7 @@ int cacheSettings(struct webserver_t *client, struct arguments_t * args) {
     if(args->value != NULL) {
       char *cpy = (char *)malloc(args->len+1);
       if(node == NULL) {
-        Serial.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
+        Serial1.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
         ESP.restart();
         exit(-1);
       }
