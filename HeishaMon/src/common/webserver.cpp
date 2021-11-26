@@ -55,6 +55,8 @@
   #define ERR_OK 0
 #endif
 
+void log_message(char *string);
+
 struct webserver_client_t clients[WEBSERVER_MAX_CLIENTS];
 static tcp_pcb *async_server = NULL;
 #ifdef ESP8266
@@ -66,7 +68,7 @@ static uint8_t *rbuffer = NULL;
 static uint16_t tcp_write_P(tcp_pcb *pcb, PGM_P buf, uint16_t len, uint8_t flags) {
   char *str = (char *)malloc(len+1);
   if(str == NULL) {
-    Serial.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
+    Serial1.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
     ESP.restart();
     exit(-1);
   }
@@ -635,7 +637,7 @@ int8_t http_parse_request(struct webserver_t *client, uint8_t **buf, uint16_t *l
                   tmp[args.len-pos] = 0;
                   if((client->boundary = strdup(tmp)) == NULL) {
 #ifdef ESP8266
-                    Serial.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
+                    Serial1.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
                     ESP.restart();
                     exit(-1);
 #endif
@@ -1368,7 +1370,7 @@ void webserver_send_content_P(struct webserver_t *client, PGM_P buf, uint16_t si
   /*LCOV_EXCL_START*/
   if(node == NULL) {
 #ifdef ESP8266
-    Serial.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
+    Serial1.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
     ESP.restart();
     exit(-1);
 #endif
@@ -1392,7 +1394,7 @@ void webserver_send_content(struct webserver_t *client, char *buf, uint16_t size
   /*LCOV_EXCL_START*/
   if(node == NULL) {
 #ifdef ESP8266
-    Serial.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
+    Serial1.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
     ESP.restart();
     exit(-1);
 #endif
@@ -1472,10 +1474,9 @@ done:
 /* LCOV_EXCL_START*/
 static void webserver_client_close(struct webserver_t *client) {
 #ifdef ESP8266
-  Serial.print(F("Closing webserver client: "));
-  Serial.print(IPAddress(client->pcb->remote_ip.addr).toString().c_str());
-  Serial.print(F(":"));
-  Serial.println(client->pcb->remote_port);
+  char log_msg[256];
+  sprintf_P(log_msg, PSTR("Closing webserver client: %s:%d"), IPAddress(client->pcb->remote_ip.addr).toString().c_str(), client->pcb->remote_port);
+  log_message(log_msg);
 
   client->step = 0;
 
@@ -1677,10 +1678,9 @@ err_t webserver_client(void *arg, tcp_pcb *pcb, err_t err) {
       clients[i].data.async = 1;
       clients[i].data.step = WEBSERVER_CLIENT_READ_HEADER;
 
-      Serial.print(F("New webserver client: "));
-      Serial.print(IPAddress(clients[i].data.pcb->remote_ip.addr).toString().c_str());
-      Serial.print(F(":"));
-      Serial.println(clients[i].data.pcb->remote_port);
+      char log_msg[256];
+      sprintf_P(log_msg, PSTR("New webserver client: %s:%d"), IPAddress(clients[i].data.pcb->remote_ip.addr).toString().c_str(), clients[i].data.pcb->remote_port);
+      log_message(log_msg);
 
       //tcp_nagle_disable(pcb);
       tcp_recv(pcb, &webserver_async_receive);
@@ -1705,10 +1705,9 @@ void webserver_loop(void) {
     if(clients[i].data.step > WEBSERVER_CLIENT_CONNECTING) {
       if((unsigned long)(millis() - clients[i].data.lastseen) > WEBSERVER_CLIENT_TIMEOUT) {
 #ifdef ESP8266
-        Serial.print("Timeout webserver client: ");
-        Serial.print(clients[i].data.client.remoteIP());
-        Serial.print(":");
-        Serial.println(clients[i].data.client.remotePort());
+        char log_msg[256];
+        sprintf_P(log_msg, PSTR("Timeout webserver client: %s:%d"), clients[i].data.client.remoteIP().toString().c_str(), clients[i].data.client.remotePort());
+        log_message(log_msg);
 #endif
         clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
       }
@@ -1771,10 +1770,9 @@ void webserver_loop(void) {
       } break;
 #ifdef ESP8266
       case WEBSERVER_CLIENT_CLOSE: {
-        Serial.print("Closing webserver client: ");
-        Serial.print(clients[i].data.client.remoteIP());
-        Serial.print(":");
-        Serial.println(clients[i].data.client.remotePort());
+        char log_msg[256];
+        sprintf_P(log_msg, PSTR("Closing webserver client: %s:%d"), clients[i].data.client.remoteIP().toString().c_str(), clients[i].data.client.remotePort());
+        log_message(log_msg);
 
         clients[i].data.client.stop();
         webserver_reset_client(&clients[i].data);
@@ -1796,13 +1794,12 @@ void webserver_loop(void) {
           clients[i].data.lastseen = millis();
           clients[i].data.step = WEBSERVER_CLIENT_CONNECTING;
 
-          // clients[i].data.client.setNoDelay(1);
+          // clients[i].data.client.setNoDelay(true);
           // clients[i].data.client.setTimeout(200);
 
-          Serial.print("New webserver client: ");
-          Serial.print(clients[i].data.client.remoteIP());
-          Serial.print(":");
-          Serial.println(clients[i].data.client.remotePort());
+          char log_msg[256];
+          sprintf_P(log_msg, PSTR("New webserver client: %s:%d"), clients[i].data.client.remoteIP().toString().c_str(), clients[i].data.client.remotePort());
+          log_message(log_msg);
           break;
         }
       }
@@ -1852,7 +1849,7 @@ int8_t webserver_start(int port, webserver_cb_t *callback, uint8_t async) {
     rbuffer = (uint8_t *)malloc(WEBSERVER_READ_SIZE);
     if(rbuffer == NULL) {
 #ifdef ESP8266
-      Serial.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
+      Serial1.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
       ESP.restart();
       exit(-1);
 #endif
@@ -1865,13 +1862,14 @@ int8_t webserver_start(int port, webserver_cb_t *callback, uint8_t async) {
     }
     sync_server.begin(port);
   }
+
+  char log_msg[256];
   if(async == 1) {
-    Serial.print("A-sync ");
+    sprintf_P(log_msg, PSTR("Async webserver started at port: %d"), port);
   } else {
-    Serial.print("Sync ");
+    sprintf_P(log_msg, PSTR("Sync webserver started at port: %d"), port);
   }
-  Serial.print("webserver started at port: ");
-  Serial.println(port);
+  log_message(log_msg);
   return 0;
 }
 #endif

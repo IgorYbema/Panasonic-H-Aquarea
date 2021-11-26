@@ -61,7 +61,7 @@ static int uploadpercentage = 0;
 
 // instead of passing array pointers between functions we just define this in the global scope
 #define MAXDATASIZE 255
-char data[MAXDATASIZE];
+char data[MAXDATASIZE] = { '\0' };
 byte  data_length = 0;
 
 // store actual data in an String array
@@ -435,67 +435,65 @@ void setupOTA() {
   ArduinoOTA.begin();
 }
 
-int8_t webserver_cb(struct webserver_t *client, void *data) {
+int8_t webserver_cb(struct webserver_t *client, void *dat) {
   switch(client->step) {
     case WEBSERVER_CLIENT_REQUEST_METHOD: {
-      // Serial.println((char *)data);
-      if(strcmp((char *)data, "POST") == 0) {
+      if(strcmp((char *)dat, "POST") == 0) {
         client->route = 110;
       }
       return 0;
     } break;
     case WEBSERVER_CLIENT_REQUEST_URI: {
-      // Serial.println((char *)data);
-      if(strcmp((char *)data, "/") == 0) {
+      if(strcmp((char *)dat, "/") == 0) {
         client->route = 1;
-      } else if(strcmp((char *)data, "/tablerefresh") == 0) {
+      } else if(strcmp((char *)dat, "/tablerefresh") == 0) {
         client->route = 10;
-      } else if(strcmp((char *)data, "/json") == 0) {
+      } else if(strcmp((char *)dat, "/json") == 0) {
         client->route = 20;
-      } else if(strcmp((char *)data, "/reboot") == 0) {
+      } else if(strcmp((char *)dat, "/reboot") == 0) {
         client->route = 30;
-      } else if(strcmp((char *)data, "/debug") == 0) {
+      } else if(strcmp((char *)dat, "/debug") == 0) {
         client->route = 40;
-      } else if(strcmp((char *)data, "/wifiscan") == 0) {
+      } else if(strcmp((char *)dat, "/wifiscan") == 0) {
         client->route = 50;
-      } else if(strcmp((char *)data, "/togglelog") == 0) {
+      } else if(strcmp((char *)dat, "/togglelog") == 0) {
         client->route = 60;
         log_message((char*)"Toggled mqtt log flag");
         heishamonSettings.logMqtt ^= true;
-      } else if(strcmp((char *)data, "/hexdump") == 0) {
+      } else if(strcmp((char *)dat, "/hexdump") == 0) {
         client->route = 70;
         log_message((char*)"Toggled hexdump log flag");
         heishamonSettings.logHexdump ^= true;
-      } else if(strcmp((char *)data, "/hotspot-detect.html") == 0 ||
-                strcmp((char *)data, "/fwlink") == 0 ||
-                strcmp((char *)data, "/generate_204") == 0 ||
-                strcmp((char *)data, "/gen_204") == 0 ||
-                strcmp((char *)data, "/popup") == 0) {
+      } else if(strcmp((char *)dat, "/hotspot-detect.html") == 0 ||
+                strcmp((char *)dat, "/fwlink") == 0 ||
+                strcmp((char *)dat, "/generate_204") == 0 ||
+                strcmp((char *)dat, "/gen_204") == 0 ||
+                strcmp((char *)dat, "/popup") == 0) {
         client->route = 80;
-      } else if(strcmp((char *)data, "/factoryreset") == 0) {
+      } else if(strcmp((char *)dat, "/factoryreset") == 0) {
         client->route = 90;
-      } else if(strcmp((char *)data, "/command") == 0) {
+      } else if(strcmp((char *)dat, "/command") == 0) {
         RESTmsg.clear();
         client->route = 100;
       } else if(client->route == 110) {
         // Only accept settings POST requests
-        if(strcmp((char *)data, "/savesettings") == 0) {
+        if(strcmp((char *)dat, "/savesettings") == 0) {
           client->route = 110;
-        } else if(strcmp((char *)data, "/firmware") == 0) {
+        } else if(strcmp((char *)dat, "/firmware") == 0) {
           client->route = 150;
 
           Update.runAsync(true);
           if(!Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000)){
-            Update.printError(Serial);
+            Update.printError(Serial1);
           }
         } else {
           return -1;
         }
-      } else if(strcmp((char *)data, "/settings") == 0) {
+      } else if(strcmp((char *)dat, "/settings") == 0) {
         client->route = 120;
-      } else if(strcmp((char *)data, "/getsettings") == 0) {
+      } else if(strcmp((char *)dat, "/getsettings") == 0) {
         client->route = 130;
-      } else if(strcmp((char *)data, "/firmware") == 0) {
+      } else if(strcmp((char *)dat, "/firmware") == 0) {
         client->route = 140;
       } else {
         client->route = 0;
@@ -504,8 +502,7 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
       return 0;
     } break;
     case WEBSERVER_CLIENT_ARGS: {
-      // Serial.printf("Client route: %d %d\n", client->route, client->content);
-      struct arguments_t *args = (struct arguments_t *)data;
+      struct arguments_t *args = (struct arguments_t *)dat;
       switch(client->route) {
         case 10: {
           if(strcmp((char *)args->name, "1wire") == 0) {
@@ -547,36 +544,27 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
           }
         } break;
         case 110: {
-          // if(args->value != NULL) {
-            // Serial.printf("%s %d %.*s\n", args->name, args->len, args->len, args->value);
-          // } else {
-            // Serial.printf("%s\n", args->name);
-          // }
-
           return cacheSettings(client, args);
         } break;
         case 150: {
           if(uploadpercentage != (unsigned int)(((float)client->readlen/(float)client->totallen)*100)) {
             uploadpercentage = (unsigned int)(((float)client->readlen/(float)client->totallen)*100);
-            Serial.printf("Uploading new firmware: %d%%\n", uploadpercentage);
+            sprintf_P(log_msg, PSTR("Uploading new firmware: %d%%"), uploadpercentage);
+            log_message(log_msg);
           }
           if(!Update.hasError() && strcmp((char *)args->name, "firmware") == 0){
             if(Update.write((uint8_t *)args->value, args->len) != args->len){
-              Update.printError(Serial);
+              Update.printError(Serial1);
             }
           }
         } break;
       }
     } break;
     case WEBSERVER_CLIENT_HEADER: {
-      struct arguments_t *args = (struct arguments_t *)data;
-      // if(args->value != NULL) {
-        // Serial.printf("%s %.*s\n", args->name, args->len, args->value);
-      // }
+      struct arguments_t *args = (struct arguments_t *)dat;
       return 0;
     } break;
     case WEBSERVER_CLIENT_WRITE: {
-      // Serial.printf("Client route: %d %d\n", client->route, client->content);
       switch(client->route) {
         case 0: {
           webserver_send(client, 404, (char *)"text/plain", 0);
@@ -619,7 +607,6 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
         } break;
         case 110: {
           int ret = saveSettings(client, &heishamonSettings);
-          // Serial.println(client->route);
           switch(client->route) {
             case 111: {
               return settingsNewPassword(client, &heishamonSettings);
@@ -651,14 +638,15 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
         case 150: {
           if(uploadpercentage != (unsigned int)(((float)client->readlen/(float)client->totallen)*100)) {
             uploadpercentage = (unsigned int)(((float)client->readlen/(float)client->totallen)*100);
-            Serial.printf("Uploading new firmware: %d%%\n", uploadpercentage);
+            sprintf_P(log_msg, PSTR("Uploading new firmware: %d%%"), uploadpercentage);
+            log_message(log_msg);
           }
           if(Update.end(true)){
-            Serial.printf("Update Success\n");
+            log_message((char *)"Update Success");
             timerqueue_insert(15, 0, -2); // Start reboot sequence
             return showFirmwareSuccess(client);
           } else {
-            Update.printError(Serial);
+            Update.printError(Serial1);
             return showFirmwareFail(client);
           }
         } break;
@@ -669,7 +657,7 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
       return -1;
     } break;
     case WEBSERVER_CLIENT_CREATE_HEADER: {
-      struct header_t *header = (struct header_t *)data;
+      struct header_t *header = (struct header_t *)dat;
       switch(client->route) {
         case 113: {
           header->ptr += sprintf((char *)header->buffer, "Location: /settings");

@@ -799,8 +799,8 @@ int handleWifiScan(struct webserver_t *client) {
 
 int handleDebug(struct webserver_t *client, char *hex, byte hex_len) {
   if(client->content == 0) {
-    webserver_send(client, 200, (char *)"text/html", 0);
-    char log_msg[256];
+    webserver_send(client, 200, (char *)"text/plain", 0);
+    char log_msg[254];
 
     #define LOGHEXBYTESPERLINE 32
     for (int i = 0; i < hex_len; i += LOGHEXBYTESPERLINE) {
@@ -809,8 +809,8 @@ int handleDebug(struct webserver_t *client, char *hex, byte hex_len) {
       for (int j = 0; ((j < LOGHEXBYTESPERLINE) && ((i + j) < hex_len)); j++) {
         sprintf(&buffer[3 * j], PSTR("%02X "), hex[i + j]);
       }
-      sprintf_P(log_msg, PSTR("data: %s\n"), buffer);
-      webserver_send_content(client, log_msg, strlen_P(log_msg));
+      uint8_t len = sprintf_P(log_msg, PSTR("data: %s\n"), buffer);
+      webserver_send_content(client, log_msg, len);
     }
   }
   return 0;
@@ -991,7 +991,7 @@ int handleJsonOutput(struct webserver_t *client, String actData[]) {
         }
       }
 
-      webserver_send_content_P(client, PSTR("{\"Topic\":\"TOP"), 14);
+      webserver_send_content_P(client, PSTR("{\"Topic\":\"TOP"), 13);
 
       {
         char str[12];

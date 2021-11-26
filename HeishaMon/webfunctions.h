@@ -11,6 +11,8 @@
 #include "s0.h"
 #include "gpio.h"
 
+void log_message(char* string);
+
 static IPAddress apIP(192, 168, 4, 1);
 
 struct settingsStruct {
@@ -51,6 +53,7 @@ void setupWifi(settingsStruct *heishamonSettings);
 int getWifiQuality(void);
 int getFreeMemory(void);
 
+void log_message(char *string);
 int8_t webserver_cb(struct webserver_t *client, void *data);
 void getWifiScanResults(int numSsid);
 int handleRoot(struct webserver_t *client, float readpercentage, int mqttReconnects, settingsStruct *heishamonSettings);
