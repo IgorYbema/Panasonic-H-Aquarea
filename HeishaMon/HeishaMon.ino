@@ -468,6 +468,8 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
         heishamonSettings.logHexdump ^= true;
       } else if(strcmp((char *)data, "/hotspot-detect.html") == 0 ||
                 strcmp((char *)data, "/fwlink") == 0 ||
+                strcmp((char *)data, "/generate_204") == 0 ||
+                strcmp((char *)data, "/gen_204") == 0 ||
                 strcmp((char *)data, "/popup") == 0) {
         client->route = 80;
       } else if(strcmp((char *)data, "/factoryreset") == 0) {
@@ -599,6 +601,9 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
         } break;
         case 50: {
           return handleWifiScan(client);
+        } break;
+        case 80: {
+          return handleSettings(client);
         } break;
         case 90: {
           return handleFactoryReset(client);
