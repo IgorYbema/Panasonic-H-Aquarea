@@ -872,9 +872,8 @@ void read_panasonic_data() {
 }
 
 void loop() {
-#ifndef WEBSERVER_ASYNC
   webserver_loop();
-#endif
+
   // check wifi
   check_wifi();
   // Handle OTA first.
@@ -910,7 +909,9 @@ void loop() {
     //log stats
     if (totalreads > 0 ) readpercentage = (((float)goodreads / (float)totalreads) * 100);
     String message = F("Heishamon stats: Uptime: ");
-    message += getUptime();
+    char *up = getUptime();
+    message += up;
+    free(up);
     message += F(" ## Free memory: ");
     message += getFreeMemory();
     message += F("% ");
