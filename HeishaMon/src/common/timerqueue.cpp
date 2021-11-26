@@ -21,7 +21,7 @@
 #include "timerqueue.h"
 
 static unsigned int lasttime = 0;
-static unsigned int *calls = { 0 };
+static unsigned int *calls = NULL;
 static unsigned int nrcalls = 0;
 
 #ifndef ESP8266
@@ -58,9 +58,23 @@ struct timerqueue_t *timerqueue_pop() {
   }
   struct timerqueue_t *x = timerqueue[0];
   timerqueue[0] = timerqueue[timerqueue_size-1];
-  timerqueue[timerqueue_size-1] = NULL;
 
   timerqueue_size--;
+
+  if(timerqueue_size == 0) {
+    free(timerqueue);
+  } else {
+    if((timerqueue = (struct timerqueue_t **)realloc(timerqueue, sizeof(struct timerqueue_t *)*timerqueue_size)) == NULL) {
+  #ifdef ESP8266
+      Serial.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
+      ESP.restart();
+      exit(-1);
+  #else
+      fprintf(stderr, "Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
+      exit(-1);
+  #endif
+    }
+  }
 
   int a = 0;
   for(a=0;a<timerqueue_size;a++) {
@@ -96,10 +110,12 @@ void timerqueue_insert(int sec, int usec, int nr) {
         timerqueue[a]->remove = 1;
         for(x=0;x<nrcalls;x++) {
           if(calls[x] == timerqueue[a]->nr) {
-            for(y=x;y<nrcalls-1;y++) {
-              calls[y] = calls[y+1];
+            if(nrcalls > 0) {
+              for(y=x;y<nrcalls-1;y++) {
+                calls[y] = calls[y+1];
+              }
+              nrcalls--;
             }
-            nrcalls--;
             break;
           }
         }
@@ -113,7 +129,8 @@ void timerqueue_insert(int sec, int usec, int nr) {
   if(matched == 1) {
     while((node = timerqueue_peek()) != NULL) {
       if(node->remove == 1) {
-        timerqueue_pop();
+        struct timerqueue_t *node = timerqueue_pop();
+        free(node);
       } else {
         break;
       }
@@ -200,13 +217,16 @@ void timerqueue_update(void) {
   }
   while(nrcalls > 0) {
     timer_cb(calls[0]);
-    for(a=0;a<nrcalls-1;a++) {
-      calls[a] = calls[a+1];
+    if(nrcalls > 0) {
+      for(a=0;a<nrcalls-1;a++) {
+        calls[a] = calls[a+1];
+      }
+      nrcalls--;
     }
-    nrcalls--;
   }
-  if(nrcalls > 0) {
+  if(calls != NULL) {
     free(calls);
+    calls = NULL;
   }
   nrcalls = 0;
 }
