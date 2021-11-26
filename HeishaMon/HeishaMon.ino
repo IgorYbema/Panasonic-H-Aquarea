@@ -57,6 +57,7 @@ unsigned long tooshortread = 0;
 unsigned long toolongread = 0;
 unsigned long timeoutread = 0;
 float readpercentage = 0;
+static int uploadpercentage = 0;
 
 // instead of passing array pointers between functions we just define this in the global scope
 #define MAXDATASIZE 255
@@ -553,7 +554,10 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
           return cacheSettings(client, args);
         } break;
         case 150: {
-          Serial.printf("Uploading new firmware: %d / %d\n", client->readlen, client->totallen);
+          if(uploadpercentage != (unsigned int)(((float)client->readlen/(float)client->totallen)*100)) {
+            uploadpercentage = (unsigned int)(((float)client->readlen/(float)client->totallen)*100);
+            Serial.printf("Uploading new firmware: %d%%\n", uploadpercentage);
+          }
           if(!Update.hasError() && strcmp((char *)args->name, "firmware") == 0){
             if(Update.write((uint8_t *)args->value, args->len) != args->len){
               Update.printError(Serial);
@@ -640,7 +644,10 @@ int8_t webserver_cb(struct webserver_t *client, void *data) {
           return showFirmware(client);
         } break;
         case 150: {
-          Serial.printf("Uploading new firmware: %d / %d\n", client->readlen, client->totallen);
+          if(uploadpercentage != (unsigned int)(((float)client->readlen/(float)client->totallen)*100)) {
+            uploadpercentage = (unsigned int)(((float)client->readlen/(float)client->totallen)*100);
+            Serial.printf("Uploading new firmware: %d%%\n", uploadpercentage);
+          }
           if(Update.end(true)){
             Serial.printf("Update Success\n");
             timerqueue_insert(15, 0, -2); // Start reboot sequence

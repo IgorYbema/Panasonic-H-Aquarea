@@ -1870,7 +1870,7 @@ int8_t webserver_start(int port, webserver_cb_t *callback, uint8_t async) {
   } else {
     Serial.print("Sync ");
   }
-  Serial.print("webserver server started at port: ");
+  Serial.print("webserver started at port: ");
   Serial.println(port);
   return 0;
 }
