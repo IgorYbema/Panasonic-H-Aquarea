@@ -1486,6 +1486,8 @@ static void webserver_client_close(struct webserver_t *client) {
 
   tcp_close(client->pcb);
   client->pcb = NULL;
+
+  webserver_reset_client(client);
 #endif
 }
 /* LCOV_EXCL_STOP*/
@@ -1662,6 +1664,20 @@ void webserver_reset_client(struct webserver_t *client) {
   client->route = 0;
   client->lastseen = 0;
   client->content = 0;
+
+  struct sendlist_t *tmp = NULL;
+  while(client->sendlist) {
+    tmp = client->sendlist;
+    client->sendlist = client->sendlist->next;
+    if(tmp->type == 0) {
+      free(tmp->ptr);
+    }
+    free(tmp);
+  }
+  if(client->boundary != NULL) {
+    free(client->boundary);
+  }
+
   client->sendlist = NULL;
   client->sendlist_head = NULL;
   client->boundary = NULL;
