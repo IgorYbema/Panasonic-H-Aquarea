@@ -227,7 +227,7 @@ unsigned long jsonPulses[NUM_S0_COUNTERS];
 void s0JsonOutput(struct webserver_t *client) {
   webserver_send_content_P(client, PSTR("["), 1);
   for (int i = 0; i < NUM_S0_COUNTERS; i++) {
-    webserver_send_content_P(client, PSTR("{\"S0 port\":"), 11);
+    webserver_send_content_P(client, PSTR("{\"S0 port\":\""), 12);
 
     char str[12];
     itoa(i+1, str, 10);
@@ -261,9 +261,9 @@ void s0JsonOutput(struct webserver_t *client) {
     webserver_send_content(client, str, strlen(str));
 
     if(i < NUM_S0_COUNTERS - 1) {
-      webserver_send_content_P(client, PSTR("},"), 2);
+      webserver_send_content_P(client, PSTR("\"},"), 3);
     } else {
-      webserver_send_content_P(client, PSTR("}"), 1);
+      webserver_send_content_P(client, PSTR("\"}"), 2);
     }
   }
   webserver_send_content_P(client, PSTR("]"), 1);
