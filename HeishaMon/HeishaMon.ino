@@ -391,6 +391,7 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
       sprintf_P(log_msg, PSTR("sending raw value"));
       log_message(log_msg);
       send_command(rawcommand, length);
+      free(rawcommand);
     } else if (strncmp(topic_command, mqtt_topic_s0, 2) == 0)  // this is a s0 topic, check for watthour topic and restore it
     {
       char* topic_s0_watthour_port = topic_command + 17; //strip the first 17 "s0/WatthourTotal/" from the topic to get the s0 port
