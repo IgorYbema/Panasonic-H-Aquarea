@@ -685,6 +685,7 @@ int getSettings(struct webserver_t *client, settingsStruct *heishamonSettings) {
 
       int i = 0;
 
+      if (heishamonSettings->s0Settings[i].gpiopin == 255) heishamonSettings->s0Settings[i].gpiopin = DEFAULT_S0_PIN_1;  //dirty hack
       itoa(heishamonSettings->s0Settings[i].gpiopin, str, 10);
       webserver_send_content(client, str, strlen(str));
 
@@ -718,7 +719,8 @@ int getSettings(struct webserver_t *client, settingsStruct *heishamonSettings) {
     case 11: {
       char str[20];
       int i = 1;
-
+      
+      if (heishamonSettings->s0Settings[i].gpiopin == 255) heishamonSettings->s0Settings[i].gpiopin = DEFAULT_S0_PIN_2;  //dirty hack
       itoa(heishamonSettings->s0Settings[i].gpiopin, str, 10);
       webserver_send_content(client, str, strlen(str));
 
