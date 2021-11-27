@@ -454,14 +454,15 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
         client->route = 30;
       } else if(strcmp((char *)dat, "/debug") == 0) {
         client->route = 40;
+        log_message((char*)"Debug URL requested");
       } else if(strcmp((char *)dat, "/wifiscan") == 0) {
         client->route = 50;
       } else if(strcmp((char *)dat, "/togglelog") == 0) {
-        client->route = 60;
+        client->route = 1;
         log_message((char*)"Toggled mqtt log flag");
         heishamonSettings.logMqtt ^= true;
-      } else if(strcmp((char *)dat, "/hexdump") == 0) {
-        client->route = 70;
+      } else if(strcmp((char *)dat, "/togglehexdump") == 0) {
+        client->route = 1;
         log_message((char*)"Toggled hexdump log flag");
         heishamonSettings.logHexdump ^= true;
       } else if(strcmp((char *)dat, "/hotspot-detect.html") == 0 ||
