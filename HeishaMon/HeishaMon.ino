@@ -391,6 +391,7 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
       sprintf_P(log_msg, PSTR("sending raw value"));
       log_message(log_msg);
       send_command(rawcommand, length);
+      free(rawcommand);
     } else if (strncmp(topic_command, mqtt_topic_s0, 2) == 0)  // this is a s0 topic, check for watthour topic and restore it
     {
       char* topic_s0_watthour_port = topic_command + 17; //strip the first 17 "s0/WatthourTotal/" from the topic to get the s0 port
@@ -454,14 +455,15 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
         client->route = 30;
       } else if(strcmp((char *)dat, "/debug") == 0) {
         client->route = 40;
+        log_message((char*)"Debug URL requested");
       } else if(strcmp((char *)dat, "/wifiscan") == 0) {
         client->route = 50;
       } else if(strcmp((char *)dat, "/togglelog") == 0) {
-        client->route = 60;
+        client->route = 1;
         log_message((char*)"Toggled mqtt log flag");
         heishamonSettings.logMqtt ^= true;
-      } else if(strcmp((char *)dat, "/hexdump") == 0) {
-        client->route = 70;
+      } else if(strcmp((char *)dat, "/togglehexdump") == 0) {
+        client->route = 1;
         log_message((char*)"Toggled hexdump log flag");
         heishamonSettings.logHexdump ^= true;
       } else if(strcmp((char *)dat, "/hotspot-detect.html") == 0 ||
@@ -877,9 +879,8 @@ void read_panasonic_data() {
 }
 
 void loop() {
-#ifndef WEBSERVER_ASYNC
   webserver_loop();
-#endif
+
   // check wifi
   check_wifi();
   // Handle OTA first.
@@ -915,7 +916,9 @@ void loop() {
     //log stats
     if (totalreads > 0 ) readpercentage = (((float)goodreads / (float)totalreads) * 100);
     String message = F("Heishamon stats: Uptime: ");
-    message += getUptime();
+    char *up = getUptime();
+    message += up;
+    free(up);
     message += F(" ## Free memory: ");
     message += getFreeMemory();
     message += F("% ");

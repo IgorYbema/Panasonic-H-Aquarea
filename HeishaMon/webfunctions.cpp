@@ -685,6 +685,7 @@ int getSettings(struct webserver_t *client, settingsStruct *heishamonSettings) {
 
       int i = 0;
 
+      if (heishamonSettings->s0Settings[i].gpiopin == 255) heishamonSettings->s0Settings[i].gpiopin = DEFAULT_S0_PIN_1;  //dirty hack
       itoa(heishamonSettings->s0Settings[i].gpiopin, str, 10);
       webserver_send_content(client, str, strlen(str));
 
@@ -718,7 +719,8 @@ int getSettings(struct webserver_t *client, settingsStruct *heishamonSettings) {
     case 11: {
       char str[20];
       int i = 1;
-
+      
+      if (heishamonSettings->s0Settings[i].gpiopin == 255) heishamonSettings->s0Settings[i].gpiopin = DEFAULT_S0_PIN_2;  //dirty hack
       itoa(heishamonSettings->s0Settings[i].gpiopin, str, 10);
       webserver_send_content(client, str, strlen(str));
 
@@ -1034,8 +1036,13 @@ int handleJsonOutput(struct webserver_t *client, String actData[]) {
 
 int showFirmware(struct webserver_t *client) {
   if(client->content == 0) {
-    webserver_send(client, 200, (char *)"text/html", strlen_P(showFirmwarePage));
+    webserver_send(client, 200, (char *)"text/html", 0);
+    webserver_send_content_P(client, webHeader, strlen_P(webHeader));
+    webserver_send_content_P(client, webCSS, strlen_P(webCSS));
+    webserver_send_content_P(client, webBodyStart, strlen_P(webBodyStart));
     webserver_send_content_P(client, showFirmwarePage, strlen_P(showFirmwarePage));
+    webserver_send_content_P(client, menuJS, strlen_P(menuJS));
+    webserver_send_content_P(client, webFooter, strlen_P(webFooter));
   }
   return 0;
 }
