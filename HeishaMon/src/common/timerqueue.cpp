@@ -63,6 +63,7 @@ struct timerqueue_t *timerqueue_pop() {
 
   if(timerqueue_size == 0) {
     free(timerqueue);
+    timerqueue = NULL;
   } else {
     if((timerqueue = (struct timerqueue_t **)realloc(timerqueue, sizeof(struct timerqueue_t *)*timerqueue_size)) == NULL) {
   #ifdef ESP8266
