@@ -439,44 +439,44 @@ void setupOTA() {
 int8_t webserver_cb(struct webserver_t *client, void *dat) {
   switch (client->step) {
     case WEBSERVER_CLIENT_REQUEST_METHOD: {
-        if (strcmp((char *)dat, "POST") == 0) {
+        if (strcmp_P((char *)dat, PSTR("POST")) == 0) {
           client->route = 110;
         }
         return 0;
       } break;
     case WEBSERVER_CLIENT_REQUEST_URI: {
-        if (strcmp((char *)dat, "/") == 0) {
+        if (strcmp_P((char *)dat, PSTR("/")) == 0) {
           client->route = 1;
-        } else if (strcmp((char *)dat, "/tablerefresh") == 0) {
+        } else if (strcmp_P((char *)dat, PSTR("/tablerefresh")) == 0) {
           client->route = 10;
-        } else if (strcmp((char *)dat, "/json") == 0) {
+        } else if (strcmp_P((char *)dat, PSTR("/json")) == 0) {
           client->route = 20;
-        } else if (strcmp((char *)dat, "/reboot") == 0) {
+        } else if (strcmp_P((char *)dat, PSTR("/reboot")) == 0) {
           client->route = 30;
-        } else if (strcmp((char *)dat, "/debug") == 0) {
+        } else if (strcmp_P((char *)dat, PSTR("/debug")) == 0) {
           client->route = 40;
           log_message((char*)"Debug URL requested");
-        } else if (strcmp((char *)dat, "/wifiscan") == 0) {
+        } else if (strcmp_P((char *)dat, PSTR("/wifiscan")) == 0) {
           client->route = 50;
-        } else if (strcmp((char *)dat, "/togglelog") == 0) {
+        } else if (strcmp_P((char *)dat, PSTR("/togglelog")) == 0) {
           client->route = 1;
           log_message((char*)"Toggled mqtt log flag");
           heishamonSettings.logMqtt ^= true;
-        } else if (strcmp((char *)dat, "/togglehexdump") == 0) {
+        } else if (strcmp_P((char *)dat, PSTR("/togglehexdump")) == 0) {
           client->route = 1;
           log_message((char*)"Toggled hexdump log flag");
           heishamonSettings.logHexdump ^= true;
-        } else if (strcmp((char *)dat, "/hotspot-detect.html") == 0 ||
-                   strcmp((char *)dat, "/fwlink") == 0 ||
-                   strcmp((char *)dat, "/generate_204") == 0 ||
-                   strcmp((char *)dat, "/gen_204") == 0 ||
-                   strcmp((char *)dat, "/popup") == 0) {
+        } else if (strcmp_P((char *)dat, PSTR("/hotspot-detect.html")) == 0 ||
+                   strcmp_P((char *)dat, PSTR("/fwlink")) == 0 ||
+                   strcmp_P((char *)dat, PSTR("/generate_204")) == 0 ||
+                   strcmp_P((char *)dat, PSTR("/gen_204")) == 0 ||
+                   strcmp_P((char *)dat, PSTR("/popup")) == 0) {
           client->route = 80;
-        } else if (strcmp((char *)dat, "/factoryreset") == 0) {
+        } else if (strcmp_P((char *)dat, PSTR("/factoryreset")) == 0) {
           client->route = 90;
-        } else if (strcmp((char *)dat, "/command") == 0) {
+        } else if (strcmp_P((char *)dat, PSTR("/command")) == 0) {
           if((client->userdata = malloc(1)) == NULL) {
-            Serial1.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
+            Serial1.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
             ESP.restart();
             exit(-1);
           }
@@ -484,16 +484,16 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
           client->route = 100;
         } else if (client->route == 110) {
           // Only accept settings POST requests
-          if (strcmp((char *)dat, "/savesettings") == 0) {
+          if (strcmp_P((char *)dat, PSTR("/savesettings")) == 0) {
             client->route = 110;
-          } else if (strcmp((char *)dat, "/saverules") == 0) {
+          } else if (strcmp_P((char *)dat, PSTR("/saverules")) == 0) {
             client->route = 170;
 
             if (LittleFS.begin()) {
               LittleFS.remove("/rules.new");
               client->userdata = new File(LittleFS.open("/rules.new", "a+"));
             }
-          } else if (strcmp((char *)dat, "/firmware") == 0) {
+          } else if (strcmp_P((char *)dat, PSTR("/firmware")) == 0) {
             client->route = 150;
 
             Update.runAsync(true);
@@ -503,13 +503,13 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
           } else {
             return -1;
           }
-        } else if (strcmp((char *)dat, "/settings") == 0) {
+        } else if (strcmp_P((char *)dat, PSTR("/settings")) == 0) {
           client->route = 120;
-        } else if (strcmp((char *)dat, "/getsettings") == 0) {
+        } else if (strcmp_P((char *)dat, PSTR("/getsettings")) == 0) {
           client->route = 130;
-        } else if (strcmp((char *)dat, "/firmware") == 0) {
+        } else if (strcmp_P((char *)dat, PSTR("/firmware")) == 0) {
           client->route = 140;
-        } else if (strcmp((char *)dat, "/rules") == 0) {
+        } else if (strcmp_P((char *)dat, PSTR("/rules")) == 0) {
           client->route = 160;
         } else {
           client->route = 0;
@@ -521,9 +521,9 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
         struct arguments_t *args = (struct arguments_t *)dat;
         switch (client->route) {
           case 10: {
-              if (strcmp((char *)args->name, "1wire") == 0) {
+              if (strcmp_P((char *)args->name, PSTR("1wire")) == 0) {
                 client->route = 11;
-              } else if (strcmp((char *)args->name, "s0") == 0) {
+              } else if (strcmp_P((char *)args->name, PSTR("s0")) == 0) {
                 client->route = 12;
               }
             } break;
@@ -540,7 +540,7 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
                 if (strcmp((char *)args->name, commands[x].name) == 0) {
                   len = commands[x].func(cpy, cmd, log_msg);
                   if ((client->userdata = realloc(client->userdata, strlen((char *)client->userdata) + strlen(log_msg) + 2)) == NULL) {
-                    Serial1.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
+                    Serial1.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
                     ESP.restart();
                     exit(-1);
                   }
@@ -560,7 +560,7 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
                   if (strcmp((char *)args->name, optionalCommands[x].name) == 0) {
                     len = optionalCommands[x].func(cpy, log_msg);
                     if ((client->userdata = realloc(client->userdata, strlen((char *)client->userdata) + strlen(log_msg) + 2)) == NULL) {
-                      Serial1.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
+                      Serial1.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
                       ESP.restart();
                       exit(-1);
                     }
@@ -580,7 +580,7 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
                 sprintf_P(log_msg, PSTR("Uploading new firmware: %d%%"), uploadpercentage);
                 log_message(log_msg);
               }
-              if (!Update.hasError() && strcmp((char *)args->name, "firmware") == 0) {
+              if (!Update.hasError() && strcmp_P((char *)args->name, PSTR("firmware")) == 0) {
                 if (Update.write((uint8_t *)args->value, args->len) != args->len) {
                   Update.printError(Serial1);
                 }
@@ -712,21 +712,21 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
         struct header_t *header = (struct header_t *)dat;
         switch (client->route) {
           case 113: {
-              header->ptr += sprintf((char *)header->buffer, "Location: /settings");
+              header->ptr += sprintf_P((char *)header->buffer, PSTR("Location: /settings"));
               return -1;
             } break;
           case 0:
           case 60:
           case 70: {
-              header->ptr += sprintf((char *)header->buffer, "Location: /");
+              header->ptr += sprintf_P((char *)header->buffer, PSTR("Location: /"));
               return -1;
             } break;
           case 170: {
-              header->ptr += sprintf((char *)header->buffer, "Location: /rules");
+              header->ptr += sprintf_P((char *)header->buffer, PSTR("Location: /rules"));
               return -1;
             } break;
           default: {
-              header->ptr += sprintf((char *)header->buffer, "Access-Control-Allow-Origin: *");
+              header->ptr += sprintf_P((char *)header->buffer, PSTR("Access-Control-Allow-Origin: *"));
             } break;
         }
         return 0;
