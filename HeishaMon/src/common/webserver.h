@@ -112,6 +112,7 @@ typedef struct webserver_t {
   webserver_cb_t *callback;
   unsigned char buffer[WEBSERVER_BUFFER_SIZE];
   char *boundary;
+  void *userdata;
 } webserver_t;
 
 typedef struct webserver_client_t {

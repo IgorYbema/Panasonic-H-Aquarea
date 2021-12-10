@@ -475,12 +475,24 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
         } else if (strcmp((char *)dat, "/factoryreset") == 0) {
           client->route = 90;
         } else if (strcmp((char *)dat, "/command") == 0) {
-          RESTmsg.clear();
+          if((client->userdata = malloc(1)) == NULL) {
+            Serial1.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
+            ESP.restart();
+            exit(-1);
+          }
+          ((char *)client->userdata)[0] = 0;
           client->route = 100;
         } else if (client->route == 110) {
           // Only accept settings POST requests
           if (strcmp((char *)dat, "/savesettings") == 0) {
             client->route = 110;
+          } else if (strcmp((char *)dat, "/saverules") == 0) {
+            client->route = 170;
+
+            if (LittleFS.begin()) {
+              LittleFS.remove("/rules.new");
+              client->userdata = new File(LittleFS.open("/rules.new", "a+"));
+            }
           } else if (strcmp((char *)dat, "/firmware") == 0) {
             client->route = 150;
 
@@ -497,6 +509,8 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
           client->route = 130;
         } else if (strcmp((char *)dat, "/firmware") == 0) {
           client->route = 140;
+        } else if (strcmp((char *)dat, "/rules") == 0) {
+          client->route = 160;
         } else {
           client->route = 0;
         }
@@ -525,7 +539,13 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
               for (uint8_t x = 0; x < sizeof(commands) / sizeof(commands[0]); x++) {
                 if (strcmp((char *)args->name, commands[x].name) == 0) {
                   len = commands[x].func(cpy, cmd, log_msg);
-                  RESTmsg = RESTmsg + log_msg + "\n";
+                  if ((client->userdata = realloc(client->userdata, strlen((char *)client->userdata) + strlen(log_msg) + 2)) == NULL) {
+                    Serial1.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
+                    ESP.restart();
+                    exit(-1);
+                  }
+                  strcat((char *)client->userdata, log_msg);
+                  strcat((char *)client->userdata, "\n");
                   log_message(log_msg);
                   send_command(cmd, len);
                 }
@@ -539,7 +559,13 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
                 for (uint8_t x = 0; x < sizeof(optionalCommands) / sizeof(optionalCommands[0]); x++) {
                   if (strcmp((char *)args->name, optionalCommands[x].name) == 0) {
                     len = optionalCommands[x].func(cpy, log_msg);
-                    RESTmsg = RESTmsg + log_msg + "\n";
+                    if ((client->userdata = realloc(client->userdata, strlen((char *)client->userdata) + strlen(log_msg) + 2)) == NULL) {
+                      Serial1.printf("Out of memory %s:#%d\n", __FUNCTION__, __LINE__);
+                      ESP.restart();
+                      exit(-1);
+                    }
+                    strcat((char *)client->userdata, log_msg);
+                    strcat((char *)client->userdata, "\n");
                     log_message(log_msg);
                   }
                 }
@@ -558,6 +584,14 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
                 if (Update.write((uint8_t *)args->value, args->len) != args->len) {
                   Update.printError(Serial1);
                 }
+              }
+            } break;
+          case 170: {
+              File *f = (File *)client->userdata;
+              if (!f) {
+                client->route = 160;
+              } else {
+                f->write(args->value, args->len);
               }
             } break;
         }
@@ -601,9 +635,10 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
           case 100: {
               if (client->content == 0) {
                 webserver_send(client, 200, (char *)"text/plain", 0);
-                char *str = (char *)RESTmsg.c_str();
-                webserver_send_content(client, (char *)str, strlen(str));
-                RESTmsg.clear();
+                char *RESTmsg = (char *)client->userdata;
+                webserver_send_content(client, (char *)RESTmsg, strlen(RESTmsg));
+                free(RESTmsg);
+                client->userdata = NULL;
               }
               return 0;
             } break;
@@ -652,6 +687,21 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
                 return showFirmwareFail(client);
               }
             } break;
+          case 160: {
+              return showRules(client);
+            } break;
+          case 170: {
+              File *f = (File *)client->userdata;
+              if (f) {
+                f->close();
+                delete f;
+              }
+              client->userdata = NULL;
+              if (LittleFS.begin()) {
+                LittleFS.rename("/rules.new", "/rules.txt");
+              }
+              webserver_send(client, 301, (char *)"text/plain", 0);
+            } break;
           default: {
               webserver_send(client, 301, (char *)"text/plain", 0);
             } break;
@@ -671,12 +721,44 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
               header->ptr += sprintf((char *)header->buffer, "Location: /");
               return -1;
             } break;
+          case 170: {
+              header->ptr += sprintf((char *)header->buffer, "Location: /rules");
+              return -1;
+            } break;
           default: {
               header->ptr += sprintf((char *)header->buffer, "Access-Control-Allow-Origin: *");
             } break;
         }
         return 0;
       } break;
+    case WEBSERVER_CLIENT_CLOSE: {
+        switch (client->route) {
+          case 100: {
+            if (client->userdata != NULL) {
+              free(client->userdata);
+            }
+          } break;
+          case 110: {
+            struct websettings_t *tmp = NULL;
+            while (client->userdata) {
+              tmp = (struct websettings_t *)client->userdata;
+              client->userdata = ((struct websettings_t *)(client->userdata))->next;
+              free(tmp);
+            }
+          } break;
+          case 160:
+          case 170: {
+            if (client->userdata != NULL) {
+              File *f = (File *)client->userdata;
+              if (f) {
+                f->close();
+                delete f;
+              }
+            }
+          } break;
+        }
+        client->userdata = NULL;
+    } break;
     default: {
         return 0;
       } break;

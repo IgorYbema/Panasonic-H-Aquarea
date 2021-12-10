@@ -46,6 +46,12 @@ struct settingsStruct {
   gpioSettingsStruct gpioSettings;
 };
 
+struct websettings_t {
+  String name;
+  String value;
+  struct websettings_t *next;
+};
+
 void setupConditionals();
 int getFreeMemory(void);
 char *getUptime(void);
@@ -73,6 +79,7 @@ int settingsNewPassword(struct webserver_t *client, settingsStruct *heishamonSet
 int cacheSettings(struct webserver_t *client, struct arguments_t * args);
 int handleWifiScan(struct webserver_t *client);
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length);
+int showRules(struct webserver_t *client);
 int showFirmware(struct webserver_t *client);
 int showFirmwareSuccess(struct webserver_t *client);
 int showFirmwareFail(struct webserver_t *client);

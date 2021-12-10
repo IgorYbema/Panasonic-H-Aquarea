@@ -13,14 +13,6 @@
 
 static String wifiJsonList = "";
 
-struct websettings_t {
-  String name;
-  String value;
-  struct websettings_t *next;
-};
-
-static struct websettings_t *websettings = NULL;
-
 void log_message(char* string);
 
 int dBmToQuality(int dBm) {
@@ -363,7 +355,7 @@ int saveSettings(struct webserver_t *client, settingsStruct *heishamonSettings) 
   jsonDoc["use_1wire"] = String("");
   jsonDoc["use_s0"] = String("");
 
-  struct websettings_t *tmp = websettings;
+  struct websettings_t *tmp = (struct websettings_t *)client->userdata;
   while (tmp) {
     if (strcmp(tmp->name.c_str(), "wifi_hostname") == 0) {
       jsonDoc["wifi_hostname"] = tmp->value;
@@ -416,7 +408,7 @@ int saveSettings(struct webserver_t *client, settingsStruct *heishamonSettings) 
     tmp = tmp->next;
   }
 
-  tmp = websettings;
+  tmp = (struct websettings_t *)client->userdata;
   while (tmp) {
     if (use_s0 != NULL && strcmp(tmp->name.c_str(), "s0_1_gpio") == 0) {
       jsonDoc["s0_1_gpio"] = tmp->value;
@@ -444,9 +436,9 @@ int saveSettings(struct webserver_t *client, settingsStruct *heishamonSettings) 
     tmp = tmp->next;
   }
 
-  while (websettings) {
-    tmp = websettings;
-    websettings = websettings->next;
+  while (client->userdata) {
+    tmp = (struct websettings_t *)client->userdata;
+    client->userdata = ((struct websettings_t *)(client->userdata))->next;
     free(tmp);
   }
 
@@ -486,7 +478,7 @@ int saveSettings(struct webserver_t *client, settingsStruct *heishamonSettings) 
 }
 
 int cacheSettings(struct webserver_t *client, struct arguments_t * args) {
-  struct websettings_t *tmp = websettings;
+  struct websettings_t *tmp = (struct websettings_t *)client->userdata;
   while (tmp) {
     if (strcmp(tmp->name.c_str(), (char *)args->name) == 0) {
       char *cpy = (char *)malloc(args->len + 1);
@@ -521,8 +513,8 @@ int cacheSettings(struct webserver_t *client, struct arguments_t * args) {
       free(cpy);
     }
 
-    node->next = websettings;
-    websettings = node;
+    node->next = (struct websettings_t *)client->userdata;
+    client->userdata = node;
   }
 
   return 0;
@@ -1034,12 +1026,87 @@ int handleJsonOutput(struct webserver_t *client, String actData[]) {
   return 0;
 }
 
+int showRules(struct webserver_t *client) {
+  uint16_t len = 0, len1 = 0;
+
+  if (client->content == 0) {
+    webserver_send(client, 200, (char *)"text/html", 0);
+    webserver_send_content_P(client, webHeader, strlen_P(webHeader));
+    webserver_send_content_P(client, webCSS, strlen_P(webCSS));
+    webserver_send_content_P(client, webBodyStart, strlen_P(webBodyStart));
+    webserver_send_content_P(client, showRulesPage1, strlen_P(showRulesPage1));
+    if (LittleFS.begin()) {
+      client->userdata = new fs::File(LittleFS.open("/rules.txt", "r"));
+    }
+  } else if (client->userdata != NULL) {
+    #define BUFFER_SIZE 128
+    File *f = (File *)client->userdata;
+    char content[BUFFER_SIZE];
+    memset(content, 0, BUFFER_SIZE);
+    if (f) {
+      len = f->size();
+    }
+
+    if (len > 0) {
+      f->seek((client->content-1)*BUFFER_SIZE, SeekSet);
+      if (client->content*BUFFER_SIZE <= len) {
+        f->readBytes(content, BUFFER_SIZE);
+        len1 = BUFFER_SIZE;
+      } else if ((client->content*BUFFER_SIZE) >= len && (client->content*BUFFER_SIZE) <= len+BUFFER_SIZE) {
+        f->readBytes(content, len - ((client->content-1)*BUFFER_SIZE));
+        len1 = len - ((client->content-1)*BUFFER_SIZE);
+      } else {
+        len1 = 0;
+      }
+
+      if (len1 > 0) {
+        webserver_send_content(client, content, len1);
+        if (len1 < BUFFER_SIZE) {
+          if (f) {
+            f->close();
+            delete f;
+          }
+          client->userdata = NULL;
+          webserver_send_content_P(client, showRulesPage2, strlen_P(showRulesPage2));
+          webserver_send_content_P(client, menuJS, strlen_P(menuJS));
+          webserver_send_content_P(client, webFooter, strlen_P(webFooter));
+        }
+      } else if (client->content == 1) {
+        if (f) {
+          f->close();
+          delete f;
+        }
+        client->userdata = NULL;
+        webserver_send_content_P(client, showRulesPage2, strlen_P(showRulesPage2));
+        webserver_send_content_P(client, menuJS, strlen_P(menuJS));
+        webserver_send_content_P(client, webFooter, strlen_P(webFooter));
+      }
+    } else if (client->content == 1) {
+      if (f) {
+        f->close();
+        delete f;
+      }
+      client->userdata = NULL;
+      webserver_send_content_P(client, showRulesPage2, strlen_P(showRulesPage2));
+      webserver_send_content_P(client, menuJS, strlen_P(menuJS));
+      webserver_send_content_P(client, webFooter, strlen_P(webFooter));
+    }
+  } else if (client->content == 1) {
+    webserver_send_content_P(client, showRulesPage2, strlen_P(showRulesPage2));
+    webserver_send_content_P(client, menuJS, strlen_P(menuJS));
+    webserver_send_content_P(client, webFooter, strlen_P(webFooter));
+  }
+
+  return 0;
+}
+
 int showFirmware(struct webserver_t *client) {
   if (client->content == 0) {
     webserver_send(client, 200, (char *)"text/html", 0);
     webserver_send_content_P(client, webHeader, strlen_P(webHeader));
     webserver_send_content_P(client, webCSS, strlen_P(webCSS));
     webserver_send_content_P(client, webBodyStart, strlen_P(webBodyStart));
+  } else if(client->content == 1) {
     webserver_send_content_P(client, showFirmwarePage, strlen_P(showFirmwarePage));
     webserver_send_content_P(client, menuJS, strlen_P(menuJS));
     webserver_send_content_P(client, webFooter, strlen_P(webFooter));
