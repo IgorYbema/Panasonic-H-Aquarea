@@ -67,7 +67,6 @@ byte  data_length = 0;
 // store actual data in an String array
 String actData[NUMBER_OF_TOPICS];
 String actOptData[NUMBER_OF_OPT_TOPICS];
-String RESTmsg = "";
 
 // log message to sprintf to
 char log_msg[256];
