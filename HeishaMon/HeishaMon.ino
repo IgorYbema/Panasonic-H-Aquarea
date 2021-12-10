@@ -692,7 +692,9 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
           case 170: {
               File *f = (File *)client->userdata;
               if (f) {
-                f->close();
+                if (*f) {
+                  f->close();
+                }
                 delete f;
               }
               client->userdata = NULL;
@@ -750,7 +752,9 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
             if (client->userdata != NULL) {
               File *f = (File *)client->userdata;
               if (f) {
-                f->close();
+                if (*f) {
+                  f->close();
+                }
                 delete f;
               }
             }

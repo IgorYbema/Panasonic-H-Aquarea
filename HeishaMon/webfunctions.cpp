@@ -1043,7 +1043,7 @@ int showRules(struct webserver_t *client) {
     File *f = (File *)client->userdata;
     char content[BUFFER_SIZE];
     memset(content, 0, BUFFER_SIZE);
-    if (f) {
+    if (f && *f) {
       len = f->size();
     }
 
@@ -1063,7 +1063,9 @@ int showRules(struct webserver_t *client) {
         webserver_send_content(client, content, len1);
         if (len1 < BUFFER_SIZE) {
           if (f) {
-            f->close();
+            if (*f) {
+              f->close();
+            }
             delete f;
           }
           client->userdata = NULL;
@@ -1073,7 +1075,9 @@ int showRules(struct webserver_t *client) {
         }
       } else if (client->content == 1) {
         if (f) {
-          f->close();
+          if (*f) {
+            f->close();
+          }
           delete f;
         }
         client->userdata = NULL;
@@ -1083,7 +1087,9 @@ int showRules(struct webserver_t *client) {
       }
     } else if (client->content == 1) {
       if (f) {
-        f->close();
+        if (*f) {
+          f->close();
+        }
         delete f;
       }
       client->userdata = NULL;
