@@ -1673,6 +1673,7 @@ void webserver_reset_client(struct webserver_t *client) {
   client->route = 0;
   client->lastseen = 0;
   client->content = 0;
+  client->userdata = NULL;
 
   struct sendlist_t *tmp = NULL;
   while(client->sendlist) {
