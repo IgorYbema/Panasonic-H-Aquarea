@@ -83,7 +83,7 @@ static const byte knownModels[sizeof(Model) / sizeof(Model[0])][10] = { //stores
   0x62, 0xD2, 0x0B, 0x41, 0x54, 0x32, 0xD2, 0x0C, 0x45, 0x55,
 };
 
-#define NUMBER_OF_TOPICS 106 //last topic number + 1
+#define NUMBER_OF_TOPICS 107 //last topic number + 1
 #define NUMBER_OF_OPT_TOPICS 7 //last topic number + 1
 
 static const char *optTopics[] PROGMEM = {
@@ -203,6 +203,7 @@ static const char *topics[] PROGMEM = {
   "Solar_Off_Delta", //TOP103
   "Solar_Frost_Protection", //TOP104
   "Solar_High_Limit", //TOP105
+  "Maximum_Pump_Speed", //TOP106
 };
 
 static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit unsigned humber) as there aren't more then 255 bytes (actually only 203 bytes) to decode
@@ -312,6 +313,7 @@ static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit 
   62,     //TOP103
   63,     //TOP104
   64,     //TOP105
+  29,     //TOP106
 };
 
 typedef String (*topicFP)(byte);
@@ -423,6 +425,7 @@ static const topicFP topicFunctions[] PROGMEM = {
   getIntMinus128,      //TOP103
   getIntMinus128,      //TOP104
   getIntMinus128,      //TOP105
+  getBit3and4,         //TOP106
 };
 
 static const char *DisabledEnabled[] PROGMEM = {"2", "Disabled", "Enabled"};
@@ -557,5 +560,6 @@ static const char **topicDescription[] PROGMEM = {
   Kelvin,          //TOP102
   Kelvin,          //TOP103
   Celsius,         //TOP104
-  Celsius,         //TOP105
+  Celsius,         //TOP105,
+  InactiveActive,  //TOP106
 };
