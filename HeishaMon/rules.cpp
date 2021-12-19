@@ -113,7 +113,7 @@ static int writeRuleToFS(int i) {
 static int is_variable(char *text, unsigned int *pos, unsigned int size) {
   int i = 1, x = 0, match = 0;
 
-  if(size == strlen_P(PSTR("ds18b20#2800000000000000")) && strncmp_P((const char *)&text[*pos], PSTR("ds18b20#"), 7) == 0) {
+  if(size == strlen_P(PSTR("ds18b20#2800000000000000")) && strncmp_P((const char *)&text[*pos], PSTR("ds18b20#"), 8) == 0) {
     return 24;
   } else if(text[*pos] == '$' || text[*pos] == '#' || text[*pos] == '@' || text[*pos] == '%' || text[*pos] == '?') {
     while(isalnum(text[*pos+i])) {
@@ -246,7 +246,7 @@ static int is_event(char *text, unsigned int *pos, unsigned int size) {
     return i;
   }
 
-  if(size == strlen_P(PSTR("ds18b20#2800000000000000")) && strncmp_P((const char *)&text[*pos], PSTR("ds18b20#"), 7) == 0) {
+  if(size == strlen_P(PSTR("ds18b20#2800000000000000")) && strncmp_P((const char *)&text[*pos], PSTR("ds18b20#"), 8) == 0) {
     return 24;
   }
 
@@ -562,7 +562,7 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
       }
     }
   }
-  if(strncmp_P((const char *)node->token, PSTR("ds18b20#"), 7) == 0) {
+  if(strncmp_P((const char *)node->token, PSTR("ds18b20#"), 8) == 0) {
     for(i=0;i<dallasDevicecount;i++) {
       if(strncmp(actDallasData[i].address, (const char *)&node->token[8], 16) == 0) {
         vfloat.type = VFLOAT;
@@ -1365,8 +1365,8 @@ void rules_event_cb(char *name) {
       tlen = strlen((char *)event->token);
       if(
           (
-            len+7 == tlen &&
-            strncmp_P((char *)event->token, PSTR("ds18b20#"), 7) == 0 &&
+            len+8 == tlen &&
+            strncmp_P((char *)event->token, PSTR("ds18b20#"), 8) == 0 &&
             strnicmp((char *)&event->token[8], name, len) == 0
           ) ||
           (
