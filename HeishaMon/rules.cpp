@@ -229,6 +229,7 @@ static int is_event(char *text, unsigned int *pos, unsigned int size) {
 
     return i;
   }
+
   if(text[*pos] == '?') {
     if(strnicmp(&text[(*pos)+1], "temperature", strlen_P(PSTR("temperature"))) == 0) {
       i = strlen_P(PSTR("temperature"))+1;
@@ -243,6 +244,10 @@ static int is_event(char *text, unsigned int *pos, unsigned int size) {
       exit(-1);
     }
     return i;
+  }
+
+  if(size == strlen_P(PSTR("ds18b20#2800000000000000")) && strncmp_P((const char *)&text[*pos], PSTR("ds18b20#"), 7) == 0) {
+    return 24;
   }
 
   return size;
@@ -1352,13 +1357,24 @@ int rules_parse(char *file) {
 }
 
 void rules_event_cb(char *name) {
-  int i = 0;
+  uint8_t i = 0, len = strlen(name), tlen = 0;
   for(i=0;i<nrrules;i++) {
     struct vm_tstart_t *start = (struct vm_tstart_t *)&rules[i]->ast.buffer[0];
     if(rules[i]->ast.buffer[start->go] == TEVENT) {
       struct vm_tevent_t *event = (struct vm_tevent_t *)&rules[i]->ast.buffer[start->go];
-      if(event->token[0] == '@' &&
-        strnicmp((char *)&event->token[1], name, strlen(name)) == 0) {
+      tlen = strlen((char *)event->token);
+      if(
+          (
+            len+7 == tlen &&
+            strncmp_P((char *)event->token, PSTR("ds18b20#"), 7) == 0 &&
+            strnicmp((char *)&event->token[8], name, len) == 0
+          ) ||
+          (
+            len+1 == tlen &&
+            event->token[0] == '@' &&
+            strnicmp((char *)&event->token[1], name, len) == 0
+          )
+        ) {
         char out[512];
         logprintf_P(F("%s %s %s"), F("===="), event->token, F("===="));
         logprintf_P(F("%s %d %s %d"), F(">>> rule"), i, F("nrbytes:"), rules[i]->ast.nrbytes);
