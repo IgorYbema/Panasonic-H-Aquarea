@@ -788,6 +788,10 @@ int http_parse_multipart_body(struct webserver_t *client, unsigned char *buf, ui
                 client->buffer[pos+2] == '\r' && client->buffer[pos+3] == '\n') {
                 client->readlen += ((pos+4)-(pos1));
                 if(client->readlen == client->totallen) {
+                  if(client->boundary != NULL) {
+                    free(client->boundary);
+                    client->boundary = NULL;
+                  }
                   return 0;
                 } else {
                   // Error, content length does not match end boundary
@@ -1290,6 +1294,7 @@ static int webserver_process_send(struct webserver_t *client) {
         if(tmp->type == 0) {
           free(tmp->ptr);
         }
+        free(tmp);
         client->ptr = 0;
       } else {
         if(client->sendlist->type == 1) {
@@ -1356,6 +1361,7 @@ static int webserver_process_send(struct webserver_t *client) {
       client->step = WEBSERVER_CLIENT_CLOSE;
       client->ptr = 0;
       client->content = 0;
+      client->userdata = NULL;
     }
   }
   if(client->async == 1) {
@@ -1473,7 +1479,13 @@ done:
 
 /* LCOV_EXCL_START*/
 static void webserver_client_close(struct webserver_t *client) {
+  if(client->callback != NULL) {
+    client->callback(client, NULL);
+  }
 #ifdef ESP8266
+  if(client->callback != NULL) {
+    client->callback(client, NULL);
+  }
   char log_msg[256];
   sprintf_P(log_msg, PSTR("Closing webserver client: %s:%d"), IPAddress(client->pcb->remote_ip.addr).toString().c_str(), client->pcb->remote_port);
   log_message(log_msg);
@@ -1664,6 +1676,7 @@ void webserver_reset_client(struct webserver_t *client) {
   client->route = 0;
   client->lastseen = 0;
   client->content = 0;
+  client->userdata = NULL;
 
   struct sendlist_t *tmp = NULL;
   while(client->sendlist) {
@@ -1676,6 +1689,7 @@ void webserver_reset_client(struct webserver_t *client) {
   }
   if(client->boundary != NULL) {
     free(client->boundary);
+    client->boundary = NULL;
   }
 
   client->sendlist = NULL;
@@ -1728,6 +1742,7 @@ void webserver_loop(void) {
         clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
       }
     }
+
     switch(clients[i].data.step) {
       case WEBSERVER_CLIENT_CONNECTING: {
         if(clients[i].data.client.available()) {
@@ -1786,6 +1801,9 @@ void webserver_loop(void) {
       } break;
 #ifdef ESP8266
       case WEBSERVER_CLIENT_CLOSE: {
+        if(clients[i].data.callback != NULL) {
+          clients[i].data.callback(&clients[i].data, NULL);
+        }
         char log_msg[256];
         sprintf_P(log_msg, PSTR("Closing webserver client: %s:%d"), clients[i].data.client.remoteIP().toString().c_str(), clients[i].data.client.remotePort());
         log_message(log_msg);
