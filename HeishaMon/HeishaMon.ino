@@ -205,6 +205,7 @@ void mqtt_reconnect()
     {
       mqttReconnects++;
 
+      mqtt_client.subscribe("panasonic_heat_pump/opentherm/#");
       sprintf(topic, "%s/%s/#", heishamonSettings.mqtt_topic_base, mqtt_topic_commands);
       mqtt_client.subscribe(topic);
       sprintf(topic, "%s/%s", heishamonSettings.mqtt_topic_base, mqtt_send_raw_value_topic);
