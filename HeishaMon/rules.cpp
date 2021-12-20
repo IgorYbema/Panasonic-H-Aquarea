@@ -1371,7 +1371,7 @@ void rules_event_cb(char *name) {
           ) ||
           (
             len+1 == tlen &&
-            event->token[0] == '@' &&
+            (event->token[0] == '@' || event->token[0] == '?') &&
             strnicmp((char *)&event->token[1], name, len) == 0
           )
         ) {

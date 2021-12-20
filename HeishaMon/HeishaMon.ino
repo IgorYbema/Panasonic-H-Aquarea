@@ -424,8 +424,10 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
       send_heatpump_command(topic_sendcommand, msg, send_command, log_message, heishamonSettings.optionalPCB);
     } else if (stricmp((char const *)topic, "panasonic_heat_pump/opentherm/Temperature") == 0) {
       strcpy(th_values[0], msg);
+      rules_event_cb("temperature");
     } else if (stricmp((char const *)topic, "panasonic_heat_pump/opentherm/Setpoint") == 0) {
       strcpy(th_values[1], msg);
+      rules_event_cb("setpoint");
     }
     mqttcallbackinprogress = false;
   }
