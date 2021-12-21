@@ -1005,8 +1005,8 @@ static void vm_value_set(struct rules_t *obj, uint16_t token, uint16_t val) {
           }
         }
       }
-      FREE(payload);
     }
+    FREE(payload);
   }
 }
 
