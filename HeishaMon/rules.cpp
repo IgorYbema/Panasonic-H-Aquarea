@@ -25,6 +25,16 @@
 #include "decode.h"
 #include "commands.h"
 
+#define MAXCOMMANDSINBUFFER 10
+
+static struct cmdbuffer_t {
+  uint8_t *token;
+  char *payload;
+} cmdbuffer[MAXCOMMANDSINBUFFER];
+
+static uint8_t cmdstart = 0;
+static uint8_t cmdend = 0;
+static uint8_t cmdnrel = 0;
 
 bool send_command(byte* command, int length);
 
@@ -76,6 +86,55 @@ static struct vm_vnull_t vnull;
 struct rule_options_t rule_options;
 
 static void vm_global_value_prt(char *out, int size);
+
+static void popCommandBuffer() {
+  // to make sure we can pop a command from the buffer
+  if(cmdnrel > 0) {
+    if(parsing == 0) {
+      unsigned char cmd[256] = { 0 };
+      char log_msg[256] = { 0 };
+
+      for(uint8_t x = 0; x < sizeof(commands) / sizeof(commands[0]); x++) {
+        if(strcmp((char *)cmdbuffer[cmdstart].token, commands[x].name) == 0) {
+          uint16_t len = commands[x].func(cmdbuffer[cmdstart].payload, cmd, log_msg);
+          log_message(log_msg);
+          send_command(cmd, len);
+          break;
+        }
+      }
+
+      memset(&cmd, 256, 0);
+      memset(&log_msg, 256, 0);
+
+      if(heishamonSettings.optionalPCB) {
+        //optional commands
+        for(uint8_t x = 0; x < sizeof(optionalCommands) / sizeof(optionalCommands[0]); x++) {
+          if(strcmp((char *)cmdbuffer[cmdstart].token, optionalCommands[x].name) == 0) {
+            uint16_t len = optionalCommands[x].func(cmdbuffer[cmdstart].payload, log_msg);
+            log_message(log_msg);
+            break;
+          }
+        }
+      }
+    }
+
+    FREE(cmdbuffer[cmdstart].payload);
+    cmdstart = (cmdstart + 1) % (MAXCOMMANDSINBUFFER);
+    cmdnrel--;
+  }
+}
+
+static void pushCommandBuffer(uint8_t *token, char *payload) {
+  if (cmdnrel + 1 > MAXCOMMANDSINBUFFER) {
+    log_message((char *)"Too much commands already in buffer. Ignoring this commands.\n");
+    return;
+  }
+
+  cmdbuffer[cmdend].token = token;
+  cmdbuffer[cmdend].payload = payload;
+  cmdend = (cmdend + 1) % (MAXCOMMANDSINBUFFER);
+  cmdnrel++;
+}
 
 static int readRuleFromFS(int i) {
   char fname[24];
@@ -982,31 +1041,10 @@ static void vm_value_set(struct rules_t *obj, uint16_t token, uint16_t val) {
     }
 
     if(parsing == 0) {
-      unsigned char cmd[256] = { 0 };
-      char log_msg[256] = { 0 };
-
-      for (uint8_t x = 0; x < sizeof(commands) / sizeof(commands[0]); x++) {
-        if (strcmp((char *)&var->token[1], commands[x].name) == 0) {
-          len = commands[x].func(payload, cmd, log_msg);
-          log_message(log_msg);
-          send_command(cmd, len);
-        }
-      }
-
-      memset(&cmd, 256, 0);
-      memset(&log_msg, 256, 0);
-
-      if (heishamonSettings.optionalPCB) {
-        //optional commands
-        for (uint8_t x = 0; x < sizeof(optionalCommands) / sizeof(optionalCommands[0]); x++) {
-          if (strcmp((char *)&var->token[1], optionalCommands[x].name) == 0) {
-            len = optionalCommands[x].func(payload, log_msg);
-            log_message(log_msg);
-          }
-        }
-      }
+      pushCommandBuffer(&var->token[1], payload);
+    } else {
+      FREE(payload);
     }
-    FREE(payload);
   }
 }
 
@@ -1272,6 +1310,9 @@ int rules_parse(char *file) {
   File frules = LittleFS.open(file, "r");
   if(frules) {
     parsing = 1;
+    while((cmdnrel > 0)) {
+      popCommandBuffer();
+    }
 
     if(nrrules > 0) {
       for(int i=0;i<nrrules;i++) {
@@ -1496,4 +1537,10 @@ void rules_setup(void) {
 
 
   rules_boot();
+}
+
+void rules_loop(void) {
+  if((cmdnrel > 0)) {
+    popCommandBuffer();
+  }
 }

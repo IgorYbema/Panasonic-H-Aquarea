@@ -109,12 +109,6 @@ bool firstConnectSinceBoot = true; //if this is true there is no first connectio
 struct timerqueue_t **timerqueue = NULL;
 int timerqueue_size = 0;
 
-struct f_struct {
-  f_struct(fs::File handle) : f(handle) {};
-
-  fs::File f;
-};
-
 /*
     check_wifi will process wifi reconnecting managing
 */
@@ -1011,6 +1005,8 @@ void read_panasonic_data() {
 }
 
 void loop() {
+  rules_loop();
+
   webserver_loop();
 
   // check wifi
