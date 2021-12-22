@@ -1024,12 +1024,8 @@ int handleTableRefresh(struct webserver_t *client, String actData[]) {
         webserver_send_content(client, str, strlen(str));
 
         webserver_send_content_P(client, PSTR("</td><td>"), 9);
-
-        String t = topics[topic];
-        char *tmp = (char *)t.c_str();
-        webserver_send_content(client, tmp, strlen(tmp));
-
-        webserver_send_content_P(client, PSTR("</td><td>"), 9);
+        webserver_send_content_P(client, topics[topic], strlen_P(topics[topic]));
+		webserver_send_content_P(client, PSTR("</td><td>"), 9);
 
         {
           char *str = (char *)actData[topic].c_str();
