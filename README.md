@@ -42,6 +42,8 @@ The rules functionality allows you to control the heatpump from within the Heish
 
 The techniques used in the rule library allows you to work with very large rulesets, but best practice is to keep it below 10.000 bytes.
 
+Notice that sending commands to the heatpump is done asynced. So, commands sent to the heatpump at the beginning of your syntax will not immediatly be reflected in the values from the heatpump later on. Therefor, heatpump values should therefor be read from the heatpump itself instead of those based on the values you keep yourself.
+
 ## Syntax
 Two general rules are that spaces are mandatory and all lines are terminated by a semicolon.
 
