@@ -918,8 +918,9 @@ static const char showFirmwarePage[] PROGMEM =
   "</div>"
   "<div class=\"w3-container w3-center\">"
   "   <form method='POST' action='' enctype='multipart/form-data'>"
-  "       Firmware:<br>"
+  "       <h2>Firmware:</h2>"
   "       <input type='file' accept='.bin,.bin.gz' name='firmware'><br><br>"
+  "       <label for='md5'>MD5 checksum:</label><input type='text' id='md5' name='md5' value='' size='32' minlength='32' maxlength='32'><br><br>"
   "       <input type='submit' value='Update Firmware'>"
   "   </form>"
   "</div>";
