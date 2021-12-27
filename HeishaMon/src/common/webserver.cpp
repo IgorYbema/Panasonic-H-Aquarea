@@ -1176,7 +1176,7 @@ static uint16_t webserver_create_header(struct webserver_t *client, uint16_t cod
     tcp_write(client->pcb, &buffer, i, 0);
     tcp_output(client->pcb);
   } else {
-    if(client->client.write(buffer, i) > 0) {
+    if(client->client->write(buffer, i) > 0) {
       client->lastseen = millis();
     }
   }
@@ -1188,6 +1188,7 @@ static int webserver_process_send(struct webserver_t *client) {
   struct sendlist_t *tmp = client->sendlist;
   uint16_t cpylen = client->totallen, i = 0, cpyptr = client->ptr;
   unsigned char cpy[client->totallen+1];
+  memset(&cpy, 0, client->totallen+1);
 
   if(client->chunked == 1) {
     while(tmp != NULL && cpylen > 0) {
@@ -1217,7 +1218,7 @@ static int webserver_process_send(struct webserver_t *client) {
     if(client->async == 1) {
       tcp_write(client->pcb, chunk_size, n, 0);
     } else {
-      if(client->client.write(chunk_size, n) > 0) {
+      if(client->client->write(chunk_size, n) > 0) {
         client->lastseen = millis();
       }
     }
@@ -1233,7 +1234,7 @@ static int webserver_process_send(struct webserver_t *client) {
             if(client->async == 1) {
               tcp_write(client->pcb, cpy, client->sendlist->size, TCP_WRITE_FLAG_MORE);
             } else {
-              if(client->client.write(cpy, client->sendlist->size) > 0) {
+              if(client->client->write(cpy, client->sendlist->size) > 0) {
                 client->lastseen = millis();
               }
             }
@@ -1241,7 +1242,7 @@ static int webserver_process_send(struct webserver_t *client) {
             if(client->async == 1) {
               tcp_write(client->pcb, &((unsigned char *)client->sendlist->ptr)[client->ptr], client->sendlist->size, TCP_WRITE_FLAG_MORE);
             } else {
-              if(client->client.write(&((unsigned char *)client->sendlist->ptr)[client->ptr], client->sendlist->size) > 0) {
+              if(client->client->write(&((unsigned char *)client->sendlist->ptr)[client->ptr], client->sendlist->size) > 0) {
                 client->lastseen = millis();
               }
             }
@@ -1263,7 +1264,7 @@ static int webserver_process_send(struct webserver_t *client) {
             if(client->async == 1) {
               tcp_write(client->pcb, cpy, client->totallen, TCP_WRITE_FLAG_MORE);
             } else {
-              if(client->client.write(cpy, client->totallen) > 0) {
+              if(client->client->write(cpy, client->totallen) > 0) {
                 client->lastseen = millis();
               }
             }
@@ -1271,7 +1272,7 @@ static int webserver_process_send(struct webserver_t *client) {
             if(client->async == 1) {
               tcp_write(client->pcb, &((unsigned char *)client->sendlist->ptr)[client->ptr], client->totallen, TCP_WRITE_FLAG_MORE);
             } else {
-              if(client->client.write(&((unsigned char *)client->sendlist->ptr)[client->ptr], client->totallen) > 0) {
+              if(client->client->write(&((unsigned char *)client->sendlist->ptr)[client->ptr], client->totallen) > 0) {
                 client->lastseen = millis();
               }
             }
@@ -1286,7 +1287,7 @@ static int webserver_process_send(struct webserver_t *client) {
           if(client->async == 1) {
             tcp_write(client->pcb, cpy, (client->sendlist->size-client->ptr), TCP_WRITE_FLAG_MORE);
           } else {
-            if(client->client.write(cpy, (client->sendlist->size-client->ptr)) > 0) {
+            if(client->client->write(cpy, (client->sendlist->size-client->ptr)) > 0) {
               client->lastseen = millis();
             }
           }
@@ -1294,7 +1295,7 @@ static int webserver_process_send(struct webserver_t *client) {
           if(client->async == 1) {
             tcp_write(client->pcb, &((unsigned char *)client->sendlist->ptr)[client->ptr], (client->sendlist->size-client->ptr), TCP_WRITE_FLAG_MORE);
           } else {
-            if(client->client.write(&((unsigned char *)client->sendlist->ptr)[client->ptr], (client->sendlist->size-client->ptr)) > 0) {
+            if(client->client->write(&((unsigned char *)client->sendlist->ptr)[client->ptr], (client->sendlist->size-client->ptr)) > 0) {
               client->lastseen = millis();
             }
           }
@@ -1314,7 +1315,7 @@ static int webserver_process_send(struct webserver_t *client) {
           if(client->async == 1) {
             tcp_write(client->pcb, cpy, client->totallen, TCP_WRITE_FLAG_MORE);
           } else {
-            if(client->client.write(cpy, client->totallen) > 0) {
+            if(client->client->write(cpy, client->totallen) > 0) {
               client->lastseen = millis();
             }
           }
@@ -1322,7 +1323,7 @@ static int webserver_process_send(struct webserver_t *client) {
           if(client->async == 1) {
             tcp_write(client->pcb, &((unsigned char *)client->sendlist->ptr)[client->ptr], client->totallen, TCP_WRITE_FLAG_MORE);
           } else {
-            if(client->client.write(&((unsigned char *)client->sendlist->ptr)[client->ptr], client->totallen) > 0) {
+            if(client->client->write(&((unsigned char *)client->sendlist->ptr)[client->ptr], client->totallen) > 0) {
               client->lastseen = millis();
             }
           }
@@ -1335,7 +1336,7 @@ static int webserver_process_send(struct webserver_t *client) {
       if(client->async == 1) {
         tcp_write_P(client->pcb, PSTR("\r\n"), 2, TCP_WRITE_FLAG_MORE);
       } else {
-        if(client->client.write_P((char *)PSTR("\r\n"), 2) > 0) {
+        if(client->client->write_P((char *)PSTR("\r\n"), 2) > 0) {
           client->lastseen = millis();
         }
       }
@@ -1355,7 +1356,7 @@ static int webserver_process_send(struct webserver_t *client) {
         if(client->async == 1) {
           tcp_write_P(client->pcb, PSTR("0\r\n\r\n"), 5, 0);
         } else {
-          if(client->client.write_P((char *)PSTR("0\r\n\r\n"), 5) > 0) {
+          if(client->client->write_P((char *)PSTR("0\r\n\r\n"), 5) > 0) {
             client->lastseen = millis();
           }
         }
@@ -1364,7 +1365,7 @@ static int webserver_process_send(struct webserver_t *client) {
         if(client->async == 1) {
           tcp_write_P(client->pcb, PSTR("\r\n\r\n"), 4, 0);
         } else {
-          if(client->client.write_P((char *)PSTR("\r\n\r\n"), 4) > 0) {
+          if(client->client->write_P((char *)PSTR("\r\n\r\n"), 4) > 0) {
             client->lastseen = millis();
           }
         }
@@ -1473,7 +1474,7 @@ done:
       tcp_write(client->pcb, &buffer, i, 0);
       tcp_output(client->pcb);
     } else{
-      if(client->client.write((unsigned char *)&buffer, i) > 0) {
+      if(client->client->write((unsigned char *)&buffer, i) > 0) {
         client->lastseen = millis();
       }
     }
@@ -1602,7 +1603,6 @@ err_t webserver_async_receive(void *arg, tcp_pcb *pcb, struct pbuf *data, err_t 
   if(data == NULL) {
     for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
       if(clients[i].data.pcb == pcb) {
-        printf("%d\n", __LINE__);
         webserver_client_close(&clients[i].data);
       }
     }
@@ -1671,7 +1671,9 @@ void webserver_reset_client(struct webserver_t *client) {
     client->pcb = NULL;
   }
   if(client->active == 1) {
-    client->client.stop();
+    client->client->stop();
+    delete client->client;
+    client->client = NULL;
   }
 #endif
 
@@ -1748,16 +1750,19 @@ void webserver_loop(void) {
       if((unsigned long)(millis() - clients[i].data.lastseen) > WEBSERVER_CLIENT_TIMEOUT) {
 #ifdef ESP8266
         char log_msg[256];
-        sprintf_P(log_msg, PSTR("Timeout webserver client: %s:%d"), clients[i].data.client.remoteIP().toString().c_str(), clients[i].data.client.remotePort());
+        sprintf_P(log_msg, PSTR("Timeout webserver client: %s:%d"), clients[i].data.client->remoteIP().toString().c_str(), clients[i].data.client->remotePort());
         log_message(log_msg);
 #endif
         clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
       }
     }
+    if(!clients[i].data.client->connected()) {
+      clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
+    }
 
     switch(clients[i].data.step) {
       case WEBSERVER_CLIENT_CONNECTING: {
-        if(clients[i].data.client.available()) {
+        if(clients[i].data.client->available()) {
           clients[i].data.step = WEBSERVER_CLIENT_READ_HEADER;
         }
         clients[i].data.ptr = 0;
@@ -1765,15 +1770,15 @@ void webserver_loop(void) {
       } break;
       case WEBSERVER_CLIENT_ARGS:
       case WEBSERVER_CLIENT_READ_HEADER: {
-        if(clients[i].data.client.connected() || clients[i].data.client.available()) {
-          if(clients[i].data.client.available()) {
+        if(clients[i].data.client->connected() || clients[i].data.client->available()) {
+          if(clients[i].data.client->available()) {
             uint8_t *p = (uint8_t *)rbuffer;
-            size = clients[i].data.client.read(
+            size = clients[i].data.client->read(
               p,
               WEBSERVER_READ_SIZE
             );
           }
-        } else if(!clients[i].data.client.connected()) {
+        } else if(!clients[i].data.client->connected()) {
           clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
         } else {
           continue;
@@ -1817,10 +1822,10 @@ void webserver_loop(void) {
           clients[i].data.callback(&clients[i].data, NULL);
         }
         char log_msg[256];
-        sprintf_P(log_msg, PSTR("Closing webserver client: %s:%d"), clients[i].data.client.remoteIP().toString().c_str(), clients[i].data.client.remotePort());
+        sprintf_P(log_msg, PSTR("Closing webserver client: %s:%d"), clients[i].data.client->remoteIP().toString().c_str(), clients[i].data.client->remotePort());
         log_message(log_msg);
 
-        clients[i].data.client.stop();
+        clients[i].data.client->stop();
         webserver_reset_client(&clients[i].data);
       } break;
 #endif
@@ -1828,10 +1833,10 @@ void webserver_loop(void) {
   }
 
 #if defined(ESP8266)
-  if(sync_server.hasClient()) {
+  while(sync_server.hasClient()) {
     for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
       if(clients[i].data.active == 0) {
-        clients[i].data.client = sync_server.available();
+        clients[i].data.client = new WiFiClient(sync_server.available());
         if(clients[i].data.client) {
           webserver_reset_client(&clients[i].data);
 
@@ -1840,11 +1845,11 @@ void webserver_loop(void) {
           clients[i].data.lastseen = millis();
           clients[i].data.step = WEBSERVER_CLIENT_CONNECTING;
 
-          // clients[i].data.client.setNoDelay(true);
-          // clients[i].data.client.setTimeout(200);
+          clients[i].data.client->setNoDelay(true);
+          clients[i].data.client->setTimeout(5000);
 
           char log_msg[256];
-          sprintf_P(log_msg, PSTR("New webserver client: %s:%d"), clients[i].data.client.remoteIP().toString().c_str(), clients[i].data.client.remotePort());
+          sprintf_P(log_msg, PSTR("New webserver client: %s:%d"), clients[i].data.client->remoteIP().toString().c_str(), clients[i].data.client->remotePort());
           log_message(log_msg);
           break;
         }
