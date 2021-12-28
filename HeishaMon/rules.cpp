@@ -72,9 +72,9 @@ static struct rules_t **rules = NULL;
 static int nrrules = 0;
 
 typedef struct varstack_t {
-  unsigned char *stack;
   unsigned int nrbytes;
   unsigned int bufsize;
+  unsigned char *stack;
 } varstack_t;
 
 static struct varstack_t global_varstack;
@@ -1260,18 +1260,14 @@ int rules_parse(char *file) {
       rules_gc(&rules, nrrules);
       nrrules = 0;
     }
+    memset(&mempool, 0, MEMPOOL_SIZE);
 
     FREE(global_varstack.stack);
     global_varstack.stack = NULL;
     global_varstack.nrbytes = 4;
 
     int len = frules.size();
-    char *content = (char *)MALLOC(len+1);
-    if(content == NULL) {
-      OUT_OF_MEMORY
-    }
-    memset(content, 0, len+1);
-    frules.readBytes(content, len);
+    frules.readBytes((char *)&mempool[MEMPOOL_SIZE-len-1], len);
     frules.close();
 
     struct varstack_t *varstack = (struct varstack_t *)MALLOC(sizeof(struct varstack_t));
@@ -1283,7 +1279,10 @@ int rules_parse(char *file) {
     varstack->bufsize = 4;
 
     int ret = 0;
-    while((ret = rule_initialize(&content, &rules, &nrrules, varstack)) == 0) {
+    unsigned int txtoffset = MEMPOOL_SIZE-len-1;
+    unsigned int memoffset = 0;
+    char *text = (char *)&mempool[MEMPOOL_SIZE-len-1];
+    while((ret = rule_initialize(&text, &txtoffset, &rules, &nrrules, (unsigned char *)&mempool, &memoffset, varstack) == 0)) {
       varstack = (struct varstack_t *)MALLOC(sizeof(struct varstack_t));
       if(varstack == NULL) {
         OUT_OF_MEMORY
@@ -1291,12 +1290,12 @@ int rules_parse(char *file) {
       varstack->stack = NULL;
       varstack->nrbytes = 4;
       varstack->bufsize = 4;
+      text = (char *)&mempool[txtoffset];
     }
 
     if(nrrules > 1) {
       FREE(varstack);
     }
-    FREE(content);
 
     /*
      * Clear all timers
@@ -1433,6 +1432,7 @@ void rules_setup(void) {
   if(!LittleFS.begin()) {
     return;
   }
+  memset(&mempool, 0, MEMPOOL_SIZE+1);
 
   logprintln_P(F("reading rules"));
 
@@ -1472,12 +1472,5 @@ void rules_setup(void) {
     rules_parse("/rules.txt");
   }
 
-
   rules_boot();
-}
-
-void rules_loop(void) {
-  if((cmdnrel > 0)) {
-    popCommandBuffer();
-  }
 }

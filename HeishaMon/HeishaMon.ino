@@ -1031,8 +1031,6 @@ void read_panasonic_data() {
 }
 
 void loop() {
-  rules_loop();
-
   webserver_loop();
 
   // check wifi

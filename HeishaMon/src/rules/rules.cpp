@@ -65,13 +65,13 @@ static void print_bytecode(struct rules_t *obj);
 void rules_gc(struct rules_t ***rules, unsigned int nrrules) {
   unsigned int i = 0;
   for(i=0;i<nrrules;i++) {
-    FREE((*rules)[i]->ast.buffer);
+    // FREE((*rules)[i]->ast.buffer);
     FREE((*rules)[i]->varstack.buffer);
-    FREE((*rules)[i]->valstack.buffer);
-    FREE((*rules)[i]);
+    // FREE((*rules)[i]->valstack.buffer);
+    // FREE((*rules)[i]);
   }
-  FREE((*rules));
-  (*rules) = NULL;
+  // FREE((*rules));
+  // (*rules) = NULL;
 
 #ifndef ESP8266
   /*
@@ -4480,21 +4480,35 @@ void print_bytecode(struct rules_t *obj) {
 #endif
 /*LCOV_EXCL_STOP*/
 
-int rule_initialize(char **text, struct rules_t ***rules, int *nrrules, void *userdata) {
-  char out[512];
-
+int rule_initialize(char **text, unsigned int *txtoffset, struct rules_t ***rules, int *nrrules, unsigned char *mempool, unsigned int *memoffset, void *userdata) {
   unsigned int nrbytes = 0, nrval = 0, len = strlen(*text), newlen = len;
+
+  if(*memoffset < 512) {
+    *memoffset = 512;
+  }
+  if(*nrrules >= 64) {
+#ifdef ESP8266
+    Serial1.println(PSTR("more than the maximum of 64 rule blocks defined"));
+#else
+    printf("more than the maximum of 64 rule blocks defined\n");
+#endif
+  }
+  if(*txtoffset < alignedbuffer(*memoffset)) {
+#ifdef ESP8266
+    Serial1.println(PSTR("not enough free space in rules mempool"));
+#else
+    printf("not enough free space in rules mempool\n");
+#endif
+  }
+
   if(len == 0) {
     return 1;
   }
-  *rules = (struct rules_t **)REALLOC(*rules, sizeof(struct rules_t *)*((*nrrules)+1));
-  if(*rules == NULL) {
-    OUT_OF_MEMORY
-  }
-  if(((*rules)[*nrrules] = (struct rules_t *)MALLOC(sizeof(struct rules_t))) == NULL) {
-    OUT_OF_MEMORY
-  }
+  *rules = (struct rules_t **)&mempool[0];
+  (*rules)[*nrrules] = (struct rules_t *)&mempool[alignedbuffer(*memoffset)];
   memset((*rules)[*nrrules], 0, sizeof(struct rules_t));
+  *memoffset += sizeof(struct rules_t);
+
   (*rules)[*nrrules]->userdata = userdata;
 
   struct rules_t *obj = (*rules)[*nrrules];
@@ -4551,12 +4565,13 @@ int rule_initialize(char **text, struct rules_t ***rules, int *nrrules, void *us
   {
     obj->ast.bufsize = alignedbuffer(nrbytes);
     obj->valstack.bufsize = nrval;
-    if((obj->ast.buffer = (unsigned char *)MALLOC(obj->ast.bufsize)) == NULL) {
-      OUT_OF_MEMORY
-    }
-    if((obj->valstack.buffer = (uint16_t *)MALLOC(nrval*(sizeof(uint16_t)))) == NULL) {
-      OUT_OF_MEMORY
-    }
+
+    obj->ast.buffer = (unsigned char *)&mempool[alignedbuffer(*memoffset)];
+    *memoffset += obj->ast.bufsize;
+
+    obj->valstack.buffer = (uint16_t *)&mempool[alignedbuffer(*memoffset)];
+    *memoffset += nrval*(sizeof(uint16_t));
+
     memset(obj->ast.buffer, 0, obj->ast.bufsize);
     memset(obj->valstack.buffer, 0, nrval*(sizeof(uint16_t)));
 
@@ -4564,16 +4579,9 @@ int rule_initialize(char **text, struct rules_t ***rules, int *nrrules, void *us
       return -1;
     }
 
-    memmove(&(*text)[0], &(*text)[newlen], len-newlen);
-    (*text)[len-newlen] = 0;
-
-    if((*text)[0] == 0 && len > newlen) {
-      len = strlen(&(*text)[1]);
-      memmove(&(*text)[0], &(*text)[1], len);
-      if((*text = (char *)REALLOC(*text, len+1)) == NULL) {
-        OUT_OF_MEMORY
-      }
-      (*text)[len] = 0;
+    *txtoffset += newlen;
+    if((*text)[newlen] == 0 && len > newlen) {
+      *txtoffset += 1;
     }
   }
 

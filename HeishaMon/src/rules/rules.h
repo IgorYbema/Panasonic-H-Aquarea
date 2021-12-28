@@ -13,6 +13,7 @@
 #include <stdint.h>
 
 #define EPSILON  0.000001
+#define MEMPOOL_SIZE 14000
 
 typedef enum {
   TOPERATOR = 1,
@@ -120,6 +121,8 @@ typedef struct rule_options_t {
 } rule_options_t;
 
 extern struct rule_options_t rule_options;
+extern unsigned char mempool[MEMPOOL_SIZE];
+extern unsigned int memptr;
 
 /*
  * Each position field is the closest
@@ -219,7 +222,7 @@ typedef struct vm_teof_t {
   uint8_t type;
 } __attribute__((packed)) vm_teof_t;
 
-int rule_initialize(char **text, struct rules_t ***rules, int *nrrules, void *userdata);
+int rule_initialize(char **text, unsigned int *txtoffset, struct rules_t ***rules, int *nrrules, unsigned char *mempool, unsigned int *memoffset, void *userdata);
 void rules_gc(struct rules_t ***obj, unsigned int nrrules);
 int rule_run(struct rules_t *obj, int validate);
 void valprint(struct rules_t *obj, char *out, int size);
