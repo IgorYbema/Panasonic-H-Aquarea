@@ -10,6 +10,7 @@
 
 #include <ArduinoJson.h>
 
+#include "lwip/apps/sntp.h"
 #include "src/common/timerqueue.h"
 #include "src/common/stricmp.h"
 #include "src/common/log.h"
@@ -172,6 +173,8 @@ void check_wifi()
         settingsToJson(jsonDoc, &heishamonSettings); //stores current settings in a json document
         saveJsonToConfig(jsonDoc); //save to config file
       }
+
+      ntpReload(&heishamonSettings);
     }
 
     /*
@@ -235,25 +238,33 @@ void log_message(const __FlashStringHelper *msg) {
 
 void log_message(char* string)
 {
+  time_t rawtime;
+  rawtime = time(NULL);
+  struct tm *timeinfo = localtime(&rawtime);
+  char timestring[32];
+  strftime(timestring,32,"%c",timeinfo);
+  char log_line[320];
+  sprintf(log_line,"%s (%lu): %s",timestring,millis(),string);
+
   if (heishamonSettings.logSerial1) {
-    Serial1.print(millis());
-    Serial1.print(": ");
-    Serial1.println(string);
+    Serial1.println(log_line);
   }
   if (heishamonSettings.logMqtt && mqtt_client.connected())
   {
     char log_topic[256];
     sprintf(log_topic, "%s/%s", heishamonSettings.mqtt_topic_base, mqtt_logtopic);
 
-    if (!mqtt_client.publish(log_topic, string)) {
-      Serial1.print(millis());
-      Serial1.print(F(": "));
-      Serial1.println(F("MQTT publish log message failed!"));
+    if (!mqtt_client.publish(log_topic, log_line)) {
+      if (heishamonSettings.logSerial1) {
+        Serial1.print(millis());
+        Serial1.print(F(": "));
+        Serial1.println(F("MQTT publish log message failed!"));
+      }
       mqtt_client.disconnect();
     }
   }
   if (webSocket.connectedClients() > 0) {
-    webSocket.broadcastTXT(string, strlen(string));
+    webSocket.broadcastTXT(log_line, strlen(log_line));
   }
 }
 
@@ -968,6 +979,9 @@ void setup() {
 
   setupMqtt();
   setupHttp();
+
+  sntp_setoperatingmode(SNTP_OPMODE_POLL);
+  sntp_init();
 
   switchSerial(); //switch serial to gpio13/gpio15
   WiFi.printDiag(Serial1);
