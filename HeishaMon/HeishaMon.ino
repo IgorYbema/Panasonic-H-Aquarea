@@ -424,7 +424,7 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
       char mqtt_topic[256];
       sprintf(mqtt_topic, "%s", topic);
       if (mqtt_client.unsubscribe(mqtt_topic)) {
-        log_message((char*)"Unsubscribed from S0 watthour restore topic");
+        log_message(F("Unsubscribed from S0 watthour restore topic"));
       }
     } else if (strncmp(topic_command, mqtt_topic_commands, 8) == 0)  // check for optional pcb commands
     {
