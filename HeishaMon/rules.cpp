@@ -84,89 +84,51 @@ static struct vm_vfloat_t vfloat;
 static struct vm_vnull_t vnull;
 
 struct rule_options_t rule_options;
+unsigned char mempool[MEMPOOL_SIZE];
+unsigned int memptr = 0;
 
 static void vm_global_value_prt(char *out, int size);
 
-static void popCommandBuffer() {
-  // to make sure we can pop a command from the buffer
-  if(cmdnrel > 0) {
-    if(parsing == 0) {
-      unsigned char cmd[256] = { 0 };
-      char log_msg[256] = { 0 };
+// static int readRuleFromFS(int i) {
+  // char fname[24];
+  // memset(&fname, 0, sizeof(fname));
+  // sprintf_P((char *)&fname, PSTR("/rule%d.bc"), i);
+  // File f = LittleFS.open(fname, "r");
+  // if(!f) {
+    // logprintf_P(F("failed to open file: %s"), fname);
+    // return -1;
+  // }
+  // FREE(rules[i]->ast.buffer);
+  // if((rules[i]->ast.buffer = (unsigned char *)MALLOC(rules[i]->ast.bufsize)) == NULL) {
+    // OUT_OF_MEMORY
+  // }
+  // memset(rules[i]->ast.buffer, 0, rules[i]->ast.bufsize);
+  // f.readBytes((char *)rules[i]->ast.buffer, rules[i]->ast.bufsize);
+  // f.close();
+  // return 0;
+// }
 
-      for(uint8_t x = 0; x < sizeof(commands) / sizeof(commands[0]); x++) {
-        if(strcmp((char *)cmdbuffer[cmdstart].token, commands[x].name) == 0) {
-          uint16_t len = commands[x].func(cmdbuffer[cmdstart].payload, cmd, log_msg);
-          log_message(log_msg);
-          send_command(cmd, len);
-          break;
-        }
-      }
+// static int writeRuleToFS(int i) {
+  // char fname[24];
+  // memset(&fname, 0, sizeof(fname));
+  // sprintf_P((char *)&fname, PSTR("/rule%d.bc"), i);
+  // File f = LittleFS.open(fname, "w");
+  // if(!f) {
+    // logprintf_P(F("failed to open file: %s"), fname);
+    // return -1;
+  // }
+  // f.write((char *)rules[i]->ast.buffer, rules[i]->ast.bufsize);
+  // f.close();
+  // return 0;
+// }
 
-      memset(&cmd, 256, 0);
-      memset(&log_msg, 256, 0);
-
-      if(heishamonSettings.optionalPCB) {
-        //optional commands
-        for(uint8_t x = 0; x < sizeof(optionalCommands) / sizeof(optionalCommands[0]); x++) {
-          if(strcmp((char *)cmdbuffer[cmdstart].token, optionalCommands[x].name) == 0) {
-            uint16_t len = optionalCommands[x].func(cmdbuffer[cmdstart].payload, log_msg);
-            log_message(log_msg);
-            break;
-          }
-        }
-      }
-    }
-
-    FREE(cmdbuffer[cmdstart].payload);
-    cmdstart = (cmdstart + 1) % (MAXCOMMANDSINBUFFER);
-    cmdnrel--;
-  }
-}
-
-static void pushCommandBuffer(uint8_t *token, char *payload) {
-  if (cmdnrel + 1 > MAXCOMMANDSINBUFFER) {
-    log_message((char *)"Too much commands already in buffer. Ignoring this commands.\n");
-    return;
-  }
-
-  cmdbuffer[cmdend].token = token;
-  cmdbuffer[cmdend].payload = payload;
-  cmdend = (cmdend + 1) % (MAXCOMMANDSINBUFFER);
-  cmdnrel++;
-}
-
-static int readRuleFromFS(int i) {
-  char fname[24];
-  memset(&fname, 0, sizeof(fname));
-  sprintf_P((char *)&fname, PSTR("/rule%d.bc"), i);
-  File f = LittleFS.open(fname, "r");
-  if(!f) {
-    logprintf_P(F("failed to open file: %s"), fname);
+static int get_event(struct rules_t *obj) {
+  struct vm_tstart_t *start = (struct vm_tstart_t *)&obj->ast.buffer[0];
+  if(obj->ast.buffer[start->go] != TEVENT) {
     return -1;
+  } else {
+    return start->go;
   }
-  FREE(rules[i]->ast.buffer);
-  if((rules[i]->ast.buffer = (unsigned char *)MALLOC(rules[i]->ast.bufsize)) == NULL) {
-    OUT_OF_MEMORY
-  }
-  memset(rules[i]->ast.buffer, 0, rules[i]->ast.bufsize);
-  f.readBytes((char *)rules[i]->ast.buffer, rules[i]->ast.bufsize);
-  f.close();
-  return 0;
-}
-
-static int writeRuleToFS(int i) {
-  char fname[24];
-  memset(&fname, 0, sizeof(fname));
-  sprintf_P((char *)&fname, PSTR("/rule%d.bc"), i);
-  File f = LittleFS.open(fname, "w");
-  if(!f) {
-    logprintf_P(F("failed to open file: %s"), fname);
-    return -1;
-  }
-  f.write((char *)rules[i]->ast.buffer, rules[i]->ast.bufsize);
-  f.close();
-  return 0;
 }
 
 static int is_variable(char *text, unsigned int *pos, unsigned int size) {
@@ -324,10 +286,8 @@ static int event_cb(struct rules_t *obj, char *name) {
     return rule_run(called, 0);
   } else {
     for(x=0;x<nrrules;x++) {
-      struct vm_tstart_t *start = (struct vm_tstart_t *)&rules[x]->ast.buffer[0];
-      if(rules[x]->ast.buffer[start->go] == TEVENT) {
-        struct vm_tevent_t *event = (struct vm_tevent_t *)&rules[x]->ast.buffer[start->go];
-        if(strnicmp((char *)event->token, name, strlen(name)) == 0) {
+      if(get_event(rules[x]) > -1) {
+        if(strnicmp(name, (char *)&rules[x]->ast.buffer[get_event(rules[x])+5], strlen((char *)&rules[x]->ast.buffer[get_event(rules[x])+5])) == 0) {
           called = rules[x];
           break;
         }
@@ -512,7 +472,6 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
       varstack->bufsize = alignedbuffer(size);
     }
 
-
     const char *key = (char *)node->token;
     switch(varstack->stack[obj->valstack.buffer[node->value]]) {
       case VINTEGER: {
@@ -583,14 +542,12 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
     if(stricmp((char *)&node->token[1], "hour") == 0) {
       memset(&vinteger, 0, sizeof(struct vm_vinteger_t));
       vinteger.type = VINTEGER;
-      // vinteger.value = (int)lt.tm_hour;
       vinteger.value = 0;
       return (unsigned char *)&vinteger;
     }
     if(stricmp((char *)&node->token[1], "month") == 0) {
       memset(&vinteger, 0, sizeof(struct vm_vinteger_t));
       vinteger.type = VINTEGER;
-      // vinteger.value = (int)lt.tm_hour;
       vinteger.value = 0;
       return (unsigned char *)&vinteger;
     }
@@ -1232,15 +1189,6 @@ static void vm_clear_values(struct rules_t *obj) {
   }
 }
 
-static int get_event(struct rules_t *obj) {
-  struct vm_tstart_t *start = (struct vm_tstart_t *)&obj->ast.buffer[0];
-  if(obj->ast.buffer[start->go] != TEVENT) {
-    return -1;
-  } else {
-    return start->go;
-  }
-}
-
 void rules_new_event(const char *event) {
   static char out[1024];
   uint8_t i = 0;
@@ -1276,40 +1224,21 @@ void rules_timer_cb(int nr) {
   // logprintf_P(F("_______ %s %s"), __FUNCTION__, name);
 
   for(x=0;x<nrrules;x++) {
-    struct vm_tstart_t *start = (struct vm_tstart_t *)&rules[x]->ast.buffer[0];
-    if(rules[x]->ast.buffer[start->go] == TEVENT) {
-      struct vm_tevent_t *event = (struct vm_tevent_t *)&rules[x]->ast.buffer[start->go];
-      if(strnicmp((char *)event->token, name, strlen(name)) == 0) {
-        char out[512];
-        logprintf_P(F("%s %s %s"), F("===="), name, F("===="));
-        logprintf_P(F("%s %d %s %d"), F(">>> rule"), i, F("nrbytes:"), rules[x]->ast.nrbytes);
-        logprintf_P(F("%s %d"), F(">>> global stack nrbytes:"), global_varstack.nrbytes);
+    if(get_event(rules[x]) > -1 && strcmp((char *)&rules[x]->ast.buffer[get_event(rules[x])+5], name) == 0) {
+      rule_run(rules[x], 0);
 
-        rules[x]->timestamp.first = micros();
+      char out[512];
+      memset(&out, 0, 512);
+      logprintln_P(F("\n>>> local variables\n"));
+      vm_value_prt(rules[x], (char *)&out, 512);
+      logprintf_P(F("%s"), out);
+      logprintf_P(F("\n>>> global variables\n"));
+      memset(&out, 0, 512);
+      vm_global_value_prt((char *)&out, 512);
+      logprintf_P(F("%s"), out);
 
-        rule_run(rules[x], 0);
-
-        rules[x]->timestamp.second = micros();
-
-        logprintf_P(F("%s%d %s %d %s"), F("rule #"), rules[x]->nr, F("was executed in"), rules[x]->timestamp.second - rules[x]->timestamp.first, F("microseconds"));
-
-        logprintln_P(F("\n>>> local variables"));
-        memset(&out, 0, sizeof(out));
-        vm_value_prt(rules[x], (char *)&out, sizeof(out));
-        logprintf(out);
-        logprintln_P(F(">>> global variables"));
-        vm_global_value_prt((char *)&out, sizeof(out));
-        logprintf(out);
-
-        FREE(name);
-        break;
-      }
+      break;
     }
-  }
-  for(int i=0;i<nrrules;i++) {
-    FREE(rules[i]->varstack.buffer);
-    rules[i]->varstack.nrbytes = 4;
-    rules[i]->varstack.bufsize = 4;
   }
   FREE(name);
 }
