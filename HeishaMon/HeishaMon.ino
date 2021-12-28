@@ -1073,7 +1073,11 @@ void loop() {
     free(up);
     message += F(" ## Free memory: ");
     message += getFreeMemory();
-    message += F("% ");
+    message += F("% ## Heap fragmentation: ");
+    message += ESP.getHeapFragmentation();
+    message += F("% ## Max free block: ");
+    message += ESP.getMaxFreeBlockSize();
+    message += F(" bytes ## Free heap: ");
     message += ESP.getFreeHeap();
     message += F(" bytes ## Wifi: ");
     message += getWifiQuality();
