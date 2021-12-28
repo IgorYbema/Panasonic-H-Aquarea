@@ -551,22 +551,30 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
   if(node->token[0] == '@') {
     for(i=0;i<NUMBER_OF_TOPICS;i++) {
       if(stricmp(topics[i], (char *)&node->token[1]) == 0) {
-        float var = atof(actData[i].c_str());
-        float nr = 0;
+        if(strlen(actData[i].c_str()) == 0) {
+          memset(&vnull, 0, sizeof(struct vm_vnull_t));
+          vnull.type = VNULL;
+          vnull.ret = token;
 
-        // mosquitto_publish
-        if(modff(var, &nr) == 0) {
-          memset(&vinteger, 0, sizeof(struct vm_vinteger_t));
-          vinteger.type = VINTEGER;
-          vinteger.value = (int)var;
-
-          return (unsigned char *)&vinteger;
+          return (unsigned char *)&vnull;
         } else {
-          memset(&vfloat, 0, sizeof(struct vm_vfloat_t));
-          vfloat.type = VFLOAT;
-          vfloat.value = var;
+          float var = atof(actData[i].c_str());
+          float nr = 0;
 
-          return (unsigned char *)&vfloat;
+          // mosquitto_publish
+          if(modff(var, &nr) == 0) {
+            memset(&vinteger, 0, sizeof(struct vm_vinteger_t));
+            vinteger.type = VINTEGER;
+            vinteger.value = (int)var;
+
+            return (unsigned char *)&vinteger;
+          } else {
+            memset(&vfloat, 0, sizeof(struct vm_vfloat_t));
+            vfloat.type = VFLOAT;
+            vfloat.value = var;
+
+            return (unsigned char *)&vfloat;
+          }
         }
       }
     }
