@@ -42,7 +42,7 @@ extern int dallasDevicecount;
 extern dallasDataStruct *actDallasData;
 extern settingsStruct heishamonSettings;
 extern String actData[NUMBER_OF_TOPICS];
-extern char th_values[2][HEATPUMP_VALUE_LEN];
+extern String openTherm[2];
 static uint8_t parsing = 0;
 
 typedef struct vm_gvchar_t {
@@ -589,14 +589,14 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
   }
   if(node->token[0] == '?') {
     if(stricmp((char *)&node->token[1], "temperature") == 0) {
-      if(strlen(th_values[0]) == 0) {
+      if(strlen(openTherm[0].c_str()) == 0) {
         memset(&vnull, 0, sizeof(struct vm_vnull_t));
         vnull.type = VNULL;
         vnull.ret = token;
         // printf("%s %s = NULL\n", __FUNCTION__, (char *)node->token);
         return (unsigned char *)&vnull;
       } else {
-        float var = atof(th_values[0]);
+        float var = atof(openTherm[0].c_str());
         memset(&vfloat, 0, sizeof(struct vm_vfloat_t));
         vfloat.type = VFLOAT;
         vfloat.value = var;
@@ -605,14 +605,14 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
       }
     }
     if(stricmp((char *)&node->token[1], "setpoint") == 0) {
-      if(strlen(th_values[1]) == 0) {
+      if(strlen(openTherm[1].c_str()) == 0) {
         memset(&vnull, 0, sizeof(struct vm_vnull_t));
         vnull.type = VNULL;
         vnull.ret = token;
         // printf("%s %s = NULL\n", __FUNCTION__, (char *)node->token);
         return (unsigned char *)&vnull;
       } else {
-        float var = atof(th_values[1]);
+        float var = atof(openTherm[1].c_str());
         memset(&vfloat, 0, sizeof(struct vm_vfloat_t));
         vfloat.type = VFLOAT;
         vfloat.value = var;

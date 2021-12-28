@@ -20,9 +20,6 @@
 #include "commands.h"
 #include "rules.h"
 
-char th_values[2][HEATPUMP_VALUE_LEN];
-
-
 DNSServer dnsServer;
 
 //to read bus voltage in stats
@@ -73,6 +70,7 @@ char data[MAXDATASIZE] = { '\0' };
 byte data_length = 0;
 
 // store actual data in an String array
+String openTherm[2];
 String actData[NUMBER_OF_TOPICS];
 String actOptData[NUMBER_OF_OPT_TOPICS];
 
@@ -431,10 +429,15 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
       char* topic_sendcommand = topic_command + 9; //strip the first 9 "commands/" from the topic to get what we need
       send_heatpump_command(topic_sendcommand, msg, send_command, log_message, heishamonSettings.optionalPCB);
     } else if (stricmp((char const *)topic, "panasonic_heat_pump/opentherm/Temperature") == 0) {
-      strcpy(th_values[0], msg);
+      char cpy[length + 1];
+      strcpy(cpy, (char *)payload);
+      openTherm[0] = cpy;
       rules_event_cb("temperature");
     } else if (stricmp((char const *)topic, "panasonic_heat_pump/opentherm/Setpoint") == 0) {
-      strcpy(th_values[1], msg);
+      char cpy[length + 1];
+      strcpy(cpy, (char *)payload);
+      openTherm[0] = cpy;
+
       rules_event_cb("setpoint");
     }
     mqttcallbackinprogress = false;
@@ -597,6 +600,18 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
                     log_message(log_msg);
                   }
                 }
+              }
+
+              if (stricmp((char const *)args->name, "temperature") == 0) {
+                char cpy[args->len + 1];
+                strcpy(cpy, (char *)args->value);
+                openTherm[0] = cpy;
+                rules_event_cb("temperature");
+              } else if (stricmp((char const *)args->name, "setpoint") == 0) {
+                char cpy[args->len + 1];
+                strcpy(cpy, (char *)args->value);
+                openTherm[1] = cpy;
+                rules_event_cb("setpoint");
               }
             } break;
           case 110: {
