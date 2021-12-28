@@ -26,17 +26,6 @@ void _logprintln(const char *file, unsigned int line, char *msg) {
     Serial1.print(": ");
     Serial1.println(msg);
   }
-  if(strstr(file, "rule") == NULL && heishamonSettings.logMqtt && mqtt_client.connected()) {
-    char log_topic[256];
-    sprintf(log_topic, "%s/%s", heishamonSettings.mqtt_topic_base, mqtt_logtopic);
-
-    if(!mqtt_client.publish(log_topic, msg)) {
-      Serial1.print(millis());
-      Serial1.print(F(": "));
-      Serial1.println(F("MQTT publish log message failed!"));
-      mqtt_client.disconnect();
-    }
-  }
   if(webSocket.connectedClients() > 0) {
     webSocket.broadcastTXT(msg, strlen(msg));
   }
