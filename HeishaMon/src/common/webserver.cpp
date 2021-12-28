@@ -1676,7 +1676,7 @@ void webserver_reset_client(struct webserver_t *client) {
     tcp_close(client->pcb);
     client->pcb = NULL;
   }
-  if(client->active == 1) {
+  if(client->client != NULL) {
     client->client->stop();
     delete client->client;
     client->client = NULL;
@@ -1688,7 +1688,6 @@ void webserver_reset_client(struct webserver_t *client) {
   client->method = 0;
   client->async = 0;
   client->totallen = 0;
-  client->active = 0;
   client->step = 0;
   client->substep = 0;
   client->chunked = 0;
@@ -1784,8 +1783,6 @@ void webserver_loop(void) {
               WEBSERVER_READ_SIZE
             );
           }
-        } else if(!clients[i].data.client->connected()) {
-          clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
         } else {
           continue;
         }
@@ -1839,15 +1836,14 @@ void webserver_loop(void) {
   }
 
 #if defined(ESP8266)
-  while(sync_server.hasClient()) {
+  if(sync_server.hasClient()) {
     for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
-      if(clients[i].data.active == 0) {
+      if(clients[i].data.client == NULL) {
+        webserver_reset_client(&clients[i].data);
         clients[i].data.client = new WiFiClient(sync_server.available());
         if(clients[i].data.client) {
-          webserver_reset_client(&clients[i].data);
 
           clients[i].data.async = 0;
-          clients[i].data.active = 1;
           clients[i].data.lastseen = millis();
           clients[i].data.step = WEBSERVER_CLIENT_CONNECTING;
 

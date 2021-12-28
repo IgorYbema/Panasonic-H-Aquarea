@@ -22,7 +22,7 @@
 #endif
 
 #ifndef WEBSERVER_MAX_CLIENTS
-  #define WEBSERVER_MAX_CLIENTS 5
+  #define WEBSERVER_MAX_CLIENTS 1
 #endif
 
 #ifndef WEBSERVER_CLIENT_TIMEOUT
@@ -95,7 +95,6 @@ typedef struct webserver_t {
   tcp_pcb *pcb;
   WiFiClient *client;
   unsigned long lastseen;
-  uint8_t active:1;
   uint8_t reqtype:1;
   uint8_t async:1;
   uint8_t method:1;
