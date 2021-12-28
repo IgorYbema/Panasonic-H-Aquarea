@@ -203,7 +203,7 @@ static const char *topics[] PROGMEM = {
   "Solar_Off_Delta", //TOP103
   "Solar_Frost_Protection", //TOP104
   "Solar_High_Limit", //TOP105
-  "Maximum_Pump_Speed", //TOP106
+  "Pump_Flowrate_Mode", //TOP106
 };
 
 static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit unsigned humber) as there aren't more then 255 bytes (actually only 203 bytes) to decode
@@ -432,6 +432,7 @@ static const char *DisabledEnabled[] PROGMEM = {"2", "Disabled", "Enabled"};
 static const char *BlockedFree[] PROGMEM = {"2", "Blocked", "Free"};
 static const char *OffOn[] PROGMEM = {"2", "Off", "On"};
 static const char *InactiveActive[] PROGMEM = {"2", "Inactive", "Active"};
+static const char *PumpFlowRateMode[] PROGMEM = {"2", "DeltaT", "Max flow"};
 static const char *HolidayState[] PROGMEM = {"3", "Off", "Scheduled", "Active"};
 static const char *OpModeDesc[] PROGMEM = {"9", "Heat", "Cool", "Auto(heat)", "DHW", "Heat+DHW", "Cool+DHW", "Auto(heat)+DHW", "Auto(cool)", "Auto(cool)+DHW"};
 static const char *Powerfulmode[] PROGMEM = {"4", "Off", "30min", "60min", "90min"};
@@ -560,6 +561,6 @@ static const char **topicDescription[] PROGMEM = {
   Kelvin,          //TOP102
   Kelvin,          //TOP103
   Celsius,         //TOP104
-  Celsius,         //TOP105,
-  InactiveActive,  //TOP106
+  Celsius,         //TOP105
+  PumpFlowRateMode,//TOP106
 };
