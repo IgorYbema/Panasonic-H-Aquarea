@@ -27,15 +27,6 @@
 
 #define MAXCOMMANDSINBUFFER 10
 
-static struct cmdbuffer_t {
-  uint8_t *token;
-  char *payload;
-} cmdbuffer[MAXCOMMANDSINBUFFER];
-
-static uint8_t cmdstart = 0;
-static uint8_t cmdend = 0;
-static uint8_t cmdnrel = 0;
-
 bool send_command(byte* command, int length);
 
 extern int dallasDevicecount;
@@ -1006,10 +997,33 @@ static void vm_value_set(struct rules_t *obj, uint16_t token, uint16_t val) {
     }
 
     if(parsing == 0) {
-      pushCommandBuffer(&var->token[1], payload);
-    } else {
-      FREE(payload);
+      unsigned char cmd[256] = { 0 };
+      char log_msg[256] = { 0 };
+
+      for(uint8_t x = 0; x < sizeof(commands) / sizeof(commands[0]); x++) {
+        if(strcmp((char *)&var->token[1], commands[x].name) == 0) {
+          uint16_t len = commands[x].func(payload, cmd, log_msg);
+          log_message(log_msg);
+          send_command(cmd, len);
+          break;
+        }
+      }
+
+      memset(&cmd, 256, 0);
+      memset(&log_msg, 256, 0);
+
+      if(heishamonSettings.optionalPCB) {
+        //optional commands
+        for(uint8_t x = 0; x < sizeof(optionalCommands) / sizeof(optionalCommands[0]); x++) {
+          if(strcmp((char *)&var->token[1], optionalCommands[x].name) == 0) {
+            uint16_t len = optionalCommands[x].func(payload, log_msg);
+            log_message(log_msg);
+            break;
+          }
+        }
+      }
     }
+    FREE(payload);
   }
 }
 
@@ -1247,9 +1261,6 @@ int rules_parse(char *file) {
   File frules = LittleFS.open(file, "r");
   if(frules) {
     parsing = 1;
-    while((cmdnrel > 0)) {
-      popCommandBuffer();
-    }
 
     if(nrrules > 0) {
       for(int i=0;i<nrrules;i++) {
