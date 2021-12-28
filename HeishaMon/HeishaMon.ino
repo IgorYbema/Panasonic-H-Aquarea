@@ -978,7 +978,7 @@ void setup() {
   dnsServer.start(DNS_PORT, "*", apIP);
 
   //maybe necessary but for now disable. CZ-TAW1 sends this query on boot
-  //if (!heishamonSettings.listenonly) send_initial_query();
+  if (!heishamonSettings.listenonly) send_initial_query();
 
   rst_info *resetInfo = ESP.getResetInfoPtr();
   Serial1.printf(PSTR("Reset reason: %d, exception cause: %d\n"), resetInfo->reason, resetInfo->exccause);
