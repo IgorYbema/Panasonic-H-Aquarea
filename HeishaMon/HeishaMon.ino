@@ -1087,7 +1087,9 @@ void loop() {
 
     //log stats
     if (totalreads > 0 ) readpercentage = (((float)goodreads / (float)totalreads) * 100);
-    String message = F("Heishamon stats: Uptime: ");
+    String message;
+    message.reserve(384);
+    message += F("Heishamon stats: Uptime: ");
     char *up = getUptime();
     message += up;
     free(up);
@@ -1110,7 +1112,9 @@ void loop() {
     message += F("%");
     log_message((char*)message.c_str());
 
-    String stats = F("{\"uptime\":");
+    String stats;
+    stats.reserve(384);
+    stats += F("{\"uptime\":");
     stats += String(millis());
     stats += F(",\"voltage\":");
     stats += ESP.getVcc() / 1024.0;
