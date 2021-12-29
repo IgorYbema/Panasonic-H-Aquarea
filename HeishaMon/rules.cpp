@@ -1004,7 +1004,7 @@ static void vm_value_set(struct rules_t *obj, uint16_t token, uint16_t val) {
       } break;
     }
 
-    if(parsing == 0) {
+    if(parsing == 0 && !heishamonSettings.listenonly) {
       unsigned char cmd[256] = { 0 };
       char log_msg[256] = { 0 };
 
