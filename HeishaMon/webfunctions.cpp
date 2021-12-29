@@ -17,6 +17,8 @@
 
 static String wifiJsonList = "";
 
+static uint8_t ntpservers = 0;
+
 void log_message(char* string);
 
 int dBmToQuality(int dBm) {
