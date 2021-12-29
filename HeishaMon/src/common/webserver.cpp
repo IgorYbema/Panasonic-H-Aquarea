@@ -1788,9 +1788,7 @@ void webserver_loop(void) {
         }
         if(size > 0) {
           clients[i].data.lastseen = millis();
-          if(webserver_sync_receive(&clients[i].data, rbuffer, size) == -1) {
-            clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
-          }
+          webserver_sync_receive(&clients[i].data, rbuffer, size);
         }
       } break;
       case WEBSERVER_CLIENT_WRITE: {
