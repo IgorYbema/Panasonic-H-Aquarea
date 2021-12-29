@@ -20,6 +20,7 @@ static String wifiJsonList = "";
 static uint8_t ntpservers = 0;
 
 void log_message(char* string);
+void log_message(const __FlashStringHelper *msg);
 
 int dBmToQuality(int dBm) {
   if (dBm == 31)
@@ -164,16 +165,16 @@ void ntpReload(settingsStruct *heishamonSettings) {
 
 void loadSettings(settingsStruct *heishamonSettings) {
   //read configuration from FS json
-  log_message((char *)"mounting FS...");
+  log_message(F("mounting FS..."));
 
   if (LittleFS.begin()) {
-    log_message((char *)"mounted file system");
+    log_message(F("mounted file system"));
     if (LittleFS.exists("/config.json")) {
       //file exists, reading and loading
-      log_message((char *)"reading config file");
+      log_message(F("reading config file"));
       File configFile = LittleFS.open("/config.json", "r");
       if (configFile) {
-        log_message((char *)"opened config file");
+        log_message(F("opened config file"));
         size_t size = configFile.size();
         // Allocate a buffer to store contents of the file.
         std::unique_ptr<char[]> buf(new char[size]);
@@ -185,7 +186,7 @@ void loadSettings(settingsStruct *heishamonSettings) {
         serializeJson(jsonDoc, log_msg);
         log_message(log_msg);
         if (!error) {
-          log_message((char *)"\nparsed json");
+          log_message(F("parsed json"));
           //read updated parameters, make sure no overflow
           if ( jsonDoc["wifi_ssid"] ) strncpy(heishamonSettings->wifi_ssid, jsonDoc["wifi_ssid"], sizeof(heishamonSettings->wifi_ssid));
           if ( jsonDoc["wifi_password"] ) strncpy(heishamonSettings->wifi_password, jsonDoc["wifi_password"], sizeof(heishamonSettings->wifi_password));
@@ -227,7 +228,7 @@ void loadSettings(settingsStruct *heishamonSettings) {
           if (jsonDoc["s0_2_maxpulsewidth"]) heishamonSettings->s0Settings[1].maximalPulseWidth = jsonDoc["s0_2_maxpulsewidth"];
           ntpReload(heishamonSettings);
         } else {
-          log_message((char *)"Failed to load json config, forcing config reset.");
+          log_message(F("Failed to load json config, forcing config reset."));
           WiFi.persistent(true);
           WiFi.disconnect();
           WiFi.persistent(false);
@@ -236,20 +237,20 @@ void loadSettings(settingsStruct *heishamonSettings) {
       }
     }
     else {
-      log_message((char *)"No config.json exists! Forcing a config reset.");
+      log_message(F("No config.json exists! Forcing a config reset."));
       WiFi.persistent(true);
       WiFi.disconnect();
       WiFi.persistent(false);
     }
   } else {
-    log_message((char *)"failed to mount FS");
+    log_message(F("failed to mount FS"));
   }
   //end read
 
 }
 
 void setupWifi(settingsStruct *heishamonSettings) {
-  log_message((char *)"Wifi reconnecting with new configuration...");
+  log_message(F("Wifi reconnecting with new configuration..."));
   //no sleep wifi
   WiFi.setSleepMode(WIFI_NONE_SLEEP);
   WiFi.mode(WIFI_AP_STA);
@@ -257,7 +258,7 @@ void setupWifi(settingsStruct *heishamonSettings) {
   WiFi.softAPdisconnect(true);
 
   if (heishamonSettings->wifi_ssid[0] != '\0') {
-    log_message((char *)"Wifi client mode...");
+    log_message(F("Wifi client mode..."));
     //WiFi.persistent(true); //breaks stuff
 
     if (heishamonSettings->wifi_password[0] == '\0') {
@@ -267,14 +268,14 @@ void setupWifi(settingsStruct *heishamonSettings) {
     }
   }
   else {
-    log_message((char *)"Wifi hotspot mode...");
+    log_message(F("Wifi hotspot mode..."));
     WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
-    WiFi.softAP((char*)"HeishaMon-Setup");
+    WiFi.softAP(F("HeishaMon-Setup"));
   }
 
   if (heishamonSettings->wifi_hostname[0] == '\0') {
     //Set hostname on wifi rather than ESP_xxxxx
-    WiFi.hostname((char *)"HeishaMon");
+    WiFi.hostname(F("HeishaMon"));
   } else {
     WiFi.hostname(heishamonSettings->wifi_hostname);
   }
