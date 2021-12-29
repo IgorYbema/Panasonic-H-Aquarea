@@ -441,12 +441,14 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
       send_heatpump_command(topic_sendcommand, msg, send_command, log_message, heishamonSettings.optionalPCB);
     } else if (stricmp((char const *)topic, "panasonic_heat_pump/opentherm/Temperature") == 0) {
       char cpy[length + 1];
-      strcpy(cpy, (char *)payload);
+      memset(&cpy, 0, length + 1);
+      strncpy(cpy, (char *)payload, length);
       openTherm[0] = cpy;
       rules_event_cb("temperature");
     } else if (stricmp((char const *)topic, "panasonic_heat_pump/opentherm/Setpoint") == 0) {
       char cpy[length + 1];
-      strcpy(cpy, (char *)payload);
+      memset(&cpy, 0, length + 1);
+      strncpy(cpy, (char *)payload, length);
       openTherm[1] = cpy;
 
       rules_event_cb("setpoint");
