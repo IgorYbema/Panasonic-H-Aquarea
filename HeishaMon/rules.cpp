@@ -144,8 +144,10 @@ static int is_variable(char *text, unsigned int *pos, unsigned int size) {
     if(text[*pos] == '@') {
       int nrcommands = sizeof(commands)/sizeof(commands[0]);
       for(x=0;x<nrcommands;x++) {
-        size_t len = strlen_P(commands[x].name);
-        if(strnicmp(&text[(*pos)+1], commands[x].name, len) == 0) {
+        cmdStruct cmd;
+        memcpy_P(&cmd, &commands[x], sizeof(cmd));
+        size_t len = strlen(cmd.name);
+        if(strnicmp(&text[(*pos)+1], cmd.name, len) == 0) {
           i = len+1;
           match = 1;
           break;
@@ -154,8 +156,10 @@ static int is_variable(char *text, unsigned int *pos, unsigned int size) {
 
       int nroptcommands = sizeof(optionalCommands)/sizeof(optionalCommands[0]);
       for(x=0;x<nroptcommands;x++) {
-        size_t len = strlen_P(optionalCommands[x].name);
-        if(strnicmp(&text[(*pos)+1], optionalCommands[x].name, len) == 0) {
+        optCmdStruct cmd;
+        memcpy_P(&cmd, &optionalCommands[x], sizeof(cmd));
+        size_t len = strlen(cmd.name);
+        if(strnicmp(&text[(*pos)+1], cmd.name, len) == 0) {
           i = len+1;
           match = 1;
           break;
@@ -165,8 +169,10 @@ static int is_variable(char *text, unsigned int *pos, unsigned int size) {
       if(match == 0) {
         int nrtopics = sizeof(topics)/sizeof(topics[0]);
         for(x=0;x<nrtopics;x++) {
-          size_t len = strlen_P(topics[x]);
-          if(strnicmp(&text[(*pos)+1], topics[x], len) == 0) {
+          char cpy[MAX_TOPIC_LEN];
+          memcpy_P(&cpy, topics[x], MAX_TOPIC_LEN);
+          size_t len = strlen(cpy);
+          if(strnicmp(&text[(*pos)+1], cpy, len) == 0) {
             i = len+1;
             match = 1;
             break;
@@ -202,10 +208,10 @@ static int is_event(char *text, unsigned int *pos, unsigned int size) {
   if(text[*pos] == '@') {
     int nrcommands = sizeof(commands)/sizeof(commands[0]);
     for(x=0;x<nrcommands;x++) {
-      size_t len = strlen_P(commands[x].name);
-      char cpy[len];
-      memcpy_P(&cpy, &commands[x].name, len);
-      if(strnicmp(&text[(*pos)+1], cpy, len) == 0) {
+      cmdStruct cmd;
+      memcpy_P(&cmd, &commands[x], sizeof(cmd));
+      size_t len = strlen(cmd.name);
+      if(strnicmp(&text[(*pos)+1], cmd.name, len) == 0) {
         i = len+1;
         match = 1;
         break;
@@ -214,10 +220,10 @@ static int is_event(char *text, unsigned int *pos, unsigned int size) {
 
     int nroptcommands = sizeof(optionalCommands)/sizeof(optionalCommands[0]);
     for(x=0;x<nroptcommands;x++) {
-      size_t len = strlen_P(optionalCommands[x].name);
-      char cpy[len];
-      memcpy_P(&cpy, &optionalCommands[x].name, len);
-      if(strnicmp(&text[(*pos)+1], cpy, len) == 0) {
+      optCmdStruct cmd;
+      memcpy_P(&cmd, &optionalCommands[x], sizeof(cmd));
+      size_t len = strlen(cmd.name);
+      if(strnicmp(&text[(*pos)+1], cmd.name, len) == 0) {
         i = len+1;
         match = 1;
         break;
@@ -500,7 +506,9 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
   }
   if(node->token[0] == '@') {
     for(i=0;i<NUMBER_OF_TOPICS;i++) {
-      if(stricmp(topics[i], (char *)&node->token[1]) == 0) {
+      char cpy[MAX_TOPIC_LEN];
+      memcpy_P(&cpy, topics[i], MAX_TOPIC_LEN);
+      if(stricmp(cpy, (char *)&node->token[1]) == 0) {
         if(strlen(actData[i].c_str()) == 0) {
           memset(&vnull, 0, sizeof(struct vm_vnull_t));
           vnull.type = VNULL;
@@ -1001,8 +1009,10 @@ static void vm_value_set(struct rules_t *obj, uint16_t token, uint16_t val) {
       char log_msg[256] = { 0 };
 
       for(uint8_t x = 0; x < sizeof(commands) / sizeof(commands[0]); x++) {
-        if(strcmp((char *)&var->token[1], commands[x].name) == 0) {
-          uint16_t len = commands[x].func(payload, cmd, log_msg);
+        cmdStruct tmp;
+        memcpy_P(&tmp, &commands[x], sizeof(tmp));
+        if(strcmp((char *)&var->token[1], tmp.name) == 0) {
+          uint16_t len = tmp.func(payload, cmd, log_msg);
           log_message(log_msg);
           send_command(cmd, len);
           break;
@@ -1015,8 +1025,10 @@ static void vm_value_set(struct rules_t *obj, uint16_t token, uint16_t val) {
       if(heishamonSettings.optionalPCB) {
         //optional commands
         for(uint8_t x = 0; x < sizeof(optionalCommands) / sizeof(optionalCommands[0]); x++) {
-          if(strcmp((char *)&var->token[1], optionalCommands[x].name) == 0) {
-            uint16_t len = optionalCommands[x].func(payload, log_msg);
+          optCmdStruct tmp;
+          memcpy_P(&tmp, &optionalCommands[x], sizeof(tmp));
+          if(strcmp((char *)&var->token[1], tmp.name) == 0) {
+            uint16_t len = tmp.func(payload, log_msg);
             log_message(log_msg);
             break;
           }

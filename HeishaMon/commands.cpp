@@ -749,8 +749,10 @@ void send_heatpump_command(char* topic, char *msg, bool (*send_command)(byte*, i
   unsigned int len = 0;
 
   for (unsigned int i = 0; i < sizeof(commands) / sizeof(commands[0]); i++) {
-    if (strcmp(topic, commands[i].name) == 0) {
-      len = commands[i].func(msg, cmd, log_msg);
+    cmdStruct cmd;
+    memcpy_P(&cmd, &commands[i], sizeof(cmd));
+    if (strcmp(topic, cmd.name) == 0) {
+      len = cmd.func(msg, cmd, log_msg);
       log_message(log_msg);
       send_command(cmd, len);
     }
@@ -759,8 +761,10 @@ void send_heatpump_command(char* topic, char *msg, bool (*send_command)(byte*, i
   if (optionalPCB) {
     //run for optional pcb commands
     for (unsigned int i = 0; i < sizeof(optionalCommands) / sizeof(optionalCommands[0]); i++) {
-      if (strcmp(topic, optionalCommands[i].name) == 0) {
-        len = optionalCommands[i].func(msg, log_msg);
+      optCmdStruct cmd;
+      memcpy_P(&cmd, &optionalCommands[i], sizeof(cmd));
+      if (strcmp(topic, cmd.name) == 0) {
+        len = cmd.func(msg, log_msg);
         log_message(log_msg);
         if ((unsigned long)(millis() - lastOptionalPCBSave) > (1000 * OPTIONALPCBSAVETIME)) {  // only save each 5 minutes
           lastOptionalPCBSave = millis();
