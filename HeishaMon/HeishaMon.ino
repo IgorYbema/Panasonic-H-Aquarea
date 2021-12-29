@@ -65,8 +65,8 @@ static int uploadpercentage = 0;
 char data[MAXDATASIZE] = { '\0' };
 byte  data_length = 0;
 
-// store actual data in an String array
-String actData[NUMBER_OF_TOPICS];
+// store actual data 
+char actData[MAXDATASIZE] = { '\0' };
 String actOptData[NUMBER_OF_OPT_TOPICS];
 String RESTmsg = "";
 
@@ -317,8 +317,9 @@ bool readSerial()
       goodreads++;
 
       if (data_length == 203) { //for now only return true for this datagram because we can not decode the shorter datagram yet
-        data_length = 0;
         decode_heatpump_data(data, actData, mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
+        memcpy(actData,data,data_length);
+        data_length = 0;
         return true;
       }
       else if (data_length == 20 ) { //optional pcb acknowledge answer
