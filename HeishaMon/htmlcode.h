@@ -70,9 +70,9 @@ static const char refreshJS[] PROGMEM =
   " };"
   " function loadContent(id, url, func) {"
   "   var xhr = new XMLHttpRequest();"
-  "   xhr.open('GET', url, true);"
+  "   xhr.open('GET', url, false);" //sync request to not overload the webserver
   "   xhr.send();"
-  "   xhr.onload = function() {"
+  //"   xhr.onload = function() {"  //sync request to not overload the webserver
   "     if(xhr.status == 200) {"
   "       let obj = document.getElementById(id);"
   "       if(obj) {"
@@ -80,7 +80,7 @@ static const char refreshJS[] PROGMEM =
   "         func();"
   "       }"
   "     }"
-  "   }"
+  //"   }"  //sync request to not overload the webserver
   " }"
   " function refreshTable(){"
   "   loadContent('heishavalues', '/tablerefresh', function(){setTimeout(refreshTable, 30000);});"
@@ -910,7 +910,6 @@ struct tzStruct {
   char name[32];
   char value[46];
 };
-
 const tzStruct tzdata[] PROGMEM = {
   { "ETC/GMT", "GMT0" },
   { "Africa/Abidjan", "GMT0" },
