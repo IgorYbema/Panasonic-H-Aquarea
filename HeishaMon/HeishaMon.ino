@@ -601,7 +601,7 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
               if (heishamonSettings.optionalPCB) {
                 //optional commands
                 for (uint8_t x = 0; x < sizeof(optionalCommands) / sizeof(optionalCommands[0]); x++) {
-                  cmdStruct tmp;
+                  optCmdStruct tmp;
                   memcpy_P(&tmp, &optionalCommands[x], sizeof(tmp));
                   if (strcmp((char *)args->name, tmp.name) == 0) {
                     len = tmp.func(cpy, log_msg);
