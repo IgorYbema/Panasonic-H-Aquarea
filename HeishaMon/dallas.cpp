@@ -118,6 +118,8 @@ void dallasJsonOutput(struct webserver_t *client) {
     char str[64];
     dtostrf(actDallasData[i].temperature, 0, 2, str);
     webserver_send_content(client, str, strlen(str));
+    webserver_send_content_P(client, PSTR("{\"Alias\":\""), 10);
+    webserver_send_content(client, actDallasData[i].alias, strlen(actDallasData[i].alias));
     if (i < dallasDevicecount - 1) {
       webserver_send_content_P(client, PSTR("\"},"), 3);
     } else {
@@ -135,6 +137,10 @@ void dallasTableOutput(struct webserver_t *client) {
     char str[64];
     dtostrf(actDallasData[i].temperature, 0, 2, str);
     webserver_send_content(client, str, strlen(str));
-    webserver_send_content_P(client, PSTR("</td></tr>"), 10);
+    webserver_send_content_P(client, PSTR("</td><td><div class=\"dallas_alias\" data-address=\""), 49);
+    webserver_send_content(client, actDallasData[i].address, strlen(actDallasData[i].address));
+    webserver_send_content_P(client, PSTR("\" contentEditable=\"true\">"), 26);
+    webserver_send_content(client, actDallasData[i].alias, strlen(actDallasData[i].alias));    
+    webserver_send_content_P(client, PSTR("</div></td></tr>"), 16);
   }
 }
