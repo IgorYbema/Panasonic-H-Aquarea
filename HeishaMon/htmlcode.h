@@ -910,6 +910,7 @@ struct tzStruct {
   char name[32];
   char value[46];
 };
+
 const tzStruct tzdata[] PROGMEM = {
   { "ETC/GMT", "GMT0" },
   { "Africa/Abidjan", "GMT0" },

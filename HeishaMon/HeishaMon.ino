@@ -579,8 +579,10 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
               snprintf((char *)&cpy, args->len, "%.*s", args->len, args->value);
 
               for (uint8_t x = 0; x < sizeof(commands) / sizeof(commands[0]); x++) {
-                if (strcmp((char *)args->name, commands[x].name) == 0) {
-                  len = commands[x].func(cpy, cmd, log_msg);
+                cmdStruct tmp;
+                memcpy_P(&tmp, &commands[x], sizeof(tmp));
+                if (strcmp((char *)args->name, tmp.name) == 0) {
+                  len = tmp.func(cpy, cmd, log_msg);
                   if ((client->userdata = realloc(client->userdata, strlen((char *)client->userdata) + strlen(log_msg) + 2)) == NULL) {
                     Serial1.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
                     ESP.restart();
@@ -599,8 +601,10 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
               if (heishamonSettings.optionalPCB) {
                 //optional commands
                 for (uint8_t x = 0; x < sizeof(optionalCommands) / sizeof(optionalCommands[0]); x++) {
-                  if (strcmp((char *)args->name, optionalCommands[x].name) == 0) {
-                    len = optionalCommands[x].func(cpy, log_msg);
+                  optCmdStruct tmp;
+                  memcpy_P(&tmp, &optionalCommands[x], sizeof(tmp));
+                  if (strcmp((char *)args->name, tmp.name) == 0) {
+                    len = tmp.func(cpy, log_msg);
                     if ((client->userdata = realloc(client->userdata, strlen((char *)client->userdata) + strlen(log_msg) + 2)) == NULL) {
                       Serial1.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
                       ESP.restart();
