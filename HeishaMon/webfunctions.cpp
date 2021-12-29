@@ -995,20 +995,6 @@ int handleTableRefresh(struct webserver_t *client, String actData[]) {
     }
     if (client->content < NUMBER_OF_TOPICS) {
       for (uint8_t topic = client->content; topic < NUMBER_OF_TOPICS && topic < client->content + 4; topic++) {
-        String topicdesc;
-        const char *valuetext = "value";
-        if (strcmp_P(valuetext, topicDescription[topic][0]) == 0) {
-          topicdesc = topicDescription[topic][1];
-        } else {
-          int value = actData[topic].toInt();
-          int maxvalue = atoi(topicDescription[topic][0]);
-          if ((value < 0) || (value > maxvalue)) {
-            topicdesc = _unknown;
-          }
-          else {
-            topicdesc = topicDescription[topic][value + 1]; //plus one, because 0 is the maxvalue container
-          }
-        }
 
         webserver_send_content_P(client, PSTR("<tr><td>TOP"), 11);
 
@@ -1018,7 +1004,7 @@ int handleTableRefresh(struct webserver_t *client, String actData[]) {
 
         webserver_send_content_P(client, PSTR("</td><td>"), 9);
         webserver_send_content_P(client, topics[topic], strlen_P(topics[topic]));
-		webserver_send_content_P(client, PSTR("</td><td>"), 9);
+        webserver_send_content_P(client, PSTR("</td><td>"), 9);
 
         {
           char *str = (char *)actData[topic].c_str();
@@ -1027,10 +1013,18 @@ int handleTableRefresh(struct webserver_t *client, String actData[]) {
 
         webserver_send_content_P(client, PSTR("</td><td>"), 9);
 
-        {
-          char *str = (char *)topicdesc.c_str();
-          webserver_send_content(client, str, strlen(str));
+        int maxvalue = atoi(topicDescription[topic][0]);
+        int value = actData[topic].toInt();
+        if (maxvalue == 0) { //this takes the special case where the description is a real value description instead of a mode, so value should take first index (= 0 + 1)
+          value = 0;
         }
+        if ((value < 0) || (value > maxvalue)) {
+          webserver_send_content_P(client, _unknown, strlen_P(_unknown));
+        }
+        else {
+          webserver_send_content_P(client, topicDescription[topic][value + 1], strlen_P(topicDescription[topic][value + 1]));
+        }
+
 
         webserver_send_content_P(client, PSTR("</td></tr>"), 10);
       }
@@ -1047,20 +1041,6 @@ int handleJsonOutput(struct webserver_t *client, String actData[]) {
     webserver_send_content_P(client, PSTR("{\"heatpump\":["), 13);
   } else if (client->content < NUMBER_OF_TOPICS) {
     for (uint8_t topic = client->content; topic < NUMBER_OF_TOPICS && topic < client->content + 4; topic++) {
-      PGM_P topicdesc;
-      const char *valuetext = "value";
-      if (strcmp_P(valuetext, topicDescription[topic][0]) == 0) {
-        topicdesc = topicDescription[topic][1];
-      } else {
-        int value = actData[topic].toInt();
-        int maxvalue = atoi(topicDescription[topic][0]);
-        if ((value < 0) || (value > maxvalue)) {
-          topicdesc = _unknown;
-        } else {
-          topicdesc = topicDescription[topic][value + 1]; //plus one, because 0 is the maxvalue container
-        }
-      }
-
       webserver_send_content_P(client, PSTR("{\"Topic\":\"TOP"), 13);
 
       {
@@ -1082,7 +1062,17 @@ int handleJsonOutput(struct webserver_t *client, String actData[]) {
 
       webserver_send_content_P(client, PSTR("\",\"Description\":\""), 17);
 
-      webserver_send_content_P(client, topicdesc, strlen_P(topicdesc));
+      int maxvalue = atoi(topicDescription[topic][0]);
+      int value = actData[topic].toInt();
+      if (maxvalue == 0) { //this takes the special case where the description is a real value description instead of a mode, so value should take first index (= 0 + 1)
+        value = 0;
+      }
+      if ((value < 0) || (value > maxvalue)) {
+        webserver_send_content_P(client, _unknown, strlen_P(_unknown));
+      }
+      else {
+        webserver_send_content_P(client, topicDescription[topic][value + 1], strlen_P(topicDescription[topic][value + 1]));
+      }
 
       webserver_send_content_P(client, PSTR("\"}"), 2);
 
@@ -1122,7 +1112,7 @@ int showRules(struct webserver_t *client) {
       client->userdata = new fs::File(LittleFS.open("/rules.txt", "r"));
     }
   } else if (client->userdata != NULL) {
-    #define BUFFER_SIZE 128
+#define BUFFER_SIZE 128
     File *f = (File *)client->userdata;
     char content[BUFFER_SIZE];
     memset(content, 0, BUFFER_SIZE);
@@ -1131,13 +1121,13 @@ int showRules(struct webserver_t *client) {
     }
 
     if (len > 0) {
-      f->seek((client->content-1)*BUFFER_SIZE, SeekSet);
-      if (client->content*BUFFER_SIZE <= len) {
+      f->seek((client->content - 1)*BUFFER_SIZE, SeekSet);
+      if (client->content * BUFFER_SIZE <= len) {
         f->readBytes(content, BUFFER_SIZE);
         len1 = BUFFER_SIZE;
-      } else if ((client->content*BUFFER_SIZE) >= len && (client->content*BUFFER_SIZE) <= len+BUFFER_SIZE) {
-        f->readBytes(content, len - ((client->content-1)*BUFFER_SIZE));
-        len1 = len - ((client->content-1)*BUFFER_SIZE);
+      } else if ((client->content * BUFFER_SIZE) >= len && (client->content * BUFFER_SIZE) <= len + BUFFER_SIZE) {
+        f->readBytes(content, len - ((client->content - 1)*BUFFER_SIZE));
+        len1 = len - ((client->content - 1) * BUFFER_SIZE);
       } else {
         len1 = 0;
       }
