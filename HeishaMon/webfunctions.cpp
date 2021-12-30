@@ -1028,8 +1028,8 @@ int handleTableRefresh(struct webserver_t *client, char* actData) {
         webserver_send_content_P(client, PSTR("</td><td>"), 9);
 
         {
-          char str[40];
-          sprintf(str, "%s", getDataValue(actData, topic).c_str());
+          String dataValue = getDataValue(actData, topic);
+          char* str = (char *)dataValue.c_str();
           webserver_send_content(client, str, strlen(str));
         }
 
@@ -1084,8 +1084,8 @@ int handleJsonOutput(struct webserver_t *client, char* actData) {
       webserver_send_content_P(client, PSTR("\",\"Value\":\""), 11);
 
       {
-        char str[40];
-        sprintf(str, "%s", getDataValue(actData, topic).c_str());
+        String dataValue = getDataValue(actData, topic);
+        char* str = (char *)dataValue.c_str();
         webserver_send_content(client, str, strlen(str));
       }
 
