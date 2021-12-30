@@ -318,7 +318,7 @@ bool readSerial()
       log_message((char*)"Checksum and header received ok!");
       goodreads++;
 
-      if (data_length == DATASIZE) { //for now only return true for this datagram because we can not decode the shorter datagram yet
+      if (data_length == DATASIZE) { //decode the normal data
         decode_heatpump_data(data, actData, mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
         memcpy(actData,data,DATASIZE);
         data_length = 0;
