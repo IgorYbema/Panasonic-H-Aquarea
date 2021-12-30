@@ -140,7 +140,15 @@ void dallasTableOutput(struct webserver_t *client) {
     webserver_send_content_P(client, PSTR("</td><td><div class=\"dallas_alias\" data-address=\""), 49);
     webserver_send_content(client, actDallasData[i].address, strlen(actDallasData[i].address));
     webserver_send_content_P(client, PSTR("\" contentEditable=\"true\">"), 26);
-    webserver_send_content(client, actDallasData[i].alias, strlen(actDallasData[i].alias));    
+    webserver_send_content(client, actDallasData[i].alias, strlen(actDallasData[i].alias));
     webserver_send_content_P(client, PSTR("</div></td></tr>"), 16);
+  }
+}
+
+void changeDallasAlias(char* address, char* alias) {
+  for (int i = 0 ; i < dallasDevicecount; i++) {
+    if (strcmp(address,actDallasData[i].address) == 0) {
+      strlcpy(actDallasData[i].alias,alias,sizeof(actDallasData[i].alias));
+    }
   }
 }
