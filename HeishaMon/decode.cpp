@@ -168,6 +168,36 @@ String getDataValue(char* data, unsigned int Topic_Number) {
   return Topic_Value;
 }
 
+String getOptDataValue(char* data, unsigned int Topic_Number) {
+  String Topic_Value;
+  switch (Topic_Number) { //switch on topic numbers, some have special needs
+    case 0:
+      Topic_Value = String(data[4] >> 7);
+      break;
+    case 1:
+      Topic_Value = String((data[4] >> 5) & 0b11);
+      break;
+    case 2:
+      Topic_Value = String((data[4] >> 4) & 0b1);
+      break;
+    case 3:
+      Topic_Value = String((data[4] >> 2) & 0b11);
+      break;
+    case 4:
+      Topic_Value = String((data[4] >> 1) & 0b1);
+      break;
+    case 5:
+      Topic_Value = String((data[4] >> 0) & 0b1);
+      break;
+    case 6:
+      Topic_Value = String((data[5] >> 0) & 0b1);
+      break;
+    default:
+      break;
+  }
+  return Topic_Value;
+}
+
 // Decode ////////////////////////////////////////////////////////////////////////////
 void decode_heatpump_data(char* data, char* actData, PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime) {
   char log_msg[256];
@@ -176,14 +206,13 @@ void decode_heatpump_data(char* data, char* actData, PubSubClient &mqtt_client, 
 
   for (unsigned int Topic_Number = 0 ; Topic_Number < NUMBER_OF_TOPICS ; Topic_Number++) {
     String Topic_Value;
-
     Topic_Value = getDataValue(data, Topic_Number);
 
     if ((unsigned long)(millis() - lastalldatatime) > (1000 * updateAllTime)) {
       updatenow = true;
       lastalldatatime = millis();;
     }
-    if ((updatenow) || ( getDataValue(actData,Topic_Number) != Topic_Value )) {
+    if ((updatenow) || ( getDataValue(actData, Topic_Number) != Topic_Value )) {
       sprintf_P(log_msg, PSTR("received TOP%d %s: %s"), Topic_Number, topics[Topic_Number], Topic_Value.c_str());
       log_message(log_msg);
       sprintf(mqtt_topic, "%s/%s/%s", mqtt_topic_base, mqtt_topic_values, topics[Topic_Number]);
@@ -192,46 +221,20 @@ void decode_heatpump_data(char* data, char* actData, PubSubClient &mqtt_client, 
   }
 }
 
-void decode_optional_heatpump_data(char* data, String actOptData[], PubSubClient & mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime) {
+void decode_optional_heatpump_data(char* data, char* actOptData, PubSubClient & mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime) {
   char log_msg[256];
   char mqtt_topic[256];
   bool updatenow = false;
 
-
   for (unsigned int Topic_Number = 0 ; Topic_Number < NUMBER_OF_OPT_TOPICS ; Topic_Number++) {
-    byte Input_Byte;
     String Topic_Value;
-    switch (Topic_Number) { //switch on topic numbers, some have special needs
-      case 0:
-        Topic_Value = String(data[4] >> 7);
-        break;
-      case 1:
-        Topic_Value = String((data[4] >> 5) & 0b11);
-        break;
-      case 2:
-        Topic_Value = String((data[4] >> 4) & 0b1);
-        break;
-      case 3:
-        Topic_Value = String((data[4] >> 2) & 0b11);
-        break;
-      case 4:
-        Topic_Value = String((data[4] >> 1) & 0b1);
-        break;
-      case 5:
-        Topic_Value = String((data[4] >> 0) & 0b1);
-        break;
-      case 6:
-        Topic_Value = String((data[5] >> 0) & 0b1);
-        break;
-      default:
-        break;
-    }
+    Topic_Value = getOptDataValue(data, Topic_Number);
+
     if ((unsigned long)(millis() - lastalloptdatatime) > (1000 * updateAllTime)) {
       updatenow = true;
       lastalloptdatatime = millis();
     }
-    if ((updatenow) || ( actOptData[Topic_Number] != Topic_Value )) {
-      actOptData[Topic_Number] = Topic_Value;
+    if ((updatenow) || ( getDataValue(actOptData, Topic_Number) != Topic_Value )) {
       sprintf_P(log_msg, PSTR("received OPT%d %s: %s"), Topic_Number, optTopics[Topic_Number], Topic_Value.c_str());
       log_message(log_msg);
       sprintf(mqtt_topic, "%s/%s/%s", mqtt_topic_base, mqtt_topic_pcbvalues, optTopics[Topic_Number]);
