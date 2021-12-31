@@ -122,7 +122,7 @@ void dallasJsonOutput(struct webserver_t *client) {
     char str[64];
     dtostrf(actDallasData[i].temperature, 0, 2, str);
     webserver_send_content(client, str, strlen(str));
-    webserver_send_content_P(client, PSTR("{\"Alias\":\""), 10);
+    webserver_send_content_P(client, PSTR("\",\"Alias\":\""), 10);
     webserver_send_content(client, actDallasData[i].alias, strlen(actDallasData[i].alias));
     if (i < dallasDevicecount - 1) {
       webserver_send_content_P(client, PSTR("\"},"), 3);
