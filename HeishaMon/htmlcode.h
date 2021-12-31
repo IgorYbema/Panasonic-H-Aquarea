@@ -70,7 +70,7 @@ static const char refreshJS[] PROGMEM =
   " };"
   " var dallasAliasEdit = function() {"
   "   var address = this.getAttribute(\"data-address\");"
-  "   var alias = this.innerText;"
+  "   var alias = this.innerText.substring(0,30);"
   "   var xhr = new XMLHttpRequest();"
   "   var url = \"/dallasalias?\"+address+\"=\"+alias;"
   "   xhr.open('GET', url, true);"

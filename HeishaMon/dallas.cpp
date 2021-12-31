@@ -5,6 +5,8 @@
 #include "dallas.h"
 #include "rules.h"
 #include "src/common/progmem.h"
+#include <ArduinoJson.h>
+#include <LittleFS.h>
 
 #define MQTT_RETAIN_VALUES 1 // do we retain 1wire values?
 
@@ -25,6 +27,7 @@ unsigned long lastalldatatime_dallas = 0;
 unsigned long dallasTimer = 0;
 unsigned int updateAllDallasTime = 30000; // will be set using heishmonSettings
 unsigned int dallasTimerWait = 30000; // will be set using heishmonSettings
+void loadDallasAlias();
 
 void initDallasSensors(void (*log_message)(char*), unsigned int updateAllDallasTimeSettings, unsigned int dallasTimerWaitSettings, unsigned int dallasResolution) {
   char log_msg[256];
@@ -56,6 +59,7 @@ void initDallasSensors(void (*log_message)(char*), unsigned int updateAllDallasT
     sprintf_P(log_msg, PSTR("Found 1wire sensor: %s"), actDallasData[i].address ); log_message(log_msg);
   }
   if (DALLASASYNC) DS18B20.setWaitForConversion(false); //async 1wire during next loops
+  loadDallasAlias();
 }
 
 void resetlastalldatatime_dallas() {
@@ -146,9 +150,38 @@ void dallasTableOutput(struct webserver_t *client) {
 }
 
 void changeDallasAlias(char* address, char* alias) {
+  DynamicJsonDocument jsonDoc(1024);
   for (int i = 0 ; i < dallasDevicecount; i++) {
-    if (strcmp(address,actDallasData[i].address) == 0) {
-      strlcpy(actDallasData[i].alias,alias,sizeof(actDallasData[i].alias));
+    if (strcmp(address, actDallasData[i].address) == 0) {
+      strlcpy(actDallasData[i].alias, alias, sizeof(actDallasData[i].alias));
+    }
+    jsonDoc[actDallasData[i].address] = actDallasData[i].alias;
+  }
+  if (LittleFS.begin()) {
+    File configFile = LittleFS.open("/dallas.json", "w");
+    if (configFile) {
+      serializeJson(jsonDoc, configFile);
+      configFile.close();
+    }
+  }
+}
+
+void loadDallasAlias() {
+  if (LittleFS.begin()) {
+    if (LittleFS.exists("/dallas.json")) {
+      File configFile = LittleFS.open("/dallas.json", "r");
+      if (configFile) {
+        size_t size = configFile.size();
+        std::unique_ptr<char[]> buf(new char[size]);
+        configFile.readBytes(buf.get(), size);
+        DynamicJsonDocument jsonDoc(1024);
+        DeserializationError error = deserializeJson(jsonDoc, buf.get());
+        if (!error) {
+          for (int i = 0 ; i < dallasDevicecount; i++) {
+            if ( jsonDoc[actDallasData[i].address] ) strncpy(actDallasData[i].alias, jsonDoc[actDallasData[i].address], sizeof(actDallasData[i].alias));
+          }
+        }
+      }
     }
   }
 }
