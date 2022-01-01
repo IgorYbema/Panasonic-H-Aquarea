@@ -141,7 +141,7 @@ void dallasTableOutput(struct webserver_t *client) {
     char str[64];
     dtostrf(actDallasData[i].temperature, 0, 2, str);
     webserver_send_content(client, str, strlen(str));
-    webserver_send_content_P(client, PSTR("</td><td><div class=\"dallas_alias\" data-address=\""), 49);
+    webserver_send_content_P(client, PSTR("</td><td><div class=\"dallas_alias w3-border w3-border-light-grey w3-hover-border-black\" data-address=\""), 97);
     webserver_send_content(client, actDallasData[i].address, strlen(actDallasData[i].address));
     webserver_send_content_P(client, PSTR("\" contentEditable=\"true\">"), 26);
     webserver_send_content(client, actDallasData[i].alias, strlen(actDallasData[i].alias));
