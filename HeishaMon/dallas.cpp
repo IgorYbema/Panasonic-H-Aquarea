@@ -108,32 +108,32 @@ void dallasLoop(PubSubClient &mqtt_client, void (*log_message)(char*), char* mqt
 }
 
 void dallasJsonOutput(struct webserver_t *client) {
-  webserver_send_content_P(client, PSTR("["), 1);
-
+  /*
+   * FIXME: Handle more than 5 sensors
+   */
   for (int i = 0; i < dallasDevicecount; i++) {
-    webserver_send_content_P(client, PSTR("{\"Sensor\":\""), 11);
-    webserver_send_content(client, actDallasData[i].address, strlen(actDallasData[i].address));
-    webserver_send_content_P(client, PSTR("\",\"Temperature\":\""), 17);
-    char str[64];
-    dtostrf(actDallasData[i].temperature, 0, 2, str);
-    webserver_send_content(client, str, strlen(str));
-    if (i < dallasDevicecount - 1) {
-      webserver_send_content_P(client, PSTR("\"},"), 3);
-    } else {
-      webserver_send_content_P(client, PSTR("\"}"), 2);
-    }
+    client->sendlist[i].size =
+      snprintf_P((char *)client->sendlist[i].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
+        PSTR("%.*s{\"Sensor\":\"%.*s\",\"Temperature\":\"%.2f\"}%s"),
+        ((i == 0) ? 1 : 0),
+        ((i == 0) ? "[" : ""),
+        strlen(actDallasData[i].address), actDallasData[i].address,
+        actDallasData[i].temperature,
+        ((i < dallasDevicecount - 1) ? "," : "]")
+      );
   }
-  webserver_send_content_P(client, PSTR("]"), 1);
 }
 
 void dallasTableOutput(struct webserver_t *client) {
+  /*
+   * FIXME: Handle more than 5 sensors
+   */
   for (int i = 0; i < dallasDevicecount; i++) {
-    webserver_send_content_P(client, PSTR("<tr><td>"), 8);
-    webserver_send_content(client, actDallasData[i].address, strlen(actDallasData[i].address));
-    webserver_send_content_P(client, PSTR("</td><td>"), 9);
-    char str[64];
-    dtostrf(actDallasData[i].temperature, 0, 2, str);
-    webserver_send_content(client, str, strlen(str));
-    webserver_send_content_P(client, PSTR("</td></tr>"), 10);
+    client->sendlist[i].size =
+      snprintf_P((char *)client->sendlist[i].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
+        PSTR("<tr><td>%.*s</td><td>%.2f</td></tr>"),
+        strlen(actDallasData[i].address), actDallasData[i].address,
+        actDallasData[i].temperature
+      );
   }
 }
