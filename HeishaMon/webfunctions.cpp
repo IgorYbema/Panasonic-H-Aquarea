@@ -1057,7 +1057,7 @@ int handleRoot(struct webserver_t *client, float readpercentage, int mqttReconne
   return 0;
 }
 
-int handleTableRefresh(struct webserver_t *client, String actData[]) {
+int handleTableRefresh(struct webserver_t *client, char* actData) {
   int ret = 0;
 
   if (client->route == 11) {
@@ -1080,9 +1080,10 @@ int handleTableRefresh(struct webserver_t *client, String actData[]) {
       uint8_t i = 0, x = client->content;
       for (uint8_t topic = x; topic < NUMBER_OF_TOPICS && topic < x + 5; topic++) {
         if(topic < NUMBER_OF_TOPICS) {
-          char *str = (char *)actData[topic].c_str();
+          String dataValue = actData[0] == '\0' ? "" : getDataValue(actData, topic);
+          char* str = (char *)dataValue.c_str();
           int maxvalue = atoi(topicDescription[topic][0]);
-          int value = actData[topic].toInt();
+          int value = actData[0] == '\0' ? 0 : getDataValue(actData, topic).toInt();
 
           client->sendlist[i].size =
           snprintf_P((char *)client->sendlist[i].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
@@ -1103,7 +1104,7 @@ int handleTableRefresh(struct webserver_t *client, String actData[]) {
   return 0;
 }
 
-int handleJsonOutput(struct webserver_t *client, String actData[]) {
+int handleJsonOutput(struct webserver_t *client, char* actData) {
   if (client->content == 0) {
     webserver_send(client, 200, (char *)"application/json", 0);
   } else if(client->content == 1) {
@@ -1112,9 +1113,10 @@ int handleJsonOutput(struct webserver_t *client, String actData[]) {
     uint8_t i = 0, x = client->content-1;
     for (uint8_t topic = x; topic < NUMBER_OF_TOPICS && topic < x + 5; topic++) {
       if(topic < NUMBER_OF_TOPICS) {
-        char *str = (char *)actData[topic].c_str();
+        String dataValue = actData[0] == '\0' ? "" : getDataValue(actData, topic);
+        char* str = (char *)dataValue.c_str();
         int maxvalue = atoi(topicDescription[topic][0]);
-        int value = actData[topic].toInt();
+        int value = actData[0] == '\0' ? 0 : getDataValue(actData, topic).toInt();
 
         client->sendlist[i].size =
         snprintf_P((char *)client->sendlist[i].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,

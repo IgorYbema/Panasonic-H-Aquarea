@@ -7,8 +7,9 @@
 
 void resetlastalldatatime();
 
-void decode_heatpump_data(char* data, String actData[], PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime);
-void decode_optional_heatpump_data(char* data, String actOptData[], PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime);
+String getDataValue(char* data, unsigned int Topic_Number);
+void decode_heatpump_data(char* data, char* actData, PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime);
+void decode_optional_heatpump_data(char* data, char* actOptDat, PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime);
 
 String unknown(byte input);
 String getBit1and2(byte input);
@@ -57,7 +58,7 @@ static const char *Model[] PROGMEM = {
   "IDU: WH-SDC0305J3E5 ODU: WH-UD05JE5",
 };
 
-static const byte knownModels[sizeof(Model) / sizeof(Model[0])][10] = { //stores the bytes #129 to #138 of known models in the same order as the const above
+static const byte knownModels[sizeof(Model) / sizeof(Model[0])][10] PROGMEM = { //stores the bytes #129 to #138 of known models in the same order as the const above
   0xE2, 0xCF, 0x0B, 0x13, 0x33, 0x32, 0xD1, 0x0C, 0x16, 0x33,
   0xE2, 0xCF, 0x0B, 0x14, 0x33, 0x42, 0xD1, 0x0B, 0x17, 0x33,
   0xE2, 0xCF, 0x0D, 0x77, 0x09, 0x12, 0xD0, 0x0B, 0x05, 0x11,
@@ -83,7 +84,7 @@ static const byte knownModels[sizeof(Model) / sizeof(Model[0])][10] = { //stores
   0x62, 0xD2, 0x0B, 0x41, 0x54, 0x32, 0xD2, 0x0C, 0x45, 0x55,
 };
 
-#define NUMBER_OF_TOPICS 106 //last topic number + 1
+#define NUMBER_OF_TOPICS 107 //last topic number + 1
 #define NUMBER_OF_OPT_TOPICS 7 //last topic number + 1
 #define MAX_TOPIC_LEN 41 // max length + 1
 
@@ -204,6 +205,7 @@ static const char topics[][MAX_TOPIC_LEN] PROGMEM = {
   "Solar_Off_Delta", //TOP103
   "Solar_Frost_Protection", //TOP104
   "Solar_High_Limit", //TOP105
+  "Pump_Flowrate_Mode", //TOP106
 };
 
 static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit unsigned humber) as there aren't more then 255 bytes (actually only 203 bytes) to decode
@@ -313,6 +315,7 @@ static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit 
   62,     //TOP103
   63,     //TOP104
   64,     //TOP105
+  29,     //TOP106
 };
 
 typedef String (*topicFP)(byte);
@@ -424,12 +427,14 @@ static const topicFP topicFunctions[] PROGMEM = {
   getIntMinus128,      //TOP103
   getIntMinus128,      //TOP104
   getIntMinus128,      //TOP105
+  getBit3and4,         //TOP106
 };
 
 static const char *DisabledEnabled[] PROGMEM = {"2", "Disabled", "Enabled"};
 static const char *BlockedFree[] PROGMEM = {"2", "Blocked", "Free"};
 static const char *OffOn[] PROGMEM = {"2", "Off", "On"};
 static const char *InactiveActive[] PROGMEM = {"2", "Inactive", "Active"};
+static const char *PumpFlowRateMode[] PROGMEM = {"2", "DeltaT", "Max flow"};
 static const char *HolidayState[] PROGMEM = {"3", "Off", "Scheduled", "Active"};
 static const char *OpModeDesc[] PROGMEM = {"9", "Heat", "Cool", "Auto(heat)", "DHW", "Heat+DHW", "Cool+DHW", "Auto(heat)+DHW", "Auto(cool)", "Auto(cool)+DHW"};
 static const char *Powerfulmode[] PROGMEM = {"4", "Off", "30min", "60min", "90min"};
@@ -559,4 +564,5 @@ static const char **topicDescription[] PROGMEM = {
   Kelvin,          //TOP103
   Celsius,         //TOP104
   Celsius,         //TOP105
+  PumpFlowRateMode,//TOP106
 };

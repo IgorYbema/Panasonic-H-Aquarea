@@ -32,7 +32,7 @@ bool send_command(byte* command, int length);
 extern int dallasDevicecount;
 extern dallasDataStruct *actDallasData;
 extern settingsStruct heishamonSettings;
-extern String actData[NUMBER_OF_TOPICS];
+extern char actData[DATASIZE];
 extern String openTherm[2];
 static uint8_t parsing = 0;
 
@@ -509,14 +509,16 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
       char cpy[MAX_TOPIC_LEN];
       memcpy_P(&cpy, topics[i], MAX_TOPIC_LEN);
       if(stricmp(cpy, (char *)&node->token[1]) == 0) {
-        if(strlen(actData[i].c_str()) == 0) {
+        String dataValue = actData[0] == '\0' ? "" : getDataValue(actData, i);
+        char *str = (char *)dataValue.c_str();
+        if(strlen(str) == 0) {
           memset(&vnull, 0, sizeof(struct vm_vnull_t));
           vnull.type = VNULL;
           vnull.ret = token;
 
           return (unsigned char *)&vnull;
         } else {
-          float var = atof(actData[i].c_str());
+          float var = atof(str);
           float nr = 0;
 
           // mosquitto_publish

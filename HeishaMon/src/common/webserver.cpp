@@ -305,7 +305,7 @@ static int webserver_parse_post(struct webserver_t *client, uint16_t size) {
       }
     }
 
-    if(client->ptr >= WEBSERVER_BUFFER_SIZE) {
+    if(client->ptr >= WEBSERVER_BUFFER_SIZE && strncmp((char *)&client->buffer[pos+1], "HTTP/1.1", 8) != 0) {
       /*
        * GET end delimiter before HTTP/1.1
        */
@@ -2104,7 +2104,7 @@ void webserver_loop(void) {
   }
 
 #if defined(ESP8266)
-  if(sync_server.hasClient()) {
+  while(sync_server.hasClient()) {
     for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
       if(clients[i].data.client == NULL) {
         webserver_reset_client(&clients[i].data);

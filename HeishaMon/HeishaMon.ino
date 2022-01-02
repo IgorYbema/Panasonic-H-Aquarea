@@ -70,10 +70,12 @@ static int uploadpercentage = 0;
 char data[MAXDATASIZE] = { '\0' };
 byte data_length = 0;
 
-// store actual data in an String array
+// store actual data 
 String openTherm[2];
-String actData[NUMBER_OF_TOPICS];
-String actOptData[NUMBER_OF_OPT_TOPICS];
+char actData[DATASIZE] = { '\0' };
+#define OPTDATASIZE 20
+char actOptData[OPTDATASIZE]  = { '\0' };
+String RESTmsg = "";
 
 // log message to sprintf to
 char log_msg[256];
@@ -336,15 +338,17 @@ bool readSerial()
       log_message(F("Checksum and header received ok!"));
       goodreads++;
 
-      if (data_length == 203) { //for now only return true for this datagram because we can not decode the shorter datagram yet
-        data_length = 0;
+      if (data_length == DATASIZE) { //decode the normal data
         decode_heatpump_data(data, actData, mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
+        memcpy(actData,data,DATASIZE);
+        data_length = 0;
         return true;
       }
-      else if (data_length == 20 ) { //optional pcb acknowledge answer
+      else if (data_length == OPTDATASIZE ) { //optional pcb acknowledge answer
         log_message(F("Received optional PCB ack answer. Decoding this in OPT topics."));
-        data_length = 0;
         decode_optional_heatpump_data(data, actOptData, mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
+        memcpy(actOptData,data,OPTDATASIZE);
+        data_length = 0;
         return true;
       }
       else {
@@ -538,11 +542,18 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
               client->userdata = new File(LittleFS.open("/rules.new", "a+"));
             }
           } else if (strcmp_P((char *)dat, PSTR("/firmware")) == 0) {
-            client->route = 150;
-
-            Update.runAsync(true);
-            if (!Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000)) {
-              Update.printError(Serial1);
+            if (!Update.isRunning()) {
+              Update.runAsync(true);
+              if (!Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000)) {
+                Update.printError(Serial1);
+                return -1;
+              } else {
+                client->route = 150;
+              }
+            } else {
+              Serial1.println(PSTR("New firmware update client, while previous isn't finished yet! Assume broken connection, abort!"));
+              Update.end();
+              return -1;
             }
           } else {
             return -1;
@@ -578,7 +589,7 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
               unsigned int len = 0;
 
               memset(&cpy, 0, args->len + 1);
-              snprintf((char *)&cpy, args->len, "%.*s", args->len, args->value);
+              snprintf((char *)&cpy, args->len + 1, "%.*s", args->len, args->value);
 
               for (uint8_t x = 0; x < sizeof(commands) / sizeof(commands[0]); x++) {
                 cmdStruct tmp;
@@ -635,14 +646,28 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
               return cacheSettings(client, args);
             } break;
           case 150: {
-              if (uploadpercentage != (unsigned int)(((float)client->readlen / (float)client->totallen) * 100)) {
-                uploadpercentage = (unsigned int)(((float)client->readlen / (float)client->totallen) * 100);
-                sprintf_P(log_msg, PSTR("Uploading new firmware: %d%%"), uploadpercentage);
-                log_message(log_msg);
-              }
-              if (!Update.hasError() && strcmp_P((char *)args->name, PSTR("firmware")) == 0) {
-                if (Update.write((uint8_t *)args->value, args->len) != args->len) {
-                  Update.printError(Serial1);
+              if (!Update.hasError()) {
+                if (strcmp_P((char *)args->name, PSTR("md5")) == 0) {
+
+                  char md5[args->len + 1];
+                  memset(&md5, 0, args->len + 1);
+                  snprintf((char *)&md5, args->len + 1, "%.*s", args->len, args->value);
+                  sprintf_P(log_msg, PSTR("Firmware MD5 expected: %s"), md5);
+                  log_message(log_msg);
+                  if (!Update.setMD5(md5)) {
+                    log_message(PSTR("Failed to set expected update file MD5!"));
+                    Update.end(false);
+                  }
+                } else if (!Update.hasError() && strcmp_P((char *)args->name, PSTR("firmware")) == 0) {
+                  if (Update.write((uint8_t *)args->value, args->len) != args->len) {
+                    Update.printError(Serial1);
+                  } else {
+                    if (uploadpercentage != (unsigned int)(((float)client->readlen / (float)client->totallen) * 20)) {
+                      uploadpercentage = (unsigned int)(((float)client->readlen / (float)client->totallen) * 20);
+                      sprintf_P(log_msg, PSTR("Uploading new firmware: %d%%"), uploadpercentage * 5);
+                      log_message(log_msg);
+                    }
+                  }
                 }
               }
             } break;
@@ -736,14 +761,11 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
               return showFirmware(client);
             } break;
           case 150: {
-              if (uploadpercentage != (unsigned int)(((float)client->readlen / (float)client->totallen) * 100)) {
-                uploadpercentage = (unsigned int)(((float)client->readlen / (float)client->totallen) * 100);
-                sprintf_P(log_msg, PSTR("Uploading new firmware: %d%%"), uploadpercentage);
-                log_message(log_msg);
-              }
               if (Update.end(true)) {
-                log_message(F("Update Success"));
-                timerqueue_insert(15, 0, -2); // Start reboot sequence
+                String updateHash = Update.md5String();
+                sprintf_P(log_msg, PSTR("Uploading success. MD5: %s"), updateHash.c_str());
+                log_message(log_msg);
+                timerqueue_insert(2, 0, -2); // Start reboot sequence
                 return showFirmwareSuccess(client);
               } else {
                 Update.printError(Serial1);
