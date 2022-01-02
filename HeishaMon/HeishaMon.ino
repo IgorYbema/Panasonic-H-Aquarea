@@ -655,7 +655,7 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
                   sprintf_P(log_msg, PSTR("Firmware MD5 expected: %s"), md5);
                   log_message(log_msg);
                   if (!Update.setMD5(md5)) {
-                    log_message(PSTR("Failed to set expected update file MD5!"));
+                    log_message(F("Failed to set expected update file MD5!"));
                     Update.end(false);
                   }
                 } else if (!Update.hasError() && strcmp_P((char *)args->name, PSTR("firmware")) == 0) {
