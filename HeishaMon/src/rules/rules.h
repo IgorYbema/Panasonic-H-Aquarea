@@ -13,7 +13,7 @@
 #include <stdint.h>
 
 #define EPSILON  0.000001
-#define MEMPOOL_SIZE 14000
+#define MEMPOOL_SIZE 16000
 
 typedef enum {
   TOPERATOR = 1,
@@ -121,7 +121,7 @@ typedef struct rule_options_t {
 } rule_options_t;
 
 extern struct rule_options_t rule_options;
-extern unsigned char mempool[MEMPOOL_SIZE];
+extern unsigned char *mempool;
 extern unsigned int memptr;
 
 /*

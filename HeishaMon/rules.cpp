@@ -75,7 +75,7 @@ static struct vm_vfloat_t vfloat;
 static struct vm_vnull_t vnull;
 
 struct rule_options_t rule_options;
-unsigned char mempool[MEMPOOL_SIZE];
+unsigned char *mempool = (unsigned char *)MMU_SEC_HEAP;
 unsigned int memptr = 0;
 
 static void vm_global_value_prt(char *out, int size);
@@ -1285,14 +1285,32 @@ int rules_parse(char *file) {
       rules_gc(&rules, nrrules);
       nrrules = 0;
     }
-    memset(&mempool, 0, MEMPOOL_SIZE);
+    memset(mempool, 0, MEMPOOL_SIZE);
 
     FREE(global_varstack.stack);
     global_varstack.stack = NULL;
     global_varstack.nrbytes = 4;
 
+#define BUFFER_SIZE 128
+    char content[BUFFER_SIZE];
+    memset(content, 0, BUFFER_SIZE);
     int len = frules.size();
-    frules.readBytes((char *)&mempool[MEMPOOL_SIZE-len-1], len);
+    int chunk = 0, len1 = 0;
+    while(1) {
+      memset(content, 0, BUFFER_SIZE);
+      frules.seek(chunk*BUFFER_SIZE, SeekSet);
+      if (chunk * BUFFER_SIZE <= len) {
+        frules.readBytes(content, BUFFER_SIZE);
+        len1 = BUFFER_SIZE;
+      } else if ((chunk * BUFFER_SIZE) >= len && (chunk * BUFFER_SIZE) <= len + BUFFER_SIZE) {
+        frules.readBytes(content, len - ((chunk - 1)*BUFFER_SIZE));
+        len1 = len - ((chunk - 1) * BUFFER_SIZE);
+      } else {
+        break;
+      }
+      memcpy(&mempool[alignedbuffer((MEMPOOL_SIZE-len-5))+(chunk*BUFFER_SIZE)], &content, alignedbuffer(len1));
+      chunk++;
+    }
     frules.close();
 
     struct varstack_t *varstack = (struct varstack_t *)MALLOC(sizeof(struct varstack_t));
@@ -1304,10 +1322,10 @@ int rules_parse(char *file) {
     varstack->bufsize = 4;
 
     int ret = 0;
-    unsigned int txtoffset = MEMPOOL_SIZE-len-1;
+    unsigned int txtoffset = alignedbytes(MEMPOOL_SIZE-len-5);
     unsigned int memoffset = 0;
-    char *text = (char *)&mempool[MEMPOOL_SIZE-len-1];
-    while((ret = rule_initialize(&text, &txtoffset, &rules, &nrrules, (unsigned char *)&mempool, &memoffset, varstack) == 0)) {
+    char *text = (char *)&mempool[txtoffset];
+    while((ret = rule_initialize(&text, &txtoffset, &rules, &nrrules, (unsigned char *)mempool, &memoffset, varstack) == 0)) {
       varstack = (struct varstack_t *)MALLOC(sizeof(struct varstack_t));
       if(varstack == NULL) {
         OUT_OF_MEMORY
@@ -1457,7 +1475,7 @@ void rules_setup(void) {
   if(!LittleFS.begin()) {
     return;
   }
-  memset(&mempool, 0, MEMPOOL_SIZE+1);
+  memset(mempool, 0, MEMPOOL_SIZE);
 
   logprintln_P(F("reading rules"));
 
