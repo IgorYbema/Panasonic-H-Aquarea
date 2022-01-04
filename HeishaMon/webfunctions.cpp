@@ -1008,14 +1008,15 @@ int handleTableRefresh(struct webserver_t *client, char* actData) {
         webserver_send_content_P(client, PSTR("</td><td>"), 9);
 
         {
-          char *str = (char *)actData[topic].c_str();
+          String dataValue = actData[0] == '\0' ? "" : getDataValue(actData, topic);
+          char* str = (char *)dataValue.c_str();
           webserver_send_content(client, str, strlen(str));
         }
 
         webserver_send_content_P(client, PSTR("</td><td>"), 9);
 
         int maxvalue = atoi(topicDescription[topic][0]);
-        int value = actData[topic].toInt();
+        int value = actData[0] == '\0' ? 0 : getDataValue(actData, topic).toInt();
         if (maxvalue == 0) { //this takes the special case where the description is a real value description instead of a mode, so value should take first index (= 0 + 1)
           value = 0;
         }
@@ -1024,8 +1025,8 @@ int handleTableRefresh(struct webserver_t *client, char* actData) {
         }
         else {
           webserver_send_content_P(client, topicDescription[topic][value + 1], strlen_P(topicDescription[topic][value + 1]));
-        }
 
+        }
 
         webserver_send_content_P(client, PSTR("</td></tr>"), 10);
       }
@@ -1041,7 +1042,8 @@ int handleJsonOutput(struct webserver_t *client, char* actData) {
     webserver_send(client, 200, (char *)"application/json", 0);
     webserver_send_content_P(client, PSTR("{\"heatpump\":["), 13);
   } else if (client->content < NUMBER_OF_TOPICS) {
-    for (uint8_t topic = client->content; topic < NUMBER_OF_TOPICS && topic < client->content + 4; topic++) {
+    for (uint8_t topic = client->content - 1; topic < NUMBER_OF_TOPICS && topic < client->content + 4 ; topic++) {
+
       webserver_send_content_P(client, PSTR("{\"Topic\":\"TOP"), 13);
 
       {
@@ -1057,14 +1059,15 @@ int handleJsonOutput(struct webserver_t *client, char* actData) {
       webserver_send_content_P(client, PSTR("\",\"Value\":\""), 11);
 
       {
-        char *str = (char *)actData[topic].c_str();
-        webserver_send_content_P(client, str, strlen(str));
+        String dataValue = getDataValue(actData, topic);
+        char* str = (char *)dataValue.c_str();
+        webserver_send_content(client, str, strlen(str));
       }
 
       webserver_send_content_P(client, PSTR("\",\"Description\":\""), 17);
 
       int maxvalue = atoi(topicDescription[topic][0]);
-      int value = actData[topic].toInt();
+      int value = actData[0] == '\0' ? 0 : getDataValue(actData, topic).toInt();
       if (maxvalue == 0) { //this takes the special case where the description is a real value description instead of a mode, so value should take first index (= 0 + 1)
         value = 0;
       }
