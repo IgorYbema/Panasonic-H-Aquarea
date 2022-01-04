@@ -67,7 +67,7 @@ void getWifiScanResults(int numSsid) {
       if (!firstSSID) {
         wifiJsonList = wifiJsonList + ",";
       }
-      wifiJsonList = wifiJsonList + "{\"ssid\":\"" + WiFi.SSID(indexes[i]) + "\",\"rssi\":\"" + dBmToQuality(WiFi.RSSI(indexes[i])) + "%\"}";
+      wifiJsonList = wifiJsonList + "{\"ssid\":\"" + WiFi.SSID(indexes[i]) + "\", \"rssi\": \"" + dBmToQuality(WiFi.RSSI(indexes[i])) + "%\"}";
       firstSSID = false;
     }
     wifiJsonList = wifiJsonList + "]";
@@ -288,10 +288,10 @@ int handleFactoryReset(struct webserver_t *client) {
         webserver_send_content_P(client, webHeader, strlen_P(webHeader));
         webserver_send_content_P(client, webCSS, strlen_P(webCSS));
         webserver_send_content_P(client, refreshMeta, strlen_P(refreshMeta));
-        webserver_send_content_P(client, webBodyStart, strlen_P(webBodyStart));
-        webserver_send_content_P(client, webBodyRebootWarning, strlen_P(webBodyRebootWarning));
       } break;
     case 1: {
+        webserver_send_content_P(client, webBodyStart, strlen_P(webBodyStart));
+        webserver_send_content_P(client, webBodyRebootWarning, strlen_P(webBodyRebootWarning));
         webserver_send_content_P(client, menuJS, strlen_P(menuJS));
         webserver_send_content_P(client, webFooter, strlen_P(webFooter));
       } break;
@@ -310,10 +310,10 @@ int handleReboot(struct webserver_t *client) {
         webserver_send_content_P(client, webHeader, strlen_P(webHeader));
         webserver_send_content_P(client, webCSS, strlen_P(webCSS));
         webserver_send_content_P(client, refreshMeta, strlen_P(refreshMeta));
-        webserver_send_content_P(client, webBodyStart, strlen_P(webBodyStart));
-        webserver_send_content_P(client, webBodyRebootWarning, strlen_P(webBodyRebootWarning));
       } break;
     case 1: {
+        webserver_send_content_P(client, webBodyStart, strlen_P(webBodyStart));
+        webserver_send_content_P(client, webBodyRebootWarning, strlen_P(webBodyRebootWarning));
         webserver_send_content_P(client, menuJS, strlen_P(menuJS));
         webserver_send_content_P(client, webFooter, strlen_P(webFooter));
       } break;
@@ -582,10 +582,12 @@ int settingsNewPassword(struct webserver_t *client, settingsStruct *heishamonSet
         webserver_send_content_P(client, webHeader, strlen_P(webHeader));
         webserver_send_content_P(client, webCSS, strlen_P(webCSS));
         webserver_send_content_P(client, webBodyStart, strlen_P(webBodyStart));
+      } break;
+    case 1: {
         webserver_send_content_P(client, webBodySettings1, strlen_P(webBodySettings1));
         webserver_send_content_P(client, webBodySettingsResetPasswordWarning, strlen_P(webBodySettingsResetPasswordWarning));
       } break;
-    case 1: {
+    case 2: {
         webserver_send_content_P(client, refreshMeta, strlen_P(refreshMeta));
         webserver_send_content_P(client, webFooter, strlen_P(webFooter));
       } break;
@@ -601,69 +603,23 @@ int settingsReconnectWifi(struct webserver_t *client, settingsStruct *heishamonS
   uint16_t size = sizeof(tzdata) / sizeof(tzdata[0]);
   if (client->content == 0) {
     webserver_send(client, 200, (char *)"text/html", 0);
-  } else if (client->content == 1) {
     webserver_send_content_P(client, webHeader, strlen_P(webHeader));
     webserver_send_content_P(client, webCSS, strlen_P(webCSS));
     webserver_send_content_P(client, webBodyStart, strlen_P(webBodyStart));
+  } else if (client->content == 1) {
     webserver_send_content_P(client, webBodySettings1, strlen_P(webBodySettings1));
     webserver_send_content_P(client, settingsForm1, strlen_P(settingsForm1));
   } else if (client->content >= 2 && client->content < size + 2) {
-    tzStruct tz;
-    memcpy_P(&tz, &tzdata[client->content - 2], sizeof(tz));
-    client->sendlist[0].size =
-    snprintf_P((char *)client->sendlist[0].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-      PSTR("<option value=\"%d\">%.*s</option>"),
-      client->content - 2,
-      strlen(tz.name), tz.name
-    );
-    client->content++;
+    webserver_send_content_P(client, PSTR("<option value=\""), 15);
 
-    if(client->content < size + 2) {
-      memcpy_P(&tz, &tzdata[client->content - 2], sizeof(tz));
-      client->sendlist[1].size =
-      snprintf_P((char *)client->sendlist[1].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-        PSTR("<option value=\"%d\">%.*s</option>"),
-        client->content - 2,
-        strlen(tz.name), tz.name
-      );
-      client->content++;
-    }
+    char str[20];
+    itoa(client->content - 2, str, 10);
+    webserver_send_content(client, str, strlen(str));
 
+    webserver_send_content_P(client, PSTR("\">"), 2);
 
-    if(client->content < size + 2) {
-      memcpy_P(&tz, &tzdata[client->content - 2], sizeof(tz));
-      client->sendlist[2].size =
-      snprintf_P((char *)client->sendlist[2].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-        PSTR("<option value=\"%d\">%.*s</option>"),
-        client->content - 2,
-        strlen(tz.name), tz.name
-      );
-      client->content++;
-    }
-
-
-    if(client->content < size + 2) {
-      memcpy_P(&tz, &tzdata[client->content - 2], sizeof(tz));
-      client->sendlist[3].size =
-      snprintf_P((char *)client->sendlist[3].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-        PSTR("<option value=\"%d\">%.*s</option>"),
-        client->content - 2,
-        strlen(tz.name), tz.name
-      );
-      client->content++;
-    }
-
-    if(client->content < size + 2) {
-      memcpy_P(&tz, &tzdata[client->content - 2], sizeof(tz));
-      client->sendlist[4].size =
-      snprintf_P((char *)client->sendlist[4].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-        PSTR("<option value=\"%d\">%.*s</option>"),
-        client->content - 2,
-        strlen(tz.name), tz.name
-      );
-      client->content++;
-    }
-    client->content--;
+    webserver_send_content_P(client, tzdata[client->content - 2].name, strlen_P(tzdata[client->content - 2].name));
+    webserver_send_content_P(client, PSTR("</option>"), 9);
   } else if (client->content == size + 2) {
     webserver_send_content_P(client, settingsForm2, strlen_P(settingsForm2));
     webserver_send_content_P(client, menuJS, strlen_P(menuJS));
@@ -682,225 +638,220 @@ int getSettings(struct webserver_t *client, settingsStruct *heishamonSettings) {
   switch (client->content) {
     case 0: {
         webserver_send(client, 200, (char *)"application/json", 0);
+        webserver_send_content_P(client, PSTR("{\"wifi_hostname\":\""), 18);
+        webserver_send_content(client, heishamonSettings->wifi_hostname, strlen(heishamonSettings->wifi_hostname));
+        webserver_send_content_P(client, PSTR("\",\"wifi_ssid\":\""), 15);
+        webserver_send_content(client, heishamonSettings->wifi_ssid, strlen(heishamonSettings->wifi_ssid));
       } break;
     case 1: {
-        /*
-         * Make sure we stay within 128 bytes
-         * (with respect of the maximum value length)
-         */
-        client->sendlist[0].size =
-        snprintf_P((char *)client->sendlist[0].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-          PSTR("%s%.*s%s%.*s"),
-          PSTR("{\"wifi_hostname\":\""),
-          strlen(heishamonSettings->wifi_hostname), heishamonSettings->wifi_hostname,
-          PSTR("\",\"wifi_ssid\":\""),
-          strlen(heishamonSettings->wifi_ssid), heishamonSettings->wifi_ssid
-        );
-
-        client->sendlist[1].size =
-        snprintf_P((char *)client->sendlist[1].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-          PSTR("%s%.*s%s"),
-          PSTR("\",\"wifi_password\":\""),
-          strlen(heishamonSettings->wifi_password), heishamonSettings->wifi_password,
-          PSTR("\",\"current_ota_password\":\"")
-        );
-
-        client->sendlist[2].size =
-        snprintf_P((char *)client->sendlist[2].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-          PSTR("%s%.*s%s%.*s"),
-          PSTR("\",\"mqtt_topic_base\":\""),
-          strlen(heishamonSettings->mqtt_topic_base), heishamonSettings->mqtt_topic_base,
-          PSTR("\",\"mqtt_server\":\""),
-          strlen(heishamonSettings->mqtt_server), heishamonSettings->mqtt_server
-        );
-
-        client->sendlist[3].size =
-        snprintf_P((char *)client->sendlist[3].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-          PSTR("%s%.*s%s%d%s%d"),
-          PSTR("\",\"mqtt_username\":\""),
-          strlen(heishamonSettings->mqtt_username), heishamonSettings->mqtt_username,
-          PSTR("\",\"updateAllTime\":"),
-          heishamonSettings->updateAllTime,
-          PSTR(",\"listenonly\":"),
-          heishamonSettings->listenonly
-        );
-
-        client->sendlist[4].size =
-        snprintf_P((char *)client->sendlist[4].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-          PSTR("%s%.*s%s%d%s%d"),
-          PSTR(",\"mqtt_password\":\""),
-          strlen(heishamonSettings->mqtt_password), heishamonSettings->mqtt_password,
-          PSTR("\",\"logHexdump\":"),
-          heishamonSettings->logHexdump,
-          PSTR(",\"logSerial1\":"),
-          heishamonSettings->logSerial1
-        );
+        webserver_send_content_P(client, PSTR("\",\"wifi_password\":\""), 19);
+        webserver_send_content(client, heishamonSettings->wifi_password, strlen(heishamonSettings->wifi_password));
+        webserver_send_content_P(client, PSTR("\",\"current_ota_password\":\""), 26);
+        webserver_send_content_P(client, PSTR("\",\"new_ota_password\":\""), 22);
       } break;
     case 2: {
-        client->sendlist[0].size =
-        snprintf_P((char *)client->sendlist[0].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-          PSTR("%s%.*s%s%d%s%d%s%d%s%d%s%d"),
-          PSTR(",\"mqtt_port\":\""),
-          strlen(heishamonSettings->mqtt_port), heishamonSettings->mqtt_port,
-          PSTR("\",\"timezone\":"),
-          heishamonSettings->timezone,
-          PSTR(",\"waitTime\":"),
-          heishamonSettings->waitTime,
-          PSTR(",\"logMqtt\":"),
-          heishamonSettings->logMqtt,
-          PSTR(",\"optionalPCB\":"),
-          heishamonSettings->optionalPCB,
-          PSTR(",\"use_1wire\":"),
-          heishamonSettings->use_1wire
-        );
-
-        uint8_t i = 0;
-        if (heishamonSettings->s0Settings[i].gpiopin == 255) heishamonSettings->s0Settings[i].gpiopin = DEFAULT_S0_PIN_1;  //dirty hack
-
-        client->sendlist[1].size =
-        snprintf_P((char *)client->sendlist[1].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-          PSTR("%s%d%s%d%s%d%s%d%s%d"),
-          PSTR(",\"waitDallasTime\":"),
-          heishamonSettings->waitDallasTime,
-          PSTR(",\"updataAllDallasTime\":"),
-          heishamonSettings->updataAllDallasTime,
-          PSTR(",\"dallasResolution\":"),
-          heishamonSettings->dallasResolution,
-          PSTR(",\"use_s0\":"),
-          heishamonSettings->use_s0,
-          PSTR(",\"s0_1_gpio\":"),
-          heishamonSettings->s0Settings[i].gpiopin
-        );
-
-        client->sendlist[2].size =
-        snprintf_P((char *)client->sendlist[2].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-          PSTR("%s%d%s%d%s%d%s%d%s%d"),
-          PSTR(",\"s0_1_ppkwh\":"),
-          heishamonSettings->s0Settings[i].ppkwh,
-          PSTR(",\"s0_1_interval\":"),
-          heishamonSettings->s0Settings[i].lowerPowerInterval,
-          PSTR(",\"s0_1_minpulsewidth\":"),
-          heishamonSettings->s0Settings[i].minimalPulseWidth,
-          PSTR(",\"s0_1_maxpulsewidth\":"),
-          heishamonSettings->s0Settings[i].maximalPulseWidth,
-          PSTR(",\"s0_1_minwatt\":"),
-          (int) round((3600 * 1000 / heishamonSettings->s0Settings[i].ppkwh) / heishamonSettings->s0Settings[i].lowerPowerInterval)
-        );
-
-        i = 1;
-
-        if (heishamonSettings->s0Settings[i].gpiopin == 255) heishamonSettings->s0Settings[i].gpiopin = DEFAULT_S0_PIN_2;  //dirty hack
-
-        client->sendlist[3].size =
-        snprintf_P((char *)client->sendlist[3].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-          PSTR("%s%d%s%d%s%d%s%d%s%d"),
-          PSTR(",\"s0_2_gpio\":"),
-          heishamonSettings->s0Settings[i].gpiopin,
-          PSTR(",\"s0_2_ppkwh\":"),
-          heishamonSettings->s0Settings[i].ppkwh,
-          PSTR(",\"s0_2_interval\":"),
-          heishamonSettings->s0Settings[i].lowerPowerInterval,
-          PSTR(",\"s0_2_minpulsewidth\":"),
-          heishamonSettings->s0Settings[i].minimalPulseWidth,
-          PSTR(",\"s0_2_maxpulsewidth\":"),
-          heishamonSettings->s0Settings[i].maximalPulseWidth
-        );
-
-        client->sendlist[4].size =
-        snprintf_P((char *)client->sendlist[4].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-          PSTR("%s%d%s%s"),
-          PSTR(",\"s0_2_minwatt\":"),
-          (int) round((3600 * 1000 / heishamonSettings->s0Settings[i].ppkwh) / heishamonSettings->s0Settings[i].lowerPowerInterval),
-          PSTR(",\"new_ota_password\":\""),
-          PSTR("\",\"ntp_servers\":\"")
-        );
+        webserver_send_content_P(client, PSTR("\",\"mqtt_topic_base\":\""), 21);
+        webserver_send_content(client, heishamonSettings->mqtt_topic_base, strlen(heishamonSettings->mqtt_topic_base));
+        webserver_send_content_P(client, PSTR("\",\"mqtt_server\":\""), 17);
+        webserver_send_content(client, heishamonSettings->mqtt_server, strlen(heishamonSettings->mqtt_server));
       } break;
     case 3: {
-        client->sendlist[0].size =
-        snprintf_P((char *)client->sendlist[0].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-          PSTR("%.*s%s"),
-          strlen(heishamonSettings->ntp_servers), heishamonSettings->ntp_servers,
-          PSTR("\"}")
-          );
+        webserver_send_content_P(client, PSTR("\",\"mqtt_port\":\""), 15);
+        webserver_send_content(client, heishamonSettings->mqtt_port, strlen(heishamonSettings->mqtt_port));
+        webserver_send_content_P(client, PSTR("\",\"mqtt_username\":\""), 19);
+        webserver_send_content(client, heishamonSettings->mqtt_username, strlen(heishamonSettings->mqtt_username));
+      } break;
+    case 4: {
+        webserver_send_content_P(client, PSTR("\",\"mqtt_password\":\""), 19);
+        webserver_send_content(client, heishamonSettings->mqtt_password, strlen(heishamonSettings->mqtt_password));
+        webserver_send_content_P(client, PSTR("\",\"ntp_servers\":\""), 17);
+        webserver_send_content(client, heishamonSettings->ntp_servers, strlen(heishamonSettings->ntp_servers));
+        webserver_send_content_P(client, PSTR("\",\"timezone\":"), 13);
+
+        {
+          char str[20];
+          itoa(heishamonSettings->timezone, str, 10);
+          webserver_send_content(client, str, strlen(str));
+        }
+
+        webserver_send_content_P(client, PSTR(",\"waitTime\":"), 12);
+
+        {
+          char str[20];
+          itoa(heishamonSettings->waitTime, str, 10);
+          webserver_send_content(client, str, strlen(str));
+        }
+      } break;
+    case 5: {
+        char str[20];
+        webserver_send_content_P(client, PSTR(",\"updateAllTime\":"), 17);
+
+        itoa(heishamonSettings->updateAllTime, str, 10);
+        webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR(",\"listenonly\":"), 14);
+
+        itoa(heishamonSettings->listenonly, str, 10);
+        webserver_send_content(client, str, strlen(str));
+      } break;
+    case 6: {
+        char str[20];
+        webserver_send_content_P(client, PSTR(",\"logMqtt\":"), 11);
+
+        itoa(heishamonSettings->logMqtt, str, 10);
+        webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR(",\"logHexdump\":"), 14);
+
+        itoa(heishamonSettings->logHexdump, str, 10);
+        webserver_send_content(client, str, strlen(str));
+      } break;
+    case 7: {
+        char str[20];
+        webserver_send_content_P(client, PSTR(",\"logSerial1\":"), 14);
+
+        itoa(heishamonSettings->logSerial1, str, 10);
+        webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR(",\"optionalPCB\":"), 15);
+
+        itoa(heishamonSettings->optionalPCB, str, 10);
+        webserver_send_content(client, str, strlen(str));
+      } break;
+    case 8: {
+        char str[20];
+        webserver_send_content_P(client, PSTR(",\"use_1wire\":"), 13);
+
+        itoa(heishamonSettings->use_1wire, str, 10);
+        webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR(",\"waitDallasTime\":"), 18);
+
+        itoa(heishamonSettings->waitDallasTime, str, 10);
+        webserver_send_content(client, str, strlen(str));
+      } break;
+    case 9: {
+        char str[20];
+        webserver_send_content_P(client, PSTR(",\"updataAllDallasTime\":"), 23);
+
+        itoa(heishamonSettings->updataAllDallasTime, str, 10);
+        webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR(",\"dallasResolution\":"), 20);
+
+        itoa(heishamonSettings->dallasResolution , str, 10);
+        webserver_send_content(client, str, strlen(str));
+      } break;
+    case 10: {
+        char str[20];
+        webserver_send_content_P(client, PSTR(",\"use_s0\":"), 10);
+
+        itoa(heishamonSettings->use_s0, str, 10);
+        webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR(",\"s0_1_gpio\":"), 13);
+
+        int i = 0;
+
+        if (heishamonSettings->s0Settings[i].gpiopin == 255) heishamonSettings->s0Settings[i].gpiopin = DEFAULT_S0_PIN_1;  //dirty hack
+        itoa(heishamonSettings->s0Settings[i].gpiopin, str, 10);
+        webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR(",\"s0_1_ppkwh\":"), 14);
+
+        itoa(heishamonSettings->s0Settings[i].ppkwh, str, 10);
+        webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR(",\"s0_1_interval\":"), 17);
+
+        itoa(heishamonSettings->s0Settings[i].lowerPowerInterval, str, 10);
+        webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR(",\"s0_1_minpulsewidth\":"), 22);
+
+        itoa(heishamonSettings->s0Settings[i].minimalPulseWidth, str, 10);
+        webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR(",\"s0_1_maxpulsewidth\":"), 22);
+
+        itoa(heishamonSettings->s0Settings[i].maximalPulseWidth, str, 10);
+        webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR(",\"s0_1_minwatt\":"), 16);
+
+        itoa((int) round((3600 * 1000 / heishamonSettings->s0Settings[i].ppkwh) / heishamonSettings->s0Settings[i].lowerPowerInterval), str, 10);
+        webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR(",\"s0_2_gpio\":"), 13);
+      } break;
+    case 11: {
+        char str[20];
+        int i = 1;
+
+        if (heishamonSettings->s0Settings[i].gpiopin == 255) heishamonSettings->s0Settings[i].gpiopin = DEFAULT_S0_PIN_2;  //dirty hack
+        itoa(heishamonSettings->s0Settings[i].gpiopin, str, 10);
+        webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR(",\"s0_2_ppkwh\":"), 14);
+
+        itoa(heishamonSettings->s0Settings[i].ppkwh, str, 10);
+        webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR(",\"s0_2_interval\":"), 17);
+
+        itoa(heishamonSettings->s0Settings[i].lowerPowerInterval, str, 10);
+        webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR(",\"s0_2_minpulsewidth\":"), 22);
+
+        itoa(heishamonSettings->s0Settings[i].minimalPulseWidth, str, 10);
+        webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR(",\"s0_2_maxpulsewidth\":"), 22);
+
+        itoa(heishamonSettings->s0Settings[i].maximalPulseWidth, str, 10);
+        webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR(",\"s0_2_minwatt\":"), 16);
+
+        itoa((int) round((3600 * 1000 / heishamonSettings->s0Settings[i].ppkwh) / heishamonSettings->s0Settings[i].lowerPowerInterval), str, 10);
+        webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR("}"), 1);
       } break;
   }
   return 0;
 }
 
 int handleSettings(struct webserver_t *client) {
+
   uint16_t size = sizeof(tzdata) / sizeof(tzdata[0]);
   if (client->content == 0) {
     webserver_send(client, 200, (char *)"text/html", 0);
-  } else if (client->content == 1) {
     webserver_send_content_P(client, webHeader, strlen_P(webHeader));
     webserver_send_content_P(client, webCSS, strlen_P(webCSS));
     webserver_send_content_P(client, webBodyStart, strlen_P(webBodyStart));
+  } else if (client->content == 1) {
     webserver_send_content_P(client, webBodySettings1, strlen_P(webBodySettings1));
     webserver_send_content_P(client, settingsForm1, strlen_P(settingsForm1));
   } else if (client->content >= 2 && client->content < size + 2) {
-    tzStruct tz;
-    memcpy_P(&tz, &tzdata[client->content - 2], sizeof(tz));
-    client->sendlist[0].size =
-    snprintf_P((char *)client->sendlist[0].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-      PSTR("<option value=\"%d\">%.*s</option>"),
-      client->content - 2,
-      strlen(tz.name), tz.name
-    );
-    client->content++;
+    webserver_send_content_P(client, PSTR("<option value=\""), 15);
 
-    if(client->content < size + 2) {
-      memcpy_P(&tz, &tzdata[client->content - 2], sizeof(tz));
-      client->sendlist[1].size =
-      snprintf_P((char *)client->sendlist[1].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-        PSTR("<option value=\"%d\">%.*s</option>"),
-        client->content - 2,
-        strlen(tz.name), tz.name
-      );
-      client->content++;
-    }
+    char str[20];
+    itoa(client->content - 2, str, 10);
+    webserver_send_content(client, str, strlen(str));
 
+    webserver_send_content_P(client, PSTR("\">"), 2);
 
-    if(client->content < size + 2) {
-      memcpy_P(&tz, &tzdata[client->content - 2], sizeof(tz));
-      client->sendlist[2].size =
-      snprintf_P((char *)client->sendlist[2].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-        PSTR("<option value=\"%d\">%.*s</option>"),
-        client->content - 2,
-        strlen(tz.name), tz.name
-      );
-      client->content++;
-    }
-
-
-    if(client->content < size + 2) {
-      memcpy_P(&tz, &tzdata[client->content - 2], sizeof(tz));
-      client->sendlist[3].size =
-      snprintf_P((char *)client->sendlist[3].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-        PSTR("<option value=\"%d\">%.*s</option>"),
-        client->content - 2,
-        strlen(tz.name), tz.name
-      );
-      client->content++;
-    }
-
-    if(client->content < size + 2) {
-      memcpy_P(&tz, &tzdata[client->content - 2], sizeof(tz));
-      client->sendlist[4].size =
-      snprintf_P((char *)client->sendlist[4].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-        PSTR("<option value=\"%d\">%.*s</option>"),
-        client->content - 2,
-        strlen(tz.name), tz.name
-      );
-      client->content++;
-    }
-    client->content--;
+    webserver_send_content_P(client, tzdata[client->content - 2].name, strlen_P(tzdata[client->content - 2].name));
+    webserver_send_content_P(client, PSTR("</option>"), 9);
   } else if (client->content == size + 2) {
     webserver_send_content_P(client, settingsForm2, strlen_P(settingsForm2));
     webserver_send_content_P(client, menuJS, strlen_P(menuJS));
     webserver_send_content_P(client, settingsJS, strlen_P(settingsJS));
     webserver_send_content_P(client, populatescanwifiJS, strlen_P(populatescanwifiJS));
-    webserver_send_content_P(client, changewifissidJS, strlen_P(changewifissidJS));
   } else if (client->content == size + 3) {
+    webserver_send_content_P(client, changewifissidJS, strlen_P(changewifissidJS));
     webserver_send_content_P(client, populategetsettingsJS, strlen_P(populategetsettingsJS));
     webserver_send_content_P(client, webFooter, strlen_P(webFooter));
   }
@@ -912,30 +863,7 @@ int handleWifiScan(struct webserver_t *client) {
   if (client->content == 0) {
     webserver_send(client, 200, (char *)"application/json", 0);
     char *str = (char *)wifiJsonList.c_str();
-    uint16_t len = strlen(str);
-
-    char *cpy = strncpy((char *)client->sendlist[0].data.fixed, str, WEBSERVER_SENDLIST_BUFSIZE);
-    client->sendlist[0].size = strlen(cpy);
-
-    if(len > WEBSERVER_SENDLIST_BUFSIZE) {
-      cpy = strncpy((char *)client->sendlist[1].data.fixed, &str[WEBSERVER_SENDLIST_BUFSIZE], WEBSERVER_SENDLIST_BUFSIZE);
-      client->sendlist[1].size = strlen(cpy);
-    }
-
-    if(len > WEBSERVER_SENDLIST_BUFSIZE*2) {
-      cpy = strncpy((char *)client->sendlist[2].data.fixed, &str[WEBSERVER_SENDLIST_BUFSIZE*2], WEBSERVER_SENDLIST_BUFSIZE);
-      client->sendlist[2].size = strlen(cpy);
-    }
-
-    if(len > WEBSERVER_SENDLIST_BUFSIZE*3) {
-      cpy = strncpy((char *)client->sendlist[3].data.fixed, &str[WEBSERVER_SENDLIST_BUFSIZE*3], WEBSERVER_SENDLIST_BUFSIZE);
-      client->sendlist[3].size = strlen(cpy);
-    }
-
-    if(len > WEBSERVER_SENDLIST_BUFSIZE*4) {
-      cpy = strncpy((char *)client->sendlist[4].data.fixed, &str[WEBSERVER_SENDLIST_BUFSIZE*4], WEBSERVER_SENDLIST_BUFSIZE);
-      client->sendlist[4].size = strlen(cpy);
-    }
+    webserver_send_content(client, str, strlen(str));
   }
   //initatie a new async scan for next try
   WiFi.scanNetworksAsync(getWifiScanResults);
@@ -984,15 +912,13 @@ int handleRoot(struct webserver_t *client, float readpercentage, int mqttReconne
   switch (client->content) {
     case 0: {
         webserver_send(client, 200, (char *)"text/html", 0);
-      } break;
-    case 1: {
         webserver_send_content_P(client, webHeader, strlen_P(webHeader));
         webserver_send_content_P(client, webCSS, strlen_P(webCSS));
         webserver_send_content_P(client, webBodyStart, strlen_P(webBodyStart));
         webserver_send_content_P(client, webBodyRoot1, strlen_P(webBodyRoot1));
-        webserver_send_content_P(client, heishamon_version, strlen_P(heishamon_version));
       } break;
-    case 2: {
+    case 1: {
+        webserver_send_content_P(client, heishamon_version, strlen_P(heishamon_version));
         webserver_send_content_P(client, webBodyRoot2, strlen_P(webBodyRoot2));
         if (heishamonSettings->use_1wire) {
           webserver_send_content_P(client, webBodyRootDallasTab, strlen_P(webBodyRootDallasTab));
@@ -1001,36 +927,30 @@ int handleRoot(struct webserver_t *client, float readpercentage, int mqttReconne
           webserver_send_content_P(client, webBodyRootS0Tab, strlen_P(webBodyRootS0Tab));
         }
         webserver_send_content_P(client, webBodyRootConsoleTab, strlen_P(webBodyRootConsoleTab));
+      } break;
+    case 2: {
         webserver_send_content_P(client, webBodyEndDiv, strlen_P(webBodyEndDiv));
+        webserver_send_content_P(client, webBodyRootStatusWifi, strlen_P(webBodyRootStatusWifi));
+        char str[200];
+        itoa(getWifiQuality(), str, 10);
+        webserver_send_content(client, (char *)str, strlen(str));
+        webserver_send_content_P(client, webBodyRootStatusMemory, strlen_P(webBodyRootStatusMemory));
       } break;
     case 3: {
-        webserver_send_content_P(client, webBodyRootStatusWifi, strlen_P(webBodyRootStatusWifi));
-
-        client->sendlist[1].size =
-        snprintf_P((char *)client->sendlist[1].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-          PSTR("%d"), getWifiQuality());
-
-        webserver_send_content_P(client, webBodyRootStatusMemory, strlen_P(webBodyRootStatusMemory));
-
-        client->sendlist[3].size =
-        snprintf_P((char *)client->sendlist[3].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-          PSTR("%d"), getFreeMemory());
-
+        char str[200];
+        itoa(getFreeMemory(), str, 10);
+        webserver_send_content(client, (char *)str, strlen(str));
         webserver_send_content_P(client, webBodyRootStatusReceived, strlen_P(webBodyRootStatusReceived));
+        str[200];
+        itoa(readpercentage, str, 10);
+        webserver_send_content(client, (char *)str, strlen(str));
       } break;
     case 4: {
-        client->sendlist[0].size =
-        snprintf_P((char *)client->sendlist[0].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-          PSTR("%d"), readpercentage);
-
         webserver_send_content_P(client, webBodyRootStatusReconnects, strlen_P(webBodyRootStatusReconnects));
-
-        client->sendlist[2].size =
-        snprintf_P((char *)client->sendlist[2].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-          PSTR("%d"), mqttReconnects);
-
+        char str[200];
+        itoa(mqttReconnects, str, 10);
+        webserver_send_content(client, (char *)str, strlen(str));
         webserver_send_content_P(client, webBodyRootStatusUptime, strlen_P(webBodyRootStatusUptime));
-
         char *up = getUptime();
         webserver_send_content(client, up, strlen(up));
         free(up);
@@ -1045,9 +965,9 @@ int handleRoot(struct webserver_t *client, float readpercentage, int mqttReconne
           webserver_send_content_P(client, webBodyRootS0Values, strlen_P(webBodyRootS0Values));
         }
         webserver_send_content_P(client, webBodyRootConsole, strlen_P(webBodyRootConsole));
+        webserver_send_content_P(client, menuJS, strlen_P(menuJS));
       } break;
     case 6: {
-        webserver_send_content_P(client, menuJS, strlen_P(menuJS));
         webserver_send_content_P(client, refreshJS, strlen_P(refreshJS));
         webserver_send_content_P(client, selectJS, strlen_P(selectJS));
         webserver_send_content_P(client, websocketJS, strlen_P(websocketJS));
@@ -1063,13 +983,11 @@ int handleTableRefresh(struct webserver_t *client, char* actData) {
   if (client->route == 11) {
     if (client->content == 0) {
       webserver_send(client, 200, (char *)"text/html", 0);
-    } else if (client->content == 1) {
       dallasTableOutput(client);
     }
   } else if (client->route == 12) {
     if (client->content == 0) {
       webserver_send(client, 200, (char *)"text/html", 0);
-    } else if (client->content == 1) {
       s0TableOutput(client);
     }
   } else if (client->route == 10) {
@@ -1077,28 +995,42 @@ int handleTableRefresh(struct webserver_t *client, char* actData) {
       webserver_send(client, 200, (char *)"text/html", 0);
     }
     if (client->content < NUMBER_OF_TOPICS) {
-      uint8_t i = 0, x = client->content;
-      for (uint8_t topic = x; topic < NUMBER_OF_TOPICS && topic < x + 5; topic++) {
-        if(topic < NUMBER_OF_TOPICS) {
-          String dataValue = actData[0] == '\0' ? "" : getDataValue(actData, topic);
-          char* str = (char *)dataValue.c_str();
-          int maxvalue = atoi(topicDescription[topic][0]);
-          int value = actData[0] == '\0' ? 0 : getDataValue(actData, topic).toInt();
+      for (uint8_t topic = client->content; topic < NUMBER_OF_TOPICS && topic < client->content + 4; topic++) {
 
-          client->sendlist[i].size =
-          snprintf_P((char *)client->sendlist[i].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-            PSTR("<tr><td>TOP%d</td><td>%.*s</td><td>%.*s</td><td>%.*s</td></tr>"),
-            topic,
-            strlen_P(topics[topic]), topics[topic],
-            strlen(str), str,
-            (((value < 0) || (value > maxvalue)) ? strlen_P(_unknown) : strlen_P(topicDescription[topic][value + 1])),
-            (((value < 0) || (value > maxvalue)) ? _unknown : topicDescription[topic][value + 1])
-          );
-          i++;
+        webserver_send_content_P(client, PSTR("<tr><td>TOP"), 11);
+
+        char str[12];
+        itoa(topic, str, 10);
+        webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR("</td><td>"), 9);
+        webserver_send_content_P(client, topics[topic], strlen_P(topics[topic]));
+        webserver_send_content_P(client, PSTR("</td><td>"), 9);
+
+        {
+          char *str = (char *)actData[topic].c_str();
+          webserver_send_content(client, str, strlen(str));
         }
-        client->content++;
+
+        webserver_send_content_P(client, PSTR("</td><td>"), 9);
+
+        int maxvalue = atoi(topicDescription[topic][0]);
+        int value = actData[topic].toInt();
+        if (maxvalue == 0) { //this takes the special case where the description is a real value description instead of a mode, so value should take first index (= 0 + 1)
+          value = 0;
+        }
+        if ((value < 0) || (value > maxvalue)) {
+          webserver_send_content_P(client, _unknown, strlen_P(_unknown));
+        }
+        else {
+          webserver_send_content_P(client, topicDescription[topic][value + 1], strlen_P(topicDescription[topic][value + 1]));
+        }
+
+
+        webserver_send_content_P(client, PSTR("</td></tr>"), 10);
       }
-      client->content--;
+      // The webserver also increases by 1
+      client->content += 3;
     }
   }
   return 0;
@@ -1107,58 +1039,63 @@ int handleTableRefresh(struct webserver_t *client, char* actData) {
 int handleJsonOutput(struct webserver_t *client, char* actData) {
   if (client->content == 0) {
     webserver_send(client, 200, (char *)"application/json", 0);
-  } else if(client->content == 1) {
     webserver_send_content_P(client, PSTR("{\"heatpump\":["), 13);
-  } else if(client->content < NUMBER_OF_TOPICS+1) {
-    uint8_t i = 0, x = client->content-1;
-    for (uint8_t topic = x; topic < NUMBER_OF_TOPICS && topic < x + 5; topic++) {
-      if(topic < NUMBER_OF_TOPICS) {
-        String dataValue = actData[0] == '\0' ? "" : getDataValue(actData, topic);
-        char* str = (char *)dataValue.c_str();
-        int maxvalue = atoi(topicDescription[topic][0]);
-        int value = actData[0] == '\0' ? 0 : getDataValue(actData, topic).toInt();
+  } else if (client->content < NUMBER_OF_TOPICS) {
+    for (uint8_t topic = client->content; topic < NUMBER_OF_TOPICS && topic < client->content + 4; topic++) {
+      webserver_send_content_P(client, PSTR("{\"Topic\":\"TOP"), 13);
 
-        client->sendlist[i].size =
-        snprintf_P((char *)client->sendlist[i].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-          PSTR("{\"Topic\":\"TOP%d\",\"Name\":\"%.*s\",\"Value\":\"%.*s\",\"Description\":\"%.*s\"}%s"),
-          topic,
-          strlen_P(topics[topic]), topics[topic],
-          strlen(str), str,
-          (((value < 0) || (value > maxvalue)) ? strlen_P(_unknown) : strlen_P(topicDescription[topic][value + 1])),
-          (((value < 0) || (value > maxvalue)) ? _unknown : topicDescription[topic][value + 1]),
-          ((topic < NUMBER_OF_TOPICS - 1) ? "," : "")
-        );
-        i++;
+      {
+        char str[12];
+        itoa(topic, str, 10);
+        webserver_send_content(client, str, strlen(str));
       }
-      client->content++;
-    }
-    client->content--;
-  } else {
-    if (client->content == NUMBER_OF_TOPICS + 1) {
-      webserver_send_content_P(client, PSTR("],\"1wire\":"), 10);
-      return 0;
-    }
-    if (client->content <= NUMBER_OF_TOPICS + 2) {
-      dallasJsonOutput(client);
-      if(client->content <= NUMBER_OF_TOPICS + 2) {
-        webserver_send_content_P(client, PSTR("[]"), 2);
+
+      webserver_send_content_P(client, PSTR("\",\"Name\":\""), 10);
+
+      webserver_send_content_P(client, topics[topic], strlen_P(topics[topic]));
+
+      webserver_send_content_P(client, PSTR("\",\"Value\":\""), 11);
+
+      {
+        char *str = (char *)actData[topic].c_str();
+        webserver_send_content_P(client, str, strlen(str));
       }
-      return 0;
-    }
-    if (client->content <= NUMBER_OF_TOPICS + 3) {
-      webserver_send_content_P(client, PSTR(",\"s0\":"), 6);
-      return 0;
-    }
-    if (client->content <= NUMBER_OF_TOPICS + 4) {
-      if(client->content <= NUMBER_OF_TOPICS + 4) {
-        webserver_send_content_P(client, PSTR("[]"), 2);
+
+      webserver_send_content_P(client, PSTR("\",\"Description\":\""), 17);
+
+      int maxvalue = atoi(topicDescription[topic][0]);
+      int value = actData[topic].toInt();
+      if (maxvalue == 0) { //this takes the special case where the description is a real value description instead of a mode, so value should take first index (= 0 + 1)
+        value = 0;
       }
-      return 0;
+      if ((value < 0) || (value > maxvalue)) {
+        webserver_send_content_P(client, _unknown, strlen_P(_unknown));
+      }
+      else {
+        webserver_send_content_P(client, topicDescription[topic][value + 1], strlen_P(topicDescription[topic][value + 1]));
+      }
+
+      webserver_send_content_P(client, PSTR("\"}"), 2);
+
+      if (topic < NUMBER_OF_TOPICS - 1) {
+        webserver_send_content_P(client, PSTR(","), 1);
+      }
     }
-    if (client->content == NUMBER_OF_TOPICS + 5) {
-      webserver_send_content_P(client, PSTR("}"), 1);
-      return 0;
+    // The webserver also increases by 1
+    client->content += 3;
+    if (client->content > NUMBER_OF_TOPICS) {
+      client->content = NUMBER_OF_TOPICS;
     }
+  } else if (client->content == NUMBER_OF_TOPICS + 1) {
+    webserver_send_content_P(client, PSTR("],\"1wire\":"), 10);
+
+    dallasJsonOutput(client);
+  } else if (client->content == NUMBER_OF_TOPICS + 2) {
+    webserver_send_content_P(client, PSTR(",\"s0\":"), 6);
+
+    s0JsonOutput(client);
+
+    webserver_send_content_P(client, PSTR("}"), 1);
   }
   return 0;
 }
@@ -1176,41 +1113,29 @@ int showRules(struct webserver_t *client) {
       client->userdata = new fs::File(LittleFS.open("/rules.txt", "r"));
     }
   } else if (client->userdata != NULL) {
-    uint8_t i = 0;
-    for(i=0;i<WEBSERVER_MAX_SENDLIST;i++) {
-#define BUFFER_SIZE WEBSERVER_SENDLIST_BUFSIZE
-      File *f = (File *)client->userdata;
-      if (f && *f) {
-        len = f->size();
+#define BUFFER_SIZE 128
+    File *f = (File *)client->userdata;
+    char content[BUFFER_SIZE];
+    memset(content, 0, BUFFER_SIZE);
+    if (f && *f) {
+      len = f->size();
+    }
+
+    if (len > 0) {
+      f->seek((client->content - 1)*BUFFER_SIZE, SeekSet);
+      if (client->content * BUFFER_SIZE <= len) {
+        f->readBytes(content, BUFFER_SIZE);
+        len1 = BUFFER_SIZE;
+      } else if ((client->content * BUFFER_SIZE) >= len && (client->content * BUFFER_SIZE) <= len + BUFFER_SIZE) {
+        f->readBytes(content, len - ((client->content - 1)*BUFFER_SIZE));
+        len1 = len - ((client->content - 1) * BUFFER_SIZE);
+      } else {
+        len1 = 0;
       }
 
-      if (len > 0) {
-        f->seek((client->content - 1)*BUFFER_SIZE, SeekSet);
-        if (client->content * BUFFER_SIZE <= len) {
-          f->readBytes((char *)client->sendlist[i].data.fixed, BUFFER_SIZE);
-          len1 = BUFFER_SIZE;
-        } else if ((client->content * BUFFER_SIZE) >= len && (client->content * BUFFER_SIZE) <= len + BUFFER_SIZE) {
-          f->readBytes((char *)client->sendlist[i].data.fixed, len - ((client->content - 1)*BUFFER_SIZE));
-          len1 = len - ((client->content - 1) * BUFFER_SIZE);
-        } else {
-          len1 = 0;
-        }
-
-        if (len1 > 0) {
-          if (len1 < BUFFER_SIZE) {
-            if (f) {
-              if (*f) {
-                f->close();
-              }
-              delete f;
-            }
-            client->userdata = NULL;
-            webserver_send_content_P(client, showRulesPage2, strlen_P(showRulesPage2));
-            webserver_send_content_P(client, menuJS, strlen_P(menuJS));
-            webserver_send_content_P(client, webFooter, strlen_P(webFooter));
-            break;
-          }
-        } else if (client->content == 1) {
+      if (len1 > 0) {
+        webserver_send_content(client, content, len1);
+        if (len1 < BUFFER_SIZE) {
           if (f) {
             if (*f) {
               f->close();
@@ -1221,7 +1146,6 @@ int showRules(struct webserver_t *client) {
           webserver_send_content_P(client, showRulesPage2, strlen_P(showRulesPage2));
           webserver_send_content_P(client, menuJS, strlen_P(menuJS));
           webserver_send_content_P(client, webFooter, strlen_P(webFooter));
-          break;
         }
       } else if (client->content == 1) {
         if (f) {
@@ -1234,11 +1158,19 @@ int showRules(struct webserver_t *client) {
         webserver_send_content_P(client, showRulesPage2, strlen_P(showRulesPage2));
         webserver_send_content_P(client, menuJS, strlen_P(menuJS));
         webserver_send_content_P(client, webFooter, strlen_P(webFooter));
-        break;
       }
-      client->content++;
+    } else if (client->content == 1) {
+      if (f) {
+        if (*f) {
+          f->close();
+        }
+        delete f;
+      }
+      client->userdata = NULL;
+      webserver_send_content_P(client, showRulesPage2, strlen_P(showRulesPage2));
+      webserver_send_content_P(client, menuJS, strlen_P(menuJS));
+      webserver_send_content_P(client, webFooter, strlen_P(webFooter));
     }
-    client->content--;
   } else if (client->content == 1) {
     webserver_send_content_P(client, showRulesPage2, strlen_P(showRulesPage2));
     webserver_send_content_P(client, menuJS, strlen_P(menuJS));

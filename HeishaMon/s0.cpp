@@ -185,38 +185,86 @@ unsigned long tablePulses[NUM_S0_COUNTERS];
 
 void s0TableOutput(struct webserver_t *client) {
   for (int i = 0; i < NUM_S0_COUNTERS; i++) {
-    client->sendlist[i].size =
-      snprintf_P((char *)client->sendlist[i].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-        PSTR("<tr><td>%d</td><td>%d</td></td><td>%d</td><td>%d</td><td>%d%</td><td>%d</td></tr>"),
-        i+1,
-        actS0Data[i].watt,
-        ((actS0Data[i].pulsesTotal - tablePulses[i]) * ( 1000.0 / actS0Settings[i].ppkwh)),
-        (actS0Data[i].pulsesTotal * (1000.0 / actS0Settings[i].ppkwh)),
-        (100 * (actS0Data[i].goodPulses + 1) / (actS0Data[i].goodPulses + actS0Data[i].badPulses + 1)),
-        actS0Data[i].avgPulseWidth
-      );
+    webserver_send_content_P(client, PSTR("<tr><td>"), 8);
+
+    char str[12];
+    itoa(i + 1, str, 10);
+    webserver_send_content(client, str, strlen(str));
+
+    webserver_send_content_P(client, PSTR("</td><td>"), 9);
+
+    itoa(actS0Data[i].watt, str, 10);
+    webserver_send_content(client, str, strlen(str));
+
+    webserver_send_content_P(client, PSTR("</td><td>"), 9);
+
+    itoa(((actS0Data[i].pulsesTotal - tablePulses[i]) * ( 1000.0 / actS0Settings[i].ppkwh)), str, 10);
+    webserver_send_content(client, str, strlen(str));
+
     tablePulses[i] = actS0Data[i].pulsesTotal;
+
+    webserver_send_content_P(client, PSTR("</td><td>"), 9);
+
+    itoa((actS0Data[i].pulsesTotal * (1000.0 / actS0Settings[i].ppkwh)), str, 10);
+    webserver_send_content(client, str, strlen(str));
+
+    webserver_send_content_P(client, PSTR("</td><td>"), 9);
+
+    itoa((100 * (actS0Data[i].goodPulses + 1) / (actS0Data[i].goodPulses + actS0Data[i].badPulses + 1)), str, 10);
+    webserver_send_content(client, str, strlen(str));
+
+    webserver_send_content_P(client, PSTR("%</td><td>"), 10);
+
+    itoa(actS0Data[i].avgPulseWidth, str, 10);
+    webserver_send_content(client, str, strlen(str));
+
+    webserver_send_content_P(client, PSTR("</td></tr>"), 10);
   }
 }
 
 unsigned long jsonPulses[NUM_S0_COUNTERS];
 
 void s0JsonOutput(struct webserver_t *client) {
+  webserver_send_content_P(client, PSTR("["), 1);
   for (int i = 0; i < NUM_S0_COUNTERS; i++) {
-    client->sendlist[i].size =
-      snprintf_P((char *)client->sendlist[i].data.fixed, WEBSERVER_SENDLIST_BUFSIZE,
-        PSTR("%.*s{\"S0 port\":\"%d\",\"Watt\":\"%d\",\"Watthour\":\"%d\",\"WatthourTotal\":\"%d\",\"PulseQuality\":\"%d\",\"AvgPulseWidth\":\"%d\"}%s"),
-        ((i == 0) ? 1 : 0),
-        ((i == 0) ? "[" : ""),
-        i+1,
-        actS0Data[i].watt,
-        ((actS0Data[i].pulsesTotal - tablePulses[i]) * ( 1000.0 / actS0Settings[i].ppkwh)),
-        (actS0Data[i].pulsesTotal * (1000.0 / actS0Settings[i].ppkwh)),
-        (100 * (actS0Data[i].goodPulses + 1) / (actS0Data[i].goodPulses + actS0Data[i].badPulses + 1)),
-        actS0Data[i].avgPulseWidth,
-        ((i < NUM_S0_COUNTERS - 1) ? "," : "]")
-      );
+    webserver_send_content_P(client, PSTR("{\"S0 port\":\""), 12);
+
+    char str[12];
+    itoa(i + 1, str, 10);
+    webserver_send_content(client, str, strlen(str));
+
+    webserver_send_content_P(client, PSTR("\",\"Watt\":\""), 10);
+
+    itoa(actS0Data[i].watt, str, 10);
+    webserver_send_content(client, str, strlen(str));
+
+    webserver_send_content_P(client, PSTR("\",\"Watthour\":\""), 14);
+
+    itoa(((actS0Data[i].pulsesTotal - tablePulses[i]) * (1000.0 / actS0Settings[i].ppkwh)), str, 10);
+    webserver_send_content(client, str, strlen(str));
 
     jsonPulses[i] = actS0Data[i].pulsesTotal;
+
+    webserver_send_content_P(client, PSTR("\",\"WatthourTotal\":\""), 19);
+
+    itoa((actS0Data[i].pulsesTotal * (1000.0 / actS0Settings[i].ppkwh)), str, 10);
+    webserver_send_content(client, str, strlen(str));
+
+    webserver_send_content_P(client, PSTR("\",\"PulseQuality\":\""), 18);
+
+    itoa((100 * (actS0Data[i].goodPulses + 1) / (actS0Data[i].goodPulses + actS0Data[i].badPulses + 1)), str, 10);
+    webserver_send_content(client, str, strlen(str));
+
+    webserver_send_content_P(client, PSTR("\",\"AvgPulseWidth\":\""), 19);
+
+    itoa(actS0Data[i].avgPulseWidth, str, 10);
+    webserver_send_content(client, str, strlen(str));
+
+    if (i < NUM_S0_COUNTERS - 1) {
+      webserver_send_content_P(client, PSTR("\"},"), 3);
+    } else {
+      webserver_send_content_P(client, PSTR("\"}"), 2);
+    }
   }
+  webserver_send_content_P(client, PSTR("]"), 1);
 }
