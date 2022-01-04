@@ -1220,7 +1220,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 
   while(loop) {
 #ifdef ESP8266
-    ESP.wdtFeed();
+    delay(0);
 #endif
     if(go > -1) {
       switch(go) {

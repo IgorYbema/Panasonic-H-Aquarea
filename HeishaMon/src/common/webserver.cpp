@@ -1834,7 +1834,7 @@ void webserver_loop(void) {
   }
 
 #if defined(ESP8266)
-  while(sync_server.hasClient()) {
+  if(sync_server.hasClient()) {
     for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
       if(clients[i].data.client == NULL) {
         webserver_reset_client(&clients[i].data);
