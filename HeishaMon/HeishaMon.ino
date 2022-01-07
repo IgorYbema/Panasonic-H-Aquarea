@@ -72,8 +72,6 @@ byte data_length = 0;
 
 // store actual data 
 String openTherm[2];
-// store actual data
-#define DATASIZE 203
 char actData[DATASIZE] = { '\0' };
 #define OPTDATASIZE 20
 char actOptData[OPTDATASIZE]  = { '\0' };

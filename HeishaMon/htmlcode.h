@@ -94,7 +94,7 @@ static const char refreshJS[] PROGMEM =
   "     case 'Dallas':"
   "       loadContent('dallasvalues', '/tablerefresh?1wire', function()"
   "         {"
-  "           var dallas_elements = document.getElementsByClassName(\"dallas_alias\");" 
+  "           var dallas_elements = document.getElementsByClassName(\"dallas_alias\");"
   "           for (var i = 0; i < dallas_elements.length; i++) {"
   "               dallas_elements[i].addEventListener('blur', dallasAliasEdit, false);"
   "           }"
