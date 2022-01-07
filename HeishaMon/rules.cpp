@@ -1322,7 +1322,7 @@ int rules_parse(char *file) {
     varstack->bufsize = 4;
 
     int ret = 0;
-    unsigned int txtoffset = alignedbytes(MEMPOOL_SIZE-len-5);
+    unsigned int txtoffset = alignedbuffer(MEMPOOL_SIZE-len-5);
     unsigned int memoffset = 0;
     char *text = (char *)&mempool[txtoffset];
     while((ret = rule_initialize(&text, &txtoffset, &rules, &nrrules, (unsigned char *)mempool, &memoffset, varstack) == 0)) {
