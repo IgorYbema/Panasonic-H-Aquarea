@@ -37,6 +37,10 @@
   #define WEBSERVER_CLIENT_TIMEOUT 15000
 #endif
 
+#ifndef WEBSERVER_CLIENT_PING_INTERVAL
+  #define WEBSERVER_CLIENT_PING_INTERVAL 3000
+#endif
+
 #ifndef __linux__
   #include <Arduino.h>
   #include "lwip/opt.h"
@@ -114,6 +118,7 @@ typedef struct webserver_t {
   tcp_pcb *pcb;
   WiFiClient *client;
   unsigned long lastseen;
+  unsigned long lastping;
   uint8_t is_websocket:1;
   uint8_t reqtype:1;
   uint8_t async:1;
