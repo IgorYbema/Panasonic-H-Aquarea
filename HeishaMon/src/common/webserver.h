@@ -22,7 +22,7 @@
 #endif
 
 #ifndef WEBSERVER_MAX_CLIENTS
-  #define WEBSERVER_MAX_CLIENTS 1
+  #define WEBSERVER_MAX_CLIENTS 5
 #endif
 
 #ifndef WEBSERVER_MAX_SENDLIST

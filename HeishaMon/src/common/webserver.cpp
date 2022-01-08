@@ -61,6 +61,7 @@
 #endif
 
 void log_message(char *string);
+void log_message(const __FlashStringHelper *msg);
 
 struct webserver_client_t clients[WEBSERVER_MAX_CLIENTS];
 #ifdef ESP8266
@@ -1652,7 +1653,7 @@ void webserver_send_content_P(struct webserver_t *client, PGM_P buf, uint16_t si
   }
   if(node == NULL) {
   #ifdef ESP8266
-    log_message("Sendlist queue is full");
+    log_message(F("Sendlist queue is full"));
   #else
     printf("Sendlist queue is full\n");
   #endif
@@ -1707,7 +1708,7 @@ void webserver_send_content(struct webserver_t *client, char *buf, uint16_t size
   }
   if(node == NULL) {
   #ifdef ESP8266
-    log_message("Sendlist queue is full");
+    log_message(F("Sendlist queue is full\n"));
   #else
     printf("Sendlist queue is full\n");
   #endif
