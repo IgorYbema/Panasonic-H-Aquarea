@@ -34,8 +34,6 @@ const byte DNS_PORT = 53;
 
 #define SERIALTIMEOUT 2000 // wait until all 203 bytes are read, must not be too long to avoid blocking the code
 
-WebSocketsServer webSocket = WebSocketsServer(81);
-
 settingsStruct heishamonSettings;
 
 bool sending = false; // mutex for sending data
@@ -248,9 +246,7 @@ void log_message(char* string)
       mqtt_client.disconnect();
     }
   }
-  if (webSocket.connectedClients() > 0) {
-    webSocket.broadcastTXT(log_line, strlen(log_line));
-  }
+  websocket_write_all(log_line, strlen(log_line));
   free(log_line);
 }
 
@@ -723,10 +719,6 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
 
 void setupHttp() {
   webserver_start(80, &webserver_cb, 0);
-
-  webSocket.begin();
-  webSocket.onEvent(webSocketEvent);
-  webSocket.enableHeartbeat(3000, 3000, 2);
 }
 
 void doubleResetDetect() {
@@ -929,8 +921,6 @@ void loop() {
   check_wifi();
   // Handle OTA first.
   ArduinoOTA.handle();
-  // handle Websockets
-  webSocket.loop();
 
   mqtt_client.loop();
 
