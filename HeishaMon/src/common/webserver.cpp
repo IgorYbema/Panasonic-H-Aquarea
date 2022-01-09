@@ -2034,6 +2034,8 @@ uint8_t webserver_sync_receive(struct webserver_t *client, uint8_t *rbuffer, uin
         client->is_websocket = 1;
         client->lastping = millis();
         send_websocket_handshake(client, (char *)client->data.websockkey);
+        free(client->data.websockkey);
+        client->data.websockkey = NULL;
         client->step = WEBSERVER_CLIENT_WEBSOCKET;
       }
       if(client->method == 1) {
