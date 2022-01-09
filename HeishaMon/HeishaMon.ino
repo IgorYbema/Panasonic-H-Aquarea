@@ -39,8 +39,6 @@ const byte DNS_PORT = 53;
 
 #define SERIALTIMEOUT 2000 // wait until all 203 bytes are read, must not be too long to avoid blocking the code
 
-WebSocketsServer webSocket = WebSocketsServer(81);
-
 settingsStruct heishamonSettings;
 
 bool sending = false; // mutex for sending data
@@ -115,6 +113,7 @@ int timerqueue_size = 0;
 */
 void check_wifi()
 {
+
   if ((WiFi.status() != WL_CONNECTED) || (!WiFi.localIP()))  {
     /*
         if we are not connected to an AP
@@ -156,7 +155,6 @@ void check_wifi()
       log_message(F("WiFi (re)connected, shutting down hotspot..."));
       WiFi.softAPdisconnect(true);
       MDNS.notifyAPChange();
-
     }
 
     if (firstConnectSinceBoot) { // this should start only when softap is down or else it will not work properly so run after the routine to disable softap
@@ -268,9 +266,7 @@ void log_message(char* string)
       mqtt_client.disconnect();
     }
   }
-  if (webSocket.connectedClients() > 0) {
-    webSocket.broadcastTXT(log_line, strlen(log_line));
-  }
+  websocket_write_all(log_line, strlen(log_line));
   free(log_line);
 }
 
@@ -344,14 +340,14 @@ bool readSerial()
 
       if (data_length == DATASIZE) { //decode the normal data
         decode_heatpump_data(data, actData, mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
-        memcpy(actData,data,DATASIZE);
+        memcpy(actData, data, DATASIZE);
         data_length = 0;
         return true;
       }
       else if (data_length == OPTDATASIZE ) { //optional pcb acknowledge answer
         log_message(F("Received optional PCB ack answer. Decoding this in OPT topics."));
         decode_optional_heatpump_data(data, actOptData, mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
-        memcpy(actOptData,data,OPTDATASIZE);
+        memcpy(actOptData, data, OPTDATASIZE);
         data_length = 0;
         return true;
       }
@@ -788,7 +784,7 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
                 delete f;
               }
               client->userdata = NULL;
-              timerqueue_insert(0, 1, -3);
+              timerqueue_insert(0, 1, -4);
               webserver_send(client, 301, (char *)"text/plain", 0);
             } break;
           default: {
@@ -861,10 +857,6 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
 
 void setupHttp() {
   webserver_start(80, &webserver_cb, 0);
-
-  webSocket.begin();
-  webSocket.onEvent(webSocketEvent);
-  webSocket.enableHeartbeat(3000, 3000, 2);
 }
 
 void doubleResetDetect() {
@@ -966,6 +958,9 @@ void timer_cb(int nr) {
           ESP.restart();
         } break;
       case -3: {
+          setupWifi(&heishamonSettings);
+        } break;
+      case -4: {
           if(rules_parse("/rules.new") == -1) {
             logprintln_P(F("new ruleset failed to parse, using previous ruleset"));
             rules_parse("/rules.txt");
@@ -1083,8 +1078,6 @@ void loop() {
   check_wifi();
   // Handle OTA first.
   ArduinoOTA.handle();
-  // handle Websockets
-  webSocket.loop();
 
   mqtt_client.loop();
 

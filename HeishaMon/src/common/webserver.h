@@ -33,8 +33,20 @@
   #define WEBSERVER_SENDLIST_BUFSIZE 0
 #endif
 
+#ifndef WEBSERVER_MAX_SENDLIST
+  #define WEBSERVER_MAX_SENDLIST 0
+#endif
+
+#ifndef WEBSERVER_SENDLIST_BUFSIZE
+  #define WEBSERVER_SENDLIST_BUFSIZE 0
+#endif
+
 #ifndef WEBSERVER_CLIENT_TIMEOUT
   #define WEBSERVER_CLIENT_TIMEOUT 15000
+#endif
+
+#ifndef WEBSERVER_CLIENT_PING_INTERVAL
+  #define WEBSERVER_CLIENT_PING_INTERVAL 3000
 #endif
 
 #ifndef __linux__
@@ -114,6 +126,8 @@ typedef struct webserver_t {
   tcp_pcb *pcb;
   WiFiClient *client;
   unsigned long lastseen;
+  unsigned long lastping;
+  uint8_t is_websocket:1;
   uint8_t reqtype:1;
   uint8_t async:1;
   uint8_t method:1;
@@ -133,7 +147,10 @@ typedef struct webserver_t {
 #endif
   webserver_cb_t *callback;
   unsigned char buffer[WEBSERVER_BUFFER_SIZE];
-  char *boundary;
+  union {
+    char *boundary;
+    char *websockkey;
+  } data;
   void *userdata;
 } webserver_t;
 
@@ -148,14 +165,30 @@ typedef enum {
   WEBSERVER_CLIENT_READ_HEADER,
   WEBSERVER_CLIENT_CREATE_HEADER,
   WEBSERVER_CLIENT_WRITE,
+  WEBSERVER_CLIENT_WEBSOCKET,
+  WEBSERVER_CLIENT_WEBSOCKET_TEXT,
   WEBSERVER_CLIENT_SENDING,
   WEBSERVER_CLIENT_HEADER,
   WEBSERVER_CLIENT_ARGS,
   WEBSERVER_CLIENT_CLOSE,
 } webserver_steps;
 
+enum {
+	WEBSOCKET_OPCODE_CONTINUATION = 0x0,
+	WEBSOCKET_OPCODE_TEXT = 0x1,
+	WEBSOCKET_OPCODE_BINARY = 0x2,
+	WEBSOCKET_OPCODE_CONNECTION_CLOSE = 0x8,
+	WEBSOCKET_OPCODE_PING = 0x9,
+	WEBSOCKET_OPCODE_PONG = 0xa
+};
+
 int8_t webserver_start(int port, webserver_cb_t *callback, uint8_t async);
 void webserver_loop(void);
+void websocket_write_all_P(PGM_P data, uint16_t data_len);
+void websocket_write_all(char *data, uint16_t data_len);
+void websocket_write_P(struct webserver_t *client, PGM_P data, uint16_t data_len);
+void websocket_write(struct webserver_t *client, char *data, uint16_t data_len);
+void websocket_send_header(struct webserver_t *client, uint8_t opcode, uint16_t data_len);
 void webserver_send_content(struct webserver_t *client, char *buf, uint16_t len);
 void webserver_send_content_P(struct webserver_t *client, PGM_P buf, uint16_t len);
 err_t webserver_async_receive(void *arg, tcp_pcb *pcb, struct pbuf *data, err_t err);

@@ -396,6 +396,7 @@ int saveSettings(struct webserver_t *client, settingsStruct *heishamonSettings) 
   const char *use_s0 = NULL;
 
   bool reconnectWiFi = false;
+  bool wrongPassword = false;
   DynamicJsonDocument jsonDoc(1024);
 
   settingsToJson(jsonDoc, heishamonSettings); //stores current settings in a json document
@@ -493,18 +494,11 @@ int saveSettings(struct webserver_t *client, settingsStruct *heishamonSettings) 
     tmp = tmp->next;
   }
 
-  while (client->userdata) {
-    tmp = (struct websettings_t *)client->userdata;
-    client->userdata = ((struct websettings_t *)(client->userdata))->next;
-    free(tmp);
-  }
-
   if (new_ota_password != NULL && strlen(new_ota_password) > 0 && current_ota_password != NULL && strlen(current_ota_password) > 0) {
     if (strcmp(heishamonSettings->ota_password, current_ota_password) == 0) {
       jsonDoc["ota_password"] = new_ota_password;
     } else {
-      client->route = 111;
-      return 0;
+      wrongPassword = true;
     }
   }
 
@@ -523,6 +517,17 @@ int saveSettings(struct webserver_t *client, settingsStruct *heishamonSettings) 
   saveJsonToConfig(jsonDoc); //save to config file
   loadSettings(heishamonSettings); //load config file to current settings
 
+  while (client->userdata) {
+    tmp = (struct websettings_t *)client->userdata;
+    client->userdata = ((struct websettings_t *)(client->userdata))->next;
+    delete tmp;
+  }
+
+  if (wrongPassword) {
+    client->route = 111;
+    return 0;
+  }
+  
   if (reconnectWiFi) {
     client->route = 112;
     return 0;
@@ -535,14 +540,21 @@ int saveSettings(struct webserver_t *client, settingsStruct *heishamonSettings) 
 int cacheSettings(struct webserver_t *client, struct arguments_t * args) {
   struct websettings_t *tmp = (struct websettings_t *)client->userdata;
   while (tmp) {
-    if (strcmp(tmp->name.c_str(), (char *)args->name) == 0) {
-      char *cpy = (char *)malloc(args->len + 1);
-      memset(cpy, 0, args->len + 1);
-      memcpy(cpy, args->value, args->len);
-      tmp->value += cpy;
-      free(cpy);
-      break;
-    }
+    /*
+     *  this part is useless as websettings is always NULL at start of a new POST
+     *  it will only interrate over already POSTed args which are pushed on the list below
+     *  we only need to find the tail of the list
+     *  /
+     *
+      if (strcmp(tmp->name.c_str(), (char *)args->name) == 0) {
+        char *cpy = (char *)malloc(args->len + 1);
+        memset(cpy, 0, args->len + 1);
+        memcpy(cpy, args->value, args->len);
+        tmp->value += cpy;
+        free(cpy);
+        break;
+      }
+    */
     tmp = tmp->next;
   }
   if (tmp == NULL) {
@@ -554,7 +566,6 @@ int cacheSettings(struct webserver_t *client, struct arguments_t * args) {
     }
     node->next = NULL;
     node->name += (char *)args->name;
-
     if (args->value != NULL) {
       char *cpy = (char *)malloc(args->len + 1);
       if (node == NULL) {
@@ -600,35 +611,18 @@ int settingsNewPassword(struct webserver_t *client, settingsStruct *heishamonSet
 }
 
 int settingsReconnectWifi(struct webserver_t *client, settingsStruct *heishamonSettings) {
-  uint16_t size = sizeof(tzdata) / sizeof(tzdata[0]);
   if (client->content == 0) {
     webserver_send(client, 200, (char *)"text/html", 0);
     webserver_send_content_P(client, webHeader, strlen_P(webHeader));
     webserver_send_content_P(client, webCSS, strlen_P(webCSS));
     webserver_send_content_P(client, webBodyStart, strlen_P(webBodyStart));
-  } else if (client->content == 1) {
     webserver_send_content_P(client, webBodySettings1, strlen_P(webBodySettings1));
-    webserver_send_content_P(client, settingsForm1, strlen_P(settingsForm1));
-  } else if (client->content >= 2 && client->content < size + 2) {
-    webserver_send_content_P(client, PSTR("<option value=\""), 15);
-
-    char str[20];
-    itoa(client->content - 2, str, 10);
-    webserver_send_content(client, str, strlen(str));
-
-    webserver_send_content_P(client, PSTR("\">"), 2);
-
-    webserver_send_content_P(client, tzdata[client->content - 2].name, strlen_P(tzdata[client->content - 2].name));
-    webserver_send_content_P(client, PSTR("</option>"), 9);
-  } else if (client->content == size + 2) {
-    webserver_send_content_P(client, settingsForm2, strlen_P(settingsForm2));
+  } else if (client->content == 2) {
     webserver_send_content_P(client, menuJS, strlen_P(menuJS));
-  } else if (client->content == size + 3) {
     webserver_send_content_P(client, webBodySettingsNewWifiWarning, strlen_P(webBodySettingsNewWifiWarning));
     webserver_send_content_P(client, refreshMeta, strlen_P(refreshMeta));
     webserver_send_content_P(client, webFooter, strlen_P(webFooter));
-  } else if (client->content == size + 4) {
-    setupWifi(heishamonSettings);
+    timerqueue_insert(5, 0, -3); //handle wifi reconnect after 5 sec to make sure all above data is sent to client so no memory leak is introduced
   }
 
   return 0;
@@ -824,8 +818,6 @@ int getSettings(struct webserver_t *client, settingsStruct *heishamonSettings) {
 }
 
 int handleSettings(struct webserver_t *client) {
-
-  uint16_t size = sizeof(tzdata) / sizeof(tzdata[0]);
   if (client->content == 0) {
     webserver_send(client, 200, (char *)"text/html", 0);
     webserver_send_content_P(client, webHeader, strlen_P(webHeader));
@@ -834,25 +826,15 @@ int handleSettings(struct webserver_t *client) {
   } else if (client->content == 1) {
     webserver_send_content_P(client, webBodySettings1, strlen_P(webBodySettings1));
     webserver_send_content_P(client, settingsForm1, strlen_P(settingsForm1));
-  } else if (client->content >= 2 && client->content < size + 2) {
-    webserver_send_content_P(client, PSTR("<option value=\""), 15);
-
-    char str[20];
-    itoa(client->content - 2, str, 10);
-    webserver_send_content(client, str, strlen(str));
-
-    webserver_send_content_P(client, PSTR("\">"), 2);
-
-    webserver_send_content_P(client, tzdata[client->content - 2].name, strlen_P(tzdata[client->content - 2].name));
-    webserver_send_content_P(client, PSTR("</option>"), 9);
-  } else if (client->content == size + 2) {
+    webserver_send_content_P(client, tzDataOptions, strlen_P(tzDataOptions));
+  } else if (client->content == 2) {
     webserver_send_content_P(client, settingsForm2, strlen_P(settingsForm2));
     webserver_send_content_P(client, menuJS, strlen_P(menuJS));
     webserver_send_content_P(client, settingsJS, strlen_P(settingsJS));
-    webserver_send_content_P(client, populatescanwifiJS, strlen_P(populatescanwifiJS));
-  } else if (client->content == size + 3) {
-    webserver_send_content_P(client, changewifissidJS, strlen_P(changewifissidJS));
     webserver_send_content_P(client, populategetsettingsJS, strlen_P(populategetsettingsJS));
+  } else if (client->content == 3) {
+    webserver_send_content_P(client, populatescanwifiJS, strlen_P(populatescanwifiJS));
+    webserver_send_content_P(client, changewifissidJS, strlen_P(changewifissidJS));
     webserver_send_content_P(client, webFooter, strlen_P(webFooter));
   }
 
