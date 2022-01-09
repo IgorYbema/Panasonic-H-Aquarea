@@ -17,7 +17,6 @@
 
 extern settingsStruct heishamonSettings;
 extern PubSubClient mqtt_client;
-extern WebSocketsServer webSocket;
 extern const char* mqtt_logtopic;
 
 void _logprintln(const char *file, unsigned int line, char *msg) {
@@ -26,9 +25,7 @@ void _logprintln(const char *file, unsigned int line, char *msg) {
     Serial1.print(": ");
     Serial1.println(msg);
   }
-  if(webSocket.connectedClients() > 0) {
-    webSocket.broadcastTXT(msg, strlen(msg));
-  }
+  websocket_write_all(msg, strlen(msg));
 }
 
 void _logprintf(const char *file, unsigned int line, char *fmt, ...) {
