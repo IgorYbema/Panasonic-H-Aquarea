@@ -1336,6 +1336,8 @@ int rules_parse(char *file) {
       text = (char *)&mempool[txtoffset];
     }
 
+    logprintf_P(F("rules memory free: %d / %d"), memoffset, MEMPOOL_SIZE);
+
     if(nrrules > 1) {
       FREE(varstack);
     }
@@ -1463,12 +1465,12 @@ void rules_boot(void) {
     }
   }
 
-  unsigned long a = micros();
-  for(int i=0;i<nrrules;i++) {
-    FREE(rules[i]->varstack.buffer);
-    rules[i]->varstack.nrbytes = 4;
-    rules[i]->varstack.bufsize = 4;
-  }
+  // unsigned long a = micros();
+  // for(int i=0;i<nrrules;i++) {
+    // FREE(rules[i]->varstack.buffer);
+    // rules[i]->varstack.nrbytes = 4;
+    // rules[i]->varstack.bufsize = 4;
+  // }
 }
 
 void rules_setup(void) {
@@ -1476,6 +1478,8 @@ void rules_setup(void) {
     return;
   }
   memset(mempool, 0, MEMPOOL_SIZE);
+
+  logprintf_P(F("rules mempool size: %d"), MEMPOOL_SIZE);
 
   logprintln_P(F("reading rules"));
 

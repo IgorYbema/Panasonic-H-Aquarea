@@ -19,8 +19,8 @@
 #include <unistd.h>
 
 #include "function.h"
-#include "../common/log.h"
 #include "../common/mem.h"
+#include "../common/log.h"
 #include "rules.h"
 #include "../common/timerqueue.h"
 
@@ -67,9 +67,7 @@ int event_function_set_timer_callback(struct rules_t *obj, uint16_t argc, uint16
     for(a=0;a<timerqueue_size;a++) {
       if(timerqueue[a]->nr == nr) {
         size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vinteger_t));
-        if((obj->varstack.buffer = (unsigned char *)REALLOC(obj->varstack.buffer, alignedbuffer(size))) == NULL) {
-          OUT_OF_MEMORY /*LCOV_EXCL_LINE*/
-        }
+
         struct vm_vinteger_t *out = (struct vm_vinteger_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
         out->ret = 0;
         out->type = VINTEGER;
@@ -79,16 +77,14 @@ int event_function_set_timer_callback(struct rules_t *obj, uint16_t argc, uint16
     }
     if(size == 0) {
       size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vnull_t));
-      if((obj->varstack.buffer = (unsigned char *)REALLOC(obj->varstack.buffer, alignedbuffer(size))) == NULL) {
-        OUT_OF_MEMORY /*LCOV_EXCL_LINE*/
-      }
+
       struct vm_vnull_t *out = (struct vm_vnull_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
       out->ret = 0;
       out->type = VNULL;
     }
 
     obj->varstack.nrbytes = size;
-    obj->varstack.bufsize = alignedbuffer(size);
+    obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
   }
 
   return 0;

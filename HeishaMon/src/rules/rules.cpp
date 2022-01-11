@@ -37,16 +37,6 @@
 #include "operator.h"
 #include "function.h"
 
-#define max(a,b) \
-   ({ __typeof__ (a) _a = (a); \
-       __typeof__ (b) _b = (b); \
-     _a > _b ? _a : _b; })
-
-#define min(a,b) \
-   ({ __typeof__ (a) _a = (a); \
-       __typeof__ (b) _b = (b); \
-     _a < _b ? _a : _b; })
-
 struct vm_cache_t {
   uint8_t type;
   uint16_t step;
@@ -62,11 +52,19 @@ static void print_bytecode(struct rules_t *obj);
 #endif
 /*LCOV_EXCL_STOP*/
 
+unsigned int alignedvarstack(int v) {
+#ifdef ESP8266
+  return (v + 7) - ((v + 7) % 7);
+#else
+  return v;
+#endif
+}
+
 void rules_gc(struct rules_t ***rules, unsigned int nrrules) {
   unsigned int i = 0;
   for(i=0;i<nrrules;i++) {
     // FREE((*rules)[i]->ast.buffer);
-    FREE((*rules)[i]->varstack.buffer);
+    // FREE((*rules)[i]->varstack.buffer);
     // FREE((*rules)[i]->valstack.buffer);
     // FREE((*rules)[i]);
   }
@@ -222,7 +220,7 @@ static int lexer_parse_skip_characters(char *text, unsigned int len, unsigned in
   return 0;
 }
 
-static int rule_prepare(char **text, unsigned int *nrbytes, unsigned int (*nrval), unsigned int *len) {
+static int rule_prepare(char **text, unsigned int *nrbytes, unsigned int *nrval, unsigned int *len) {
   unsigned int pos = 0, nrblocks = 0, tpos = 0;
 
   *nrbytes = alignedbytes(sizeof(struct vm_tstart_t));
@@ -3098,25 +3096,19 @@ static int vm_value_set(struct rules_t *obj, int step, int ret) {
       var = atof((char *)node->token);
 
       unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vinteger_t));
-      if((obj->varstack.buffer = (unsigned char *)REALLOC(obj->varstack.buffer, alignedbuffer(size))) == NULL) {
-        OUT_OF_MEMORY /*LCOV_EXCL_LINE*/
-      }
 
       struct vm_vinteger_t *value = (struct vm_vinteger_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
       value->type = VINTEGER;
       value->ret = ret;
       value->value = (int)var;
       obj->varstack.nrbytes = size;
-      obj->varstack.bufsize = alignedbuffer(size);
+      obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
 #ifdef DEBUG
       printf("%s %d %d %d\n", __FUNCTION__, __LINE__, out, (int)var);
 #endif
     } break;
     case VFLOAT: {
       unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vfloat_t));
-      if((obj->varstack.buffer = (unsigned char *)REALLOC(obj->varstack.buffer, size)) == NULL) {
-        OUT_OF_MEMORY /*LCOV_EXCL_LINE*/
-      }
 
       struct vm_vfloat_t *value = (struct vm_vfloat_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
       struct vm_vfloat_t *cpy = (struct vm_vfloat_t *)&obj->ast.buffer[step];
@@ -3124,16 +3116,13 @@ static int vm_value_set(struct rules_t *obj, int step, int ret) {
       value->ret = ret;
       value->value = cpy->value;
       obj->varstack.nrbytes = size;
-      obj->varstack.bufsize = alignedbuffer(size);
+      obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
 #ifdef DEBUG
       printf("%s %d %d %g\n", __FUNCTION__, __LINE__, out, cpy->value);
 #endif
     } break;
     case VINTEGER: {
       unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vinteger_t));
-      if((obj->varstack.buffer = (unsigned char *)REALLOC(obj->varstack.buffer, size)) == NULL) {
-        OUT_OF_MEMORY /*LCOV_EXCL_LINE*/
-      }
 
       struct vm_vinteger_t *value = (struct vm_vinteger_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
       struct vm_vinteger_t *cpy = (struct vm_vinteger_t *)&obj->ast.buffer[step];
@@ -3141,22 +3130,19 @@ static int vm_value_set(struct rules_t *obj, int step, int ret) {
       value->ret = ret;
       value->value = cpy->value;
       obj->varstack.nrbytes = size;
-      obj->varstack.bufsize = alignedbuffer(size);
+      obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
 #ifdef DEBUG
       printf("%s %d %d %d\n", __FUNCTION__, __LINE__, out, cpy->value);
 #endif
     } break;
     case VNULL: {
       unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vnull_t));
-      if((obj->varstack.buffer = (unsigned char *)REALLOC(obj->varstack.buffer, size)) == NULL) {
-        OUT_OF_MEMORY /*LCOV_EXCL_LINE*/
-      }
 
       struct vm_vnull_t *value = (struct vm_vnull_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
       value->type = VNULL;
       value->ret = ret;
       obj->varstack.nrbytes = size;
-      obj->varstack.bufsize = alignedbuffer(size);
+      obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
 #ifdef DEBUG
       printf("%s %d %d NULL\n", __FUNCTION__, __LINE__, out);
 #endif
@@ -3204,40 +3190,34 @@ static int vm_value_clone(struct rules_t *obj, unsigned char *val) {
   switch(val[0]) {
     case VINTEGER: {
       unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vinteger_t));
-      if((obj->varstack.buffer = (unsigned char *)REALLOC(obj->varstack.buffer, size)) == NULL) {
-        OUT_OF_MEMORY /*LCOV_EXCL_LINE*/
-      }
+
       struct vm_vinteger_t *cpy = (struct vm_vinteger_t *)&val[0];
       struct vm_vinteger_t *value = (struct vm_vinteger_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
       value->type = VINTEGER;
       value->ret = 0;
       value->value = (int)cpy->value;
       obj->varstack.nrbytes = size;
-      obj->varstack.bufsize = alignedbuffer(size);
+      obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
     } break;
     case VFLOAT: {
       unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vfloat_t));
-      if((obj->varstack.buffer = (unsigned char *)REALLOC(obj->varstack.buffer, size)) == NULL) {
-        OUT_OF_MEMORY /*LCOV_EXCL_LINE*/
-      }
+
       struct vm_vfloat_t *cpy = (struct vm_vfloat_t *)&val[0];
       struct vm_vfloat_t *value = (struct vm_vfloat_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
       value->type = VFLOAT;
       value->ret = 0;
       value->value = cpy->value;
       obj->varstack.nrbytes = size;
-      obj->varstack.bufsize = alignedbuffer(size);
+      obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
     } break;
     case VNULL: {
       unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vnull_t));
-      if((obj->varstack.buffer = (unsigned char *)REALLOC(obj->varstack.buffer, size)) == NULL) {
-        OUT_OF_MEMORY /*LCOV_EXCL_LINE*/
-      }
+
       struct vm_vnull_t *value = (struct vm_vnull_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
       value->type = VNULL;
       value->ret = 0;
       obj->varstack.nrbytes = size;
-      obj->varstack.bufsize = alignedbuffer(size);
+      obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
     } break;
     /* LCOV_EXCL_START*/
     default: {
@@ -3263,29 +3243,23 @@ static int vm_value_del(struct rules_t *obj, unsigned int idx) {
     case VINTEGER: {
       ret = alignedbytes(sizeof(struct vm_vinteger_t));
       memmove(&obj->varstack.buffer[idx], &obj->varstack.buffer[idx+ret], obj->varstack.nrbytes-idx-ret);
-      if((obj->varstack.buffer = (unsigned char *)REALLOC(obj->varstack.buffer, alignedbuffer(obj->varstack.nrbytes-ret))) == NULL) {
-        OUT_OF_MEMORY /*LCOV_EXCL_LINE*/
-      }
+
       obj->varstack.nrbytes -= ret;
-      obj->varstack.bufsize = alignedbuffer(obj->varstack.nrbytes);
+      obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
     } break;
     case VFLOAT: {
       ret = alignedbytes(sizeof(struct vm_vfloat_t));
       memmove(&obj->varstack.buffer[idx], &obj->varstack.buffer[idx+ret], obj->varstack.nrbytes-idx-ret);
-      if((obj->varstack.buffer = (unsigned char *)REALLOC(obj->varstack.buffer, alignedbuffer(obj->varstack.nrbytes-ret))) == NULL) {
-        OUT_OF_MEMORY /*LCOV_EXCL_LINE*/
-      }
+
       obj->varstack.nrbytes -= ret;
-      obj->varstack.bufsize = alignedbuffer(obj->varstack.nrbytes);
+      obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
     } break;
     case VNULL: {
       ret = alignedbytes(sizeof(struct vm_vnull_t));
       memmove(&obj->varstack.buffer[idx], &obj->varstack.buffer[idx+ret], obj->varstack.nrbytes-idx-ret);
-      if((obj->varstack.buffer = (unsigned char *)REALLOC(obj->varstack.buffer, alignedbuffer(obj->varstack.nrbytes-ret))) == NULL) {
-        OUT_OF_MEMORY /*LCOV_EXCL_LINE*/
-      }
+
       obj->varstack.nrbytes -= ret;
-      obj->varstack.bufsize = alignedbuffer(obj->varstack.nrbytes);
+      obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
     } break;
     /* LCOV_EXCL_START*/
     default: {
@@ -4482,6 +4456,7 @@ void print_bytecode(struct rules_t *obj) {
 
 int rule_initialize(char **text, unsigned int *txtoffset, struct rules_t ***rules, int *nrrules, unsigned char *mempool, unsigned int *memoffset, void *userdata) {
   unsigned int nrbytes = 0, nrval = 0, len = strlen(*text), newlen = len;
+  unsigned int suggested_varstack_size = 0;
 
   if(*memoffset < 512) {
     *memoffset = 512;
@@ -4572,8 +4547,18 @@ int rule_initialize(char **text, unsigned int *txtoffset, struct rules_t ***rule
     obj->valstack.buffer = (uint16_t *)&mempool[alignedbuffer(*memoffset)];
     *memoffset += nrval*(sizeof(uint16_t));
 
+    suggested_varstack_size = (*txtoffset-*memoffset);
+
+    /*
+     * The memoffset will be increased below
+     * as soon as we know how many bytes
+     * we maximally need.
+     */
+    obj->varstack.buffer = &mempool[*memoffset];
+
     memset(obj->ast.buffer, 0, obj->ast.bufsize);
     memset(obj->valstack.buffer, 0, nrval*(sizeof(uint16_t)));
+    memset(obj->varstack.buffer, 0, suggested_varstack_size);
 
     if(rule_parse(text, (int *)&newlen, obj) == -1) {
       return -1;
@@ -4636,6 +4621,13 @@ int rule_initialize(char **text, unsigned int *txtoffset, struct rules_t ***rule
   if(rule_run(obj, 1) == -1) {
     return -1;
   }
+
+
+  /*
+   * Reserve space for the actual maximum
+   * varstack buffer size
+   */
+  *memoffset += alignedbuffer(obj->varstack.bufsize);
 
 /*LCOV_EXCL_START*/
 #if defined(DEBUG) or defined(ESP8266)

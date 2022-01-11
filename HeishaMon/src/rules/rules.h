@@ -13,7 +13,23 @@
 #include <stdint.h>
 
 #define EPSILON  0.000001
-#define MEMPOOL_SIZE 16000
+#define MEMPOOL_SIZE MMU_SEC_HEAP_SIZE
+
+/*
+ * max(sizeof(vm_vfloat_t), sizeof(vm_vinteger_t), sizeof(vm_vnull_t))
+ */
+#define MAX_VARSTACK_NODE_SIZE 7
+
+#define max(a,b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+     _a > _b ? _a : _b; })
+
+#define min(a,b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+     _a < _b ? _a : _b; })
+
 
 typedef enum {
   TOPERATOR = 1,
@@ -222,6 +238,7 @@ typedef struct vm_teof_t {
   uint8_t type;
 } __attribute__((packed)) vm_teof_t;
 
+unsigned int alignedvarstack(int v);
 int rule_initialize(char **text, unsigned int *txtoffset, struct rules_t ***rules, int *nrrules, unsigned char *mempool, unsigned int *memoffset, void *userdata);
 void rules_gc(struct rules_t ***obj, unsigned int nrrules);
 int rule_run(struct rules_t *obj, int validate);

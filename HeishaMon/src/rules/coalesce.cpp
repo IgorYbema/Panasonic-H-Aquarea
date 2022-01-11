@@ -36,9 +36,6 @@ int event_function_coalesce_callback(struct rules_t *obj, uint16_t argc, uint16_
       switch(obj->varstack.buffer[argv[i]]) {
         case VINTEGER: {
           unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vinteger_t));
-          if((obj->varstack.buffer = (unsigned char *)REALLOC(obj->varstack.buffer, alignedbuffer(size))) == NULL) {
-            OUT_OF_MEMORY /*LCOV_EXCL_LINE*/
-          }
 
           struct vm_vinteger_t *out = (struct vm_vinteger_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
           struct vm_vinteger_t *val = (struct vm_vinteger_t *)&obj->varstack.buffer[argv[i]];
@@ -46,14 +43,11 @@ int event_function_coalesce_callback(struct rules_t *obj, uint16_t argc, uint16_
           out->ret = 0;
           out->value = val->value;
           obj->varstack.nrbytes = size;
-          obj->varstack.bufsize = alignedbuffer(size);
+          obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
           return 0;
         } break;
         case VFLOAT: {
           unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vfloat_t));
-          if((obj->varstack.buffer = (unsigned char *)REALLOC(obj->varstack.buffer, alignedbuffer(size))) == NULL) {
-            OUT_OF_MEMORY /*LCOV_EXCL_LINE*/
-          }
 
           struct vm_vfloat_t *out = (struct vm_vfloat_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
           struct vm_vfloat_t *val = (struct vm_vfloat_t *)&obj->varstack.buffer[argv[i]];
@@ -61,7 +55,7 @@ int event_function_coalesce_callback(struct rules_t *obj, uint16_t argc, uint16_
           out->ret = 0;
           out->value = val->value;
           obj->varstack.nrbytes = size;
-          obj->varstack.bufsize = alignedbuffer(size);
+          obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
           return 0;
         } break;
         /* LCOV_EXCL_START*/
