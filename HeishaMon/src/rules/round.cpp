@@ -50,7 +50,7 @@ int event_function_round_callback(struct rules_t *obj, uint16_t argc, uint16_t *
   }
 
   obj->varstack.nrbytes = size;
-  obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
+  obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
 
   return 0;
 }

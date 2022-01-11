@@ -2694,18 +2694,18 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
       }
       if(has_function != -1 || has_paren != -1 || has_if != -1 || has_on != -1) {
         if(type == TEOF || r_rewind > -1) {
-          if(max(has_function, max(has_paren, max(has_if, has_on))) == has_function) {
+          if(MAX(has_function, MAX(has_paren, MAX(has_if, has_on))) == has_function) {
             offset = (pos = has_function)+1;
             go = TFUNCTION;
             continue;
-          } else if(max(has_function, max(has_paren, max(has_if, has_on))) == has_if) {
+          } else if(MAX(has_function, MAX(has_paren, MAX(has_if, has_on))) == has_if) {
             offset = (pos = has_if);
             if(has_if > 0) {
               offset++;
             }
             go = TIF;
             continue;
-          } else if(max(has_function, max(has_paren, max(has_if, has_on))) == has_on) {
+          } else if(MAX(has_function, MAX(has_paren, MAX(has_if, has_on))) == has_on) {
             offset = (pos = has_on);
             go = TEVENT;
             if(has_on > 0) {
@@ -3102,7 +3102,7 @@ static int vm_value_set(struct rules_t *obj, int step, int ret) {
       value->ret = ret;
       value->value = (int)var;
       obj->varstack.nrbytes = size;
-      obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
+      obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
 #ifdef DEBUG
       printf("%s %d %d %d\n", __FUNCTION__, __LINE__, out, (int)var);
 #endif
@@ -3116,7 +3116,7 @@ static int vm_value_set(struct rules_t *obj, int step, int ret) {
       value->ret = ret;
       value->value = cpy->value;
       obj->varstack.nrbytes = size;
-      obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
+      obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
 #ifdef DEBUG
       printf("%s %d %d %g\n", __FUNCTION__, __LINE__, out, cpy->value);
 #endif
@@ -3130,7 +3130,7 @@ static int vm_value_set(struct rules_t *obj, int step, int ret) {
       value->ret = ret;
       value->value = cpy->value;
       obj->varstack.nrbytes = size;
-      obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
+      obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
 #ifdef DEBUG
       printf("%s %d %d %d\n", __FUNCTION__, __LINE__, out, cpy->value);
 #endif
@@ -3142,7 +3142,7 @@ static int vm_value_set(struct rules_t *obj, int step, int ret) {
       value->type = VNULL;
       value->ret = ret;
       obj->varstack.nrbytes = size;
-      obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
+      obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
 #ifdef DEBUG
       printf("%s %d %d NULL\n", __FUNCTION__, __LINE__, out);
 #endif
@@ -3197,7 +3197,7 @@ static int vm_value_clone(struct rules_t *obj, unsigned char *val) {
       value->ret = 0;
       value->value = (int)cpy->value;
       obj->varstack.nrbytes = size;
-      obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
+      obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
     } break;
     case VFLOAT: {
       unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vfloat_t));
@@ -3208,7 +3208,7 @@ static int vm_value_clone(struct rules_t *obj, unsigned char *val) {
       value->ret = 0;
       value->value = cpy->value;
       obj->varstack.nrbytes = size;
-      obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
+      obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
     } break;
     case VNULL: {
       unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vnull_t));
@@ -3217,7 +3217,7 @@ static int vm_value_clone(struct rules_t *obj, unsigned char *val) {
       value->type = VNULL;
       value->ret = 0;
       obj->varstack.nrbytes = size;
-      obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
+      obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
     } break;
     /* LCOV_EXCL_START*/
     default: {
@@ -3245,21 +3245,21 @@ static int vm_value_del(struct rules_t *obj, unsigned int idx) {
       memmove(&obj->varstack.buffer[idx], &obj->varstack.buffer[idx+ret], obj->varstack.nrbytes-idx-ret);
 
       obj->varstack.nrbytes -= ret;
-      obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
+      obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
     } break;
     case VFLOAT: {
       ret = alignedbytes(sizeof(struct vm_vfloat_t));
       memmove(&obj->varstack.buffer[idx], &obj->varstack.buffer[idx+ret], obj->varstack.nrbytes-idx-ret);
 
       obj->varstack.nrbytes -= ret;
-      obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
+      obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
     } break;
     case VNULL: {
       ret = alignedbytes(sizeof(struct vm_vnull_t));
       memmove(&obj->varstack.buffer[idx], &obj->varstack.buffer[idx+ret], obj->varstack.nrbytes-idx-ret);
 
       obj->varstack.nrbytes -= ret;
-      obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
+      obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
     } break;
     /* LCOV_EXCL_START*/
     default: {
@@ -4028,14 +4028,14 @@ int rule_run(struct rules_t *obj, int validate) {
             /* LCOV_EXCL_STOP*/
           }
 
-          vm_value_del(obj, max(a, b));
+          vm_value_del(obj, MAX(a, b));
 
           /*
            * Reassign node due to possible reallocs
            */
           node = (struct vm_toperator_t *)&obj->ast.buffer[go];
 
-          vm_value_del(obj, min(a, b));
+          vm_value_del(obj, MIN(a, b));
 
           /*
            * Reassign node due to possible reallocs

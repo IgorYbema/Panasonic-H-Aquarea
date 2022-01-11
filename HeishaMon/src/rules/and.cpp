@@ -104,7 +104,7 @@ int event_operator_and_callback(struct rules_t *obj, int a, int b, int *ret) {
   }
 
   obj->varstack.nrbytes = size;
-  obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
+  obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
 
   return 0;
 }

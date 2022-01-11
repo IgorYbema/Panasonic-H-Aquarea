@@ -84,7 +84,7 @@ int event_function_set_timer_callback(struct rules_t *obj, uint16_t argc, uint16
     }
 
     obj->varstack.nrbytes = size;
-    obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
+    obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
   }
 
   return 0;

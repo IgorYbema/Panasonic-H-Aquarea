@@ -43,7 +43,7 @@ int event_function_coalesce_callback(struct rules_t *obj, uint16_t argc, uint16_
           out->ret = 0;
           out->value = val->value;
           obj->varstack.nrbytes = size;
-          obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
+          obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
           return 0;
         } break;
         case VFLOAT: {
@@ -55,7 +55,7 @@ int event_function_coalesce_callback(struct rules_t *obj, uint16_t argc, uint16_
           out->ret = 0;
           out->value = val->value;
           obj->varstack.nrbytes = size;
-          obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
+          obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
           return 0;
         } break;
         /* LCOV_EXCL_START*/

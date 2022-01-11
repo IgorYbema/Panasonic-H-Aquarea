@@ -37,7 +37,7 @@ int event_operator_multiply_callback(struct rules_t *obj, int a, int b, int *ret
 /* LCOV_EXCL_STOP*/
 
     obj->varstack.nrbytes = size;
-    obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
+    obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
   } else if((obj->varstack.buffer[a]) == VCHAR || (obj->varstack.buffer[b]) == VCHAR) {
   } else if((obj->varstack.buffer[a]) == VFLOAT || (obj->varstack.buffer[b]) == VFLOAT) {
     float f = 0;
@@ -71,7 +71,7 @@ int event_operator_multiply_callback(struct rules_t *obj, int a, int b, int *ret
 /* LCOV_EXCL_STOP*/
 
     obj->varstack.nrbytes = size;
-    obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
+    obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
   } else {
     unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vinteger_t));
 
@@ -90,7 +90,7 @@ int event_operator_multiply_callback(struct rules_t *obj, int a, int b, int *ret
     out->value = na->value * nb->value;
 
     obj->varstack.nrbytes = size;
-    obj->varstack.bufsize = max(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
+    obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
   }
 
 
