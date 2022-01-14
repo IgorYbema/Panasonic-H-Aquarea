@@ -1350,7 +1350,7 @@ int rules_parse(char *file) {
       input.payload = &mempool[input.len];
     }
 
-    logprintf_P(F("rules memory free: %d / %d"), mem.len, mem.tot_len);
+    logprintf_P(F("rules memory used: %d / %d"), mem.len, mem.tot_len);
 
     if(nrrules > 1) {
       FREE(varstack);
