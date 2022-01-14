@@ -1171,7 +1171,6 @@ int showFirmware(struct webserver_t *client) {
     webserver_send_content_P(client, webHeader, strlen_P(webHeader));
     webserver_send_content_P(client, webCSS, strlen_P(webCSS));
     webserver_send_content_P(client, webBodyStart, strlen_P(webBodyStart));
-  } else if (client->content == 1) {
     webserver_send_content_P(client, showFirmwarePage, strlen_P(showFirmwarePage));
   } else  if (client->content == 1) {
     webserver_send_content_P(client, websocketJS, strlen_P(websocketJS));
