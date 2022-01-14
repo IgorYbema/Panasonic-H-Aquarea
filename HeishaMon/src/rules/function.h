@@ -6,8 +6,8 @@
   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-#ifndef _FUNCTION_H_
-#define _FUNCTION_H_
+#ifndef _RULE_FUNCTION_H_
+#define _RULE_FUNCTION_H_
 
 #include "rules.h" /* rewrite */
 
@@ -17,6 +17,6 @@ struct rule_function_t {
 } __attribute__((packed));
 
 extern struct rule_function_t rule_functions[];
-extern int nr_rule_functions;
+extern unsigned int nr_rule_functions;
 
 #endif

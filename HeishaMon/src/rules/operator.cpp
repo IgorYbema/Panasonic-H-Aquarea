@@ -26,36 +26,36 @@
 #include "../common/mem.h"
 #include "operator.h"
 
-#include "eq.h"
-#include "ne.h"
-#include "plus.h"
-#include "multiply.h"
-#include "and.h"
-#include "mod.h"
-#include "or.h"
-#include "divide.h"
-#include "ge.h"
-#include "gt.h"
-#include "lt.h"
-#include "le.h"
-#include "power.h"
-#include "minus.h"
+#include "operators/eq.h"
+#include "operators/ne.h"
+#include "operators/plus.h"
+#include "operators/multiply.h"
+#include "operators/and.h"
+#include "operators/mod.h"
+#include "operators/or.h"
+#include "operators/divide.h"
+#include "operators/ge.h"
+#include "operators/gt.h"
+#include "operators/lt.h"
+#include "operators/le.h"
+#include "operators/power.h"
+#include "operators/minus.h"
 
 struct rule_operator_t rule_operators[] = {
-  { "==", 30, 1, event_operator_eq_callback },
-  { "!=", 30, 1, event_operator_ne_callback },
-  { "+", 60, 1, event_operator_plus_callback },
-  { "-", 60, 1, event_operator_minus_callback },
-  { "*", 70, 1, event_operator_multiply_callback },
-  { "%", 70, 1, event_operator_mod_callback },
-  { "&&", 20, 1, event_operator_and_callback },
-  { "||", 10, 1, event_operator_or_callback },
-  { "/", 70, 1, event_operator_divide_callback },
-  { ">=", 30, 1, event_operator_ge_callback },
-  { "<=", 30, 1, event_operator_le_callback },
-  { "<", 30, 1, event_operator_lt_callback },
-  { ">", 30, 1, event_operator_gt_callback },
-  { "^", 80, 2, event_operator_power_callback },
+  { "==", 30, 1, rule_operator_eq_callback },
+  { "!=", 30, 1, rule_operator_ne_callback },
+  { "+", 60, 1, rule_operator_plus_callback },
+  { "-", 60, 1, rule_operator_minus_callback },
+  { "*", 70, 1, rule_operator_multiply_callback },
+  { "%", 70, 1, rule_operator_mod_callback },
+  { "&&", 20, 1, rule_operator_and_callback },
+  { "||", 10, 1, rule_operator_or_callback },
+  { "/", 70, 1, rule_operator_divide_callback },
+  { ">=", 30, 1, rule_operator_ge_callback },
+  { "<=", 30, 1, rule_operator_le_callback },
+  { "<", 30, 1, rule_operator_lt_callback },
+  { ">", 30, 1, rule_operator_gt_callback },
+  { "^", 80, 2, rule_operator_power_callback },
 };
 
-int nr_rule_operators = sizeof(rule_operators)/sizeof(rule_operators[0]);
+unsigned int nr_rule_operators = sizeof(rule_operators)/sizeof(rule_operators[0]);

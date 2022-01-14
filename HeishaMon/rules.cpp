@@ -309,7 +309,7 @@ static void vm_value_clr(struct rules_t *obj, uint16_t token) {
   struct vm_tvar_t *var = (struct vm_tvar_t *)&obj->ast.buffer[token];
 
   if(var->token[1] == '$') {
-    obj->valstack.buffer[var->value] = 0;
+    var->value = 0;
   }
 }
 
@@ -326,9 +326,9 @@ static void vm_value_cpy(struct rules_t *obj, uint16_t token) {
           struct vm_vinteger_t *val = (struct vm_vinteger_t *)&varstack->stack[x];
           struct vm_tvar_t *foo = (struct vm_tvar_t *)&obj->ast.buffer[val->ret];
           if(strcmp((char *)foo->token, (char *)&var->token) == 0 && val->ret != token) {
-            obj->valstack.buffer[var->value] = obj->valstack.buffer[foo->value];
+            var->value = foo->value;
             val->ret = token;
-            obj->valstack.buffer[foo->value] = 0;
+            foo->value = 0;
             return;
           }
           x += sizeof(struct vm_vinteger_t)-1;
@@ -338,9 +338,9 @@ static void vm_value_cpy(struct rules_t *obj, uint16_t token) {
           struct vm_tvar_t *foo = (struct vm_tvar_t *)&obj->ast.buffer[val->ret];
 
           if(strcmp((char *)foo->token, (char *)var->token) == 0 && val->ret != token) {
-            obj->valstack.buffer[var->value] = obj->valstack.buffer[foo->value];
+            var->value = foo->value;
             val->ret = token;
-            obj->valstack.buffer[foo->value] = 0;
+            foo->value = 0;
             return;
           }
           x += sizeof(struct vm_vfloat_t)-1;
@@ -349,9 +349,9 @@ static void vm_value_cpy(struct rules_t *obj, uint16_t token) {
           struct vm_vnull_t *val = (struct vm_vnull_t *)&varstack->stack[x];
           struct vm_tvar_t *foo = (struct vm_tvar_t *)&obj->ast.buffer[val->ret];
           if(strcmp((char *)foo->token, (char *)&var->token) == 0 && val->ret != token) {
-            obj->valstack.buffer[var->value] = obj->valstack.buffer[foo->value];
+            var->value = foo->value;
             val->ret = token;
-            obj->valstack.buffer[foo->value] = 0;
+            foo->value = 0;
             return;
           }
           x += sizeof(struct vm_vnull_t)-1;
@@ -372,7 +372,7 @@ static void vm_value_cpy(struct rules_t *obj, uint16_t token) {
           struct vm_tvar_t *foo = (struct vm_tvar_t *)&rules[val->rule-1]->ast.buffer[val->ret];
 
           if(strcmp((char *)foo->token, (char *)var->token) == 0 && val->ret != token) {
-            obj->valstack.buffer[var->value] = x;
+            var->value = x;
             val->ret = token;
             val->rule = obj->nr;
             return;
@@ -384,7 +384,7 @@ static void vm_value_cpy(struct rules_t *obj, uint16_t token) {
           struct vm_tvar_t *foo = (struct vm_tvar_t *)&rules[val->rule-1]->ast.buffer[val->ret];
 
           if(strcmp((char *)foo->token, (char *)var->token) == 0 && val->ret != token) {
-            obj->valstack.buffer[var->value] = x;
+            var->value = x;
             val->ret = token;
             val->rule = obj->nr;
             return;
@@ -396,7 +396,7 @@ static void vm_value_cpy(struct rules_t *obj, uint16_t token) {
           struct vm_tvar_t *foo = (struct vm_tvar_t *)&rules[val->rule-1]->ast.buffer[val->ret];
 
           if(strcmp((char *)foo->token, (char *)var->token) == 0 && val->ret != token) {
-            obj->valstack.buffer[var->value] = x;
+            var->value = x;
             val->ret = token;
             val->rule = obj->nr;
             return;
@@ -416,7 +416,7 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
   int i = 0;
   if(node->token[0] == '$') {
     struct varstack_t *varstack = (struct varstack_t *)obj->userdata;
-    if(obj->valstack.buffer[node->value] == 0) {
+    if(node->value == 0) {
       int ret = varstack->nrbytes, suffix = 0;
       unsigned int size = alignedbytes(varstack->nrbytes + sizeof(struct vm_vnull_t));
       if((varstack->stack = (unsigned char *)REALLOC(varstack->stack, alignedbuffer(size))) == NULL) {
@@ -425,34 +425,34 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
       struct vm_vnull_t *value = (struct vm_vnull_t *)&varstack->stack[ret];
       value->type = VNULL;
       value->ret = token;
-      obj->valstack.buffer[node->value] = ret;
+      node->value = ret;
 
       varstack->nrbytes = size;
       varstack->bufsize = alignedbuffer(size);
     }
 
     const char *key = (char *)node->token;
-    switch(varstack->stack[obj->valstack.buffer[node->value]]) {
+    switch(varstack->stack[node->value]) {
       case VINTEGER: {
-        struct vm_vinteger_t *na = (struct vm_vinteger_t *)&varstack->stack[obj->valstack.buffer[node->value]];
+        struct vm_vinteger_t *na = (struct vm_vinteger_t *)&varstack->stack[node->value];
       } break;
       case VFLOAT: {
-        struct vm_vfloat_t *na = (struct vm_vfloat_t *)&varstack->stack[obj->valstack.buffer[node->value]];
+        struct vm_vfloat_t *na = (struct vm_vfloat_t *)&varstack->stack[node->value];
       } break;
       case VNULL: {
-        struct vm_vnull_t *na = (struct vm_vnull_t *)&varstack->stack[obj->valstack.buffer[node->value]];
+        struct vm_vnull_t *na = (struct vm_vnull_t *)&varstack->stack[node->value];
       } break;
       case VCHAR: {
-        struct vm_vchar_t *na = (struct vm_vchar_t *)&varstack->stack[obj->valstack.buffer[node->value]];
+        struct vm_vchar_t *na = (struct vm_vchar_t *)&varstack->stack[node->value];
       } break;
     }
 
-    return &varstack->stack[obj->valstack.buffer[node->value]];
+    return &varstack->stack[node->value];
 
   }
   if(node->token[0] == '#') {
     struct varstack_t *varstack = &global_varstack;
-    if(obj->valstack.buffer[node->value] == 0) {
+    if(node->value == 0) {
       int ret = varstack->nrbytes, suffix = 0;
 
       unsigned int size = alignedbytes(varstack->nrbytes + sizeof(struct vm_gvnull_t));
@@ -463,16 +463,16 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
       value->type = VNULL;
       value->ret = token;
       value->rule = obj->nr;
-      obj->valstack.buffer[node->value] = ret;
+      node->value = ret;
 
       varstack->nrbytes = size;
       varstack->bufsize = alignedbuffer(size);
     }
 
     const char *key = (char *)node->token;
-    switch(varstack->stack[obj->valstack.buffer[node->value]]) {
+    switch(varstack->stack[node->value]) {
       case VINTEGER: {
-        struct vm_gvinteger_t *na = (struct vm_gvinteger_t *)&varstack->stack[obj->valstack.buffer[node->value]];
+        struct vm_gvinteger_t *na = (struct vm_gvinteger_t *)&varstack->stack[node->value];
 
         memset(&vinteger, 0, sizeof(struct vm_vinteger_t));
         vinteger.type = VINTEGER;
@@ -481,7 +481,7 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
         return (unsigned char *)&vinteger;
       } break;
       case VFLOAT: {
-        struct vm_gvfloat_t *na = (struct vm_gvfloat_t *)&varstack->stack[obj->valstack.buffer[node->value]];
+        struct vm_gvfloat_t *na = (struct vm_gvfloat_t *)&varstack->stack[node->value];
 
         memset(&vfloat, 0, sizeof(struct vm_vfloat_t));
         vfloat.type = VFLOAT;
@@ -490,7 +490,7 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
         return (unsigned char *)&vfloat;
       } break;
       case VNULL: {
-        struct vm_gvnull_t *na = (struct vm_gvnull_t *)&varstack->stack[obj->valstack.buffer[node->value]];
+        struct vm_gvnull_t *na = (struct vm_gvnull_t *)&varstack->stack[node->value];
 
         memset(&vnull, 0, sizeof(struct vm_vnull_t));
         vnull.type = VNULL;
@@ -658,7 +658,7 @@ static int vm_value_del(struct rules_t *obj, uint16_t idx) {
         struct vm_vinteger_t *node = (struct vm_vinteger_t *)&varstack->stack[x];
         if(node->ret > 0) {
           struct vm_tvar_t *tmp = (struct vm_tvar_t *)&obj->ast.buffer[node->ret];
-          obj->valstack.buffer[tmp->value] = x;
+          tmp->value = x;
         }
         x += sizeof(struct vm_vinteger_t)-1;
       } break;
@@ -666,7 +666,7 @@ static int vm_value_del(struct rules_t *obj, uint16_t idx) {
         struct vm_vfloat_t *node = (struct vm_vfloat_t *)&varstack->stack[x];
         if(node->ret > 0) {
           struct vm_tvar_t *tmp = (struct vm_tvar_t *)&obj->ast.buffer[node->ret];
-          obj->valstack.buffer[tmp->value] = x;
+          tmp->value = x;
         }
         x += sizeof(struct vm_vfloat_t)-1;
       } break;
@@ -714,7 +714,7 @@ static void vm_value_set(struct rules_t *obj, uint16_t token, uint16_t val) {
           struct vm_vinteger_t *node = (struct vm_vinteger_t *)&varstack->stack[x];
           struct vm_tvar_t *tmp = (struct vm_tvar_t *)&obj->ast.buffer[node->ret];
           if(strcmp((char *)var->token, (char *)tmp->token) == 0) {
-            obj->valstack.buffer[var->value] = 0;
+            var->value = 0;
             vm_value_del(obj, x);
             loop = 0;
             break;
@@ -725,7 +725,7 @@ static void vm_value_set(struct rules_t *obj, uint16_t token, uint16_t val) {
           struct vm_vfloat_t *node = (struct vm_vfloat_t *)&varstack->stack[x];
           struct vm_tvar_t *tmp = (struct vm_tvar_t *)&obj->ast.buffer[node->ret];
           if(strcmp((char *)var->token, (char *)tmp->token) == 0) {
-            obj->valstack.buffer[var->value] = 0;
+            var->value = 0;
             vm_value_del(obj, x);
             loop = 0;
             break;
@@ -736,7 +736,7 @@ static void vm_value_set(struct rules_t *obj, uint16_t token, uint16_t val) {
           struct vm_vnull_t *node = (struct vm_vnull_t *)&varstack->stack[x];
           struct vm_tvar_t *tmp = (struct vm_tvar_t *)&obj->ast.buffer[node->ret];
           if(strcmp((char *)var->token, (char *)tmp->token) == 0) {
-            obj->valstack.buffer[var->value] = 0;
+            var->value = 0;
             vm_value_del(obj, x);
             loop = 0;
             break;
@@ -750,14 +750,14 @@ static void vm_value_set(struct rules_t *obj, uint16_t token, uint16_t val) {
     }
 
     var = (struct vm_tvar_t *)&obj->ast.buffer[token];
-    if(obj->valstack.buffer[var->value] > 0) {
-      vm_value_del(obj, obj->valstack.buffer[var->value]);
+    if(var->value > 0) {
+      vm_value_del(obj, var->value);
     }
     var = (struct vm_tvar_t *)&obj->ast.buffer[token];
 
     ret = varstack->nrbytes;
 
-    obj->valstack.buffer[var->value] = ret;
+    var->value = ret;
 
     switch(obj->varstack.buffer[val]) {
       case VINTEGER: {
@@ -889,7 +889,7 @@ static void vm_value_set(struct rules_t *obj, uint16_t token, uint16_t val) {
             struct vm_gvinteger_t *node = (struct vm_gvinteger_t *)&varstack->stack[x];
             if(node->ret > 0) {
               struct vm_tvar_t *tmp = (struct vm_tvar_t *)&rules[node->rule-1]->ast.buffer[node->ret];
-              rules[node->rule-1]->valstack.buffer[tmp->value] = x;
+              tmp->value = x;
             }
           }
           x += sizeof(struct vm_gvinteger_t)-1;
@@ -899,7 +899,7 @@ static void vm_value_set(struct rules_t *obj, uint16_t token, uint16_t val) {
             struct vm_gvfloat_t *node = (struct vm_gvfloat_t *)&varstack->stack[x];
             if(node->ret > 0) {
               struct vm_tvar_t *tmp = (struct vm_tvar_t *)&rules[node->rule-1]->ast.buffer[node->ret];
-              rules[node->rule-1]->valstack.buffer[tmp->value] = x;
+              tmp->value = x;
             }
           }
           x += sizeof(struct vm_gvfloat_t)-1;
@@ -909,7 +909,7 @@ static void vm_value_set(struct rules_t *obj, uint16_t token, uint16_t val) {
             struct vm_gvnull_t *node = (struct vm_gvnull_t *)&varstack->stack[x];
             if(node->ret > 0) {
               struct vm_tvar_t *tmp = (struct vm_tvar_t *)&rules[node->rule-1]->ast.buffer[node->ret];
-              rules[node->rule-1]->valstack.buffer[tmp->value] = x;
+              tmp->value = x;
             }
           }
           x += sizeof(struct vm_gvnull_t)-1;
@@ -920,7 +920,7 @@ static void vm_value_set(struct rules_t *obj, uint16_t token, uint16_t val) {
 
     ret = varstack->nrbytes;
 
-    obj->valstack.buffer[var->value] = ret;
+    var->value = ret;
 
     switch(obj->varstack.buffer[val]) {
       case VINTEGER: {
@@ -1168,7 +1168,7 @@ static void vm_clear_values(struct rules_t *obj) {
       } break;
       case LPAREN: {
         struct vm_lparen_t *node = (struct vm_lparen_t *)&obj->ast.buffer[i];
-        obj->valstack.buffer[node->value] = 0;
+        node->value = 0;
         i+=sizeof(struct vm_lparen_t)-1;
       } break;
       case TFALSE:
@@ -1178,7 +1178,7 @@ static void vm_clear_values(struct rules_t *obj) {
       } break;
       case TFUNCTION: {
         struct vm_tfunction_t *node = (struct vm_tfunction_t *)&obj->ast.buffer[i];
-        obj->valstack.buffer[node->value] = 0;
+        node->value = 0;
         i+=sizeof(struct vm_tfunction_t)+(sizeof(node->go[0])*node->nrgo)-1;
       } break;
       case TCEVENT: {
@@ -1187,7 +1187,7 @@ static void vm_clear_values(struct rules_t *obj) {
       } break;
       case TVAR: {
         struct vm_tvar_t *node = (struct vm_tvar_t *)&obj->ast.buffer[i];
-        obj->valstack.buffer[node->value] = 0;
+        node->value = 0;
         i+=sizeof(struct vm_tvar_t)+strlen((char *)node->token);
       } break;
       case TEVENT: {
@@ -1208,7 +1208,7 @@ static void vm_clear_values(struct rules_t *obj) {
       } break;
       case TOPERATOR: {
         struct vm_toperator_t *node = (struct vm_toperator_t *)&obj->ast.buffer[i];
-        obj->valstack.buffer[node->value] = 0;
+        node->value = 0;
         i+=sizeof(struct vm_toperator_t)-1;
       } break;
       default: {
@@ -1296,6 +1296,9 @@ int rules_parse(char *file) {
     memset(content, 0, BUFFER_SIZE);
     int len = frules.size();
     int chunk = 0, len1 = 0;
+
+    unsigned int txtoffset = alignedbuffer(MEMPOOL_SIZE-len-5);
+
     while(1) {
       memset(content, 0, BUFFER_SIZE);
       frules.seek(chunk*BUFFER_SIZE, SeekSet);
@@ -1308,7 +1311,7 @@ int rules_parse(char *file) {
       } else {
         break;
       }
-      memcpy(&mempool[alignedbuffer((MEMPOOL_SIZE-len-5))+(chunk*BUFFER_SIZE)], &content, alignedbuffer(len1));
+      memcpy(&mempool[txtoffset+(chunk*BUFFER_SIZE)], &content, alignedbuffer(len1));
       chunk++;
     }
     frules.close();
@@ -1321,11 +1324,22 @@ int rules_parse(char *file) {
     varstack->nrbytes = 4;
     varstack->bufsize = 4;
 
+    struct pbuf mem;
+    struct pbuf input;
+    memset(&mem, 0, sizeof(struct pbuf));
+    memset(&input, 0, sizeof(struct pbuf));
+
+    mem.payload = mempool;
+    mem.len = 0;
+    mem.tot_len = MEMPOOL_SIZE;
+
+    input.payload = &mempool[txtoffset];
+    input.len = txtoffset;
+    input.tot_len = len;
+
     int ret = 0;
-    unsigned int txtoffset = alignedbuffer(MEMPOOL_SIZE-len-5);
-    unsigned int memoffset = 0;
     char *text = (char *)&mempool[txtoffset];
-    while((ret = rule_initialize(&text, &txtoffset, &rules, &nrrules, (unsigned char *)mempool, &memoffset, varstack) == 0)) {
+    while((ret = rule_initialize(&input, &rules, &nrrules, &mem, varstack)) == 0) {
       varstack = (struct varstack_t *)MALLOC(sizeof(struct varstack_t));
       if(varstack == NULL) {
         OUT_OF_MEMORY
@@ -1333,10 +1347,10 @@ int rules_parse(char *file) {
       varstack->stack = NULL;
       varstack->nrbytes = 4;
       varstack->bufsize = 4;
-      text = (char *)&mempool[txtoffset];
+      input.payload = &mempool[input.len];
     }
 
-    logprintf_P(F("rules memory free: %d / %d"), memoffset, MEMPOOL_SIZE);
+    logprintf_P(F("rules memory free: %d / %d"), mem.len, mem.tot_len);
 
     if(nrrules > 1) {
       FREE(varstack);

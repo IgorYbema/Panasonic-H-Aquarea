@@ -12,8 +12,25 @@
 
 #include <stdint.h>
 
+#ifndef ESP8266
+  #define F
+  #define MEMPOOL_SIZE 16000
+  typedef struct pbuf {
+    struct pbuf *next;
+    void *payload;
+    uint16_t tot_len;
+    uint16_t len;
+    uint8_t type;
+    uint8_t flags;
+    uint16_t ref;
+  } pbuf;
+#else
+  #include <Arduino.h>
+  #include "lwip/pbuf.h"
+  #define MEMPOOL_SIZE MMU_SEC_HEAP_SIZE
+#endif
+
 #define EPSILON  0.000001
-#define MEMPOOL_SIZE MMU_SEC_HEAP_SIZE
 
 /*
  * max(sizeof(vm_vfloat_t), sizeof(vm_vinteger_t), sizeof(vm_vnull_t))
@@ -29,7 +46,6 @@
    ({ __typeof__ (a) _a = (a); \
        __typeof__ (b) _b = (b); \
      _a < _b ? _a : _b; })
-
 
 typedef enum {
   TOPERATOR = 1,
@@ -101,11 +117,6 @@ typedef struct rules_t {
   } ast;
 
   struct {
-    uint16_t *buffer;
-    uint16_t bufsize;
-  } valstack;
-
-  struct {
     unsigned char *buffer;
     unsigned int nrbytes;
     unsigned int bufsize;
@@ -137,8 +148,6 @@ typedef struct rule_options_t {
 } rule_options_t;
 
 extern struct rule_options_t rule_options;
-extern unsigned char *mempool;
-extern unsigned int memptr;
 
 /*
  * Each position field is the closest
@@ -239,7 +248,7 @@ typedef struct vm_teof_t {
 } __attribute__((packed)) vm_teof_t;
 
 unsigned int alignedvarstack(int v);
-int rule_initialize(char **text, unsigned int *txtoffset, struct rules_t ***rules, int *nrrules, unsigned char *mempool, unsigned int *memoffset, void *userdata);
+int rule_initialize(struct pbuf *input, struct rules_t ***rules, int *nrrules, struct pbuf *mempool, void *userdata);
 void rules_gc(struct rules_t ***obj, unsigned int nrrules);
 int rule_run(struct rules_t *obj, int validate);
 void valprint(struct rules_t *obj, char *out, int size);

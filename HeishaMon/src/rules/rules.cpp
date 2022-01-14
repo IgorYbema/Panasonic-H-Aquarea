@@ -31,8 +31,9 @@
 
 #include "../common/mem.h"
 #include "../common/log.h"
-#include "../common/stricmp.h"
-#include "../common/strincmp.h"
+#include "../common/strnicmp.h"
+#include "../common/mem.h"
+#include "../common/log.h"
 #include "rules.h"
 #include "operator.h"
 #include "function.h"
@@ -54,7 +55,7 @@ static void print_bytecode(struct rules_t *obj);
 
 unsigned int alignedvarstack(int v) {
 #ifdef ESP8266
-  return (v + 7) - ((v + 7) % 7);
+  return (v + MAX_VARSTACK_NODE_SIZE) - ((v + MAX_VARSTACK_NODE_SIZE) % MAX_VARSTACK_NODE_SIZE);
 #else
   return v;
 #endif
@@ -65,7 +66,6 @@ void rules_gc(struct rules_t ***rules, unsigned int nrrules) {
   for(i=0;i<nrrules;i++) {
     // FREE((*rules)[i]->ast.buffer);
     // FREE((*rules)[i]->varstack.buffer);
-    // FREE((*rules)[i]->valstack.buffer);
     // FREE((*rules)[i]);
   }
   // FREE((*rules));
@@ -220,7 +220,7 @@ static int lexer_parse_skip_characters(char *text, unsigned int len, unsigned in
   return 0;
 }
 
-static int rule_prepare(char **text, unsigned int *nrbytes, unsigned int *nrval, unsigned int *len) {
+static int rule_prepare(char **text, unsigned int *nrbytes, unsigned int *len) {
   unsigned int pos = 0, nrblocks = 0, tpos = 0;
 
   *nrbytes = alignedbytes(sizeof(struct vm_tstart_t));
@@ -421,7 +421,6 @@ static int rule_prepare(char **text, unsigned int *nrbytes, unsigned int *nrval,
       pos++;
     } else if((*text)[pos] == '(') {
       *nrbytes += alignedbytes(sizeof(struct vm_lparen_t));
-      (*nrval)++;
 #ifdef DEBUG
       printf("LPAREN: %lu\n", sizeof(struct vm_lparen_t));
 #endif
@@ -461,7 +460,6 @@ static int rule_prepare(char **text, unsigned int *nrbytes, unsigned int *nrval,
       if((len1 = is_function((*text), &pos, b)) > -1) {
         *nrbytes += alignedbytes(sizeof(struct vm_tfunction_t)+sizeof(uint16_t));
         *nrbytes -= alignedbytes(sizeof(struct vm_lparen_t));
-        (*nrval)++;
 #ifdef DEBUG
         printf("TFUNCTION: %lu\n", sizeof(struct vm_tfunction_t)+sizeof(uint16_t));
 #endif
@@ -472,7 +470,6 @@ static int rule_prepare(char **text, unsigned int *nrbytes, unsigned int *nrval,
         pos += b;
       } else if((len1 = is_operator((*text), &pos, b)) > -1) {
         *nrbytes += alignedbytes(sizeof(struct vm_toperator_t));
-        (*nrval)++;
 #ifdef DEBUG
         printf("TOPERATOR: %lu\n", sizeof(struct vm_toperator_t));
 #endif
@@ -483,7 +480,6 @@ static int rule_prepare(char **text, unsigned int *nrbytes, unsigned int *nrval,
         (*text)[tpos++] = len1;
       } else if(rule_options.is_token_cb != NULL && (len1 = rule_options.is_token_cb((*text), &pos, b)) > -1) {
         *nrbytes += alignedbytes(sizeof(struct vm_tvar_t)+len1+1);
-        (*nrval)++;
 #ifdef DEBUG
         printf("TVAR: %lu\n", sizeof(struct vm_tvar_t)+len1+1);
 #endif
@@ -514,17 +510,17 @@ static int rule_prepare(char **text, unsigned int *nrbytes, unsigned int *nrval,
           pos += 2;
         } else {
           if((*len - pos) > 5) {
-            logprintf_P(F("ERROR: unknown token '%.5s...'\n"), &(*text)[pos]);
+            logprintf_P(F("ERROR: unknown token '%.5s...'"), &(*text)[pos]);
           } else {
-            logprintf_P(F("ERROR: unknown token '%.5s'\n"), &(*text)[pos]);
+            logprintf_P(F("ERROR: unknown token '%.5s'"), &(*text)[pos]);
           }
           return -1;
         }
       } else {
         if((*len - pos) > 5) {
-          logprintf_P(F("ERROR: unknown token '%.5s...'\n"), &(*text)[pos]);
+          logprintf_P(F("ERROR: unknown token '%.5s...'"), &(*text)[pos]);
         } else {
-          logprintf_P(F("ERROR: unknown token '%.5s'\n"), &(*text)[pos]);
+          logprintf_P(F("ERROR: unknown token '%.5s'"), &(*text)[pos]);
         }
         return -1;
       }
@@ -628,7 +624,7 @@ static int lexer_peek(char **text, int skip, int *type, int *start, int *len) {
         *len = i - *start - 1;
       } break;
       default: {
-        logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+        logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
         return -1;
       } break;
     }
@@ -640,21 +636,7 @@ static int lexer_peek(char **text, int skip, int *type, int *start, int *len) {
 }
 
 static int vm_parent(char **text, struct rules_t *obj, int type, int start, int len, unsigned int opt) {
-  unsigned int ret = alignedbytes(obj->ast.nrbytes), size = 0, i = 0, valpos = 0;
-
-  switch(type) {
-    case LPAREN:
-    case TOPERATOR:
-    case TFUNCTION:
-    case TVAR: {
-      for(valpos=0;valpos<obj->valstack.bufsize;valpos++) {
-        if(obj->valstack.buffer[valpos] == 0) {
-          obj->valstack.buffer[valpos] = 1;
-          break;
-        }
-      }
-    } break;
-  }
+  unsigned int ret = alignedbytes(obj->ast.nrbytes), size = 0, i = 0;
 
   switch(type) {
     case TSTART: {
@@ -686,7 +668,7 @@ static int vm_parent(char **text, struct rules_t *obj, int type, int start, int 
       node->type = type;
       node->ret = 0;
       node->go = 0;
-      node->value = valpos;
+      node->value = 0;
 
       obj->ast.nrbytes = size;
     } break;
@@ -699,7 +681,7 @@ static int vm_parent(char **text, struct rules_t *obj, int type, int start, int 
       node->token = (*text)[start+1];
       node->left = 0;
       node->right = 0;
-      node->value = valpos;
+      node->value = 0;
 
       obj->ast.nrbytes = size;
     } break;
@@ -791,7 +773,7 @@ static int vm_parent(char **text, struct rules_t *obj, int type, int start, int 
       for(i=0;i<opt;i++) {
         node->go[i] = 0;
       }
-      node->value = valpos;
+      node->value = 0;
 
       obj->ast.nrbytes = size;
     } break;
@@ -811,7 +793,7 @@ static int vm_parent(char **text, struct rules_t *obj, int type, int start, int 
       node->type = type;
       node->ret = 0;
       node->go = 0;
-      node->value = valpos;
+      node->value = 0;
 
       memcpy(node->token, &(*text)[start+1], len);
 
@@ -903,7 +885,7 @@ static int vm_rewind2(struct rules_t *obj, int step, int type, int type2) {
         case VFLOAT:
         case VNULL:
         default: {
-          logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+          logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
           return -1;
         } break;
         /* LCOV_EXCL_STOP*/
@@ -996,7 +978,7 @@ static int lexer_parse_math_order(char **text, int *length, struct rules_t *obj,
           struct vm_cache_t *x = vm_cache_get(LPAREN, (*pos));
           /* LCOV_EXCL_START*/
           if(x == NULL) {
-            logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+            logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
             return -1;
           }
           /* LCOV_EXCL_STOP*/
@@ -1009,7 +991,7 @@ static int lexer_parse_math_order(char **text, int *length, struct rules_t *obj,
           struct vm_cache_t *x = vm_cache_get(TFUNCTION, (*pos));
           /* LCOV_EXCL_START*/
           if(x == NULL) {
-            logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+            logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
             return -1;
           }
           /* LCOV_EXCL_STOP*/
@@ -1028,7 +1010,7 @@ static int lexer_parse_math_order(char **text, int *length, struct rules_t *obj,
           (*pos)++;
         } break;
         default: {
-          logprintf_P(F("ERROR: Expected a parenthesis block, function, number or variable\n"));
+          logprintf_P(F("ERROR: Expected a parenthesis block, function, number or variable"));
           return -1;
         } break;
       }
@@ -1079,7 +1061,7 @@ static int lexer_parse_math_order(char **text, int *length, struct rules_t *obj,
       } break;
       /* LCOV_EXCL_START*/
       default: {
-        logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+        logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
         return -1;
       } break;
       /* LCOV_EXCL_STOP*/
@@ -1173,7 +1155,7 @@ static int lexer_parse_math_order(char **text, int *length, struct rules_t *obj,
             } break;
             /* LCOV_EXCL_START*/
             default: {
-              logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+              logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
               return -1;
             } break;
             /* LCOV_EXCL_STOP*/
@@ -1204,13 +1186,13 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 
   /* LCOV_EXCL_START*/
   if(lexer_peek(text, 0, &type, &start, &len) < 0) {
-    logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+    logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
     return -1;
   }
   /* LCOV_EXCL_STOP*/
 
   if(type != TIF && type != TEVENT) {
-    logprintf_P(F("ERROR: Expected an 'if' or an 'on' statement\n"));
+    logprintf_P(F("ERROR: Expected an 'if' or an 'on' statement"));
     return -1;
   }
 
@@ -1229,21 +1211,21 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
          * the go = TSTART comment below.
          */
         // loop = 0;
-        logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+        logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
         return -1;
         /* LCOV_EXCL_STOP*/
         } break;
         case TEVENT: {
           if(lexer_peek(text, pos, &type, &start, &len) < 0) {
             /* LCOV_EXCL_START*/
-            logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+            logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
             return -1;
             /* LCOV_EXCL_STOP*/
           }
           if((step_out == -1 || (obj->ast.buffer[step_out]) == TTRUE) && type != TTHEN) {
             if(type == TEVENT) {
               if(offset > 0) {
-                logprintf_P(F("ERROR: nested 'on' block\n"));
+                logprintf_P(F("ERROR: nested 'on' block"));
                 return -1;
               }
 
@@ -1277,7 +1259,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                 }
 
                 if(nrexpressions == 0) {
-                  logprintf_P(F("ERROR: On block without body\n"));
+                  logprintf_P(F("ERROR: On block without body"));
                   return -1;
                 }
 #ifdef DEBUG
@@ -1301,7 +1283,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 
                 step_out = step;
               } else {
-                logprintf_P(F("ERROR: Expected a 'then' token\n"));
+                logprintf_P(F("ERROR: Expected a 'then' token"));
                 return -1;
               }
             } else {
@@ -1318,7 +1300,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                   struct vm_cache_t *x = vm_cache_get(TFUNCTION, pos);
                   /* LCOV_EXCL_START*/
                   if(x == NULL) {
-                    logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                    logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                     return -1;
                   }
                   /* LCOV_EXCL_STOP*/
@@ -1340,7 +1322,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 
                         /* LCOV_EXCL_START*/
                         if(i == t->nrgo) {
-                          logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                          logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                           return -1;
                         }
                         /* LCOV_EXCL_STOP*/
@@ -1354,7 +1336,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                         go = type;
                       } break;
                       default: {
-                        logprintf_P(F("ERROR: Expected an semicolon or operator\n"));
+                        logprintf_P(F("ERROR: Expected an semicolon or operator"));
                         return -1;
                       } break;
                     }
@@ -1365,7 +1347,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                   struct vm_cache_t *cache = vm_cache_get(TIF, pos);
                   /* LCOV_EXCL_START*/
                   if(cache == NULL) {
-                    logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                    logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                     return -1;
                   }
                   /* LCOV_EXCL_STOP*/
@@ -1403,7 +1385,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                       }
                       /* LCOV_EXCL_START*/
                       if(x == t->nrgo) {
-                        logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                        logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                         return -1;
                       }
                       /* LCOV_EXCL_STOP*/
@@ -1411,13 +1393,13 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                     } break;
                     /* LCOV_EXCL_START*/
                     default: {
-                      logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                      logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                       return -1;
                     } break;
                     /* LCOV_EXCL_STOP*/
                   }
                   /* LCOV_EXCL_START*/
-                  logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                  logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                   return -1;
                   /* LCOV_EXCL_STOP*/
                 } break;
@@ -1431,7 +1413,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                    */
                   /* LCOV_EXCL_START*/
                   if(has_on > 0) {
-                    logprintf_P(F("ERROR: On block inside on block\n"));
+                    logprintf_P(F("ERROR: On block inside on block"));
                     return -1;
                   }
                   /* LCOV_EXCL_START*/
@@ -1453,7 +1435,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 
                     if(lexer_peek(text, pos, &type, &start, &len) < 0) {
                       /* LCOV_EXCL_START*/
-                      logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                      logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                       return -1;
                       /* LCOV_EXCL_STOP*/
                     }
@@ -1478,14 +1460,14 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                   continue;
                 } break;
                 default: {
-                  logprintf_P(F("ERROR: Unexpected token\n"));
+                  logprintf_P(F("ERROR: Unexpected token"));
                   return -1;
                 } break;
               }
             }
           } else {
             /* LCOV_EXCL_START*/
-            logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+            logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
             return -1;
             /* LCOV_EXCL_STOP*/
           }
@@ -1493,7 +1475,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
         case TIF: {
           if(lexer_peek(text, pos, &type, &start, &len) < 0) {
             /* LCOV_EXCL_START*/
-            logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+            logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
             return -1;
             /* LCOV_EXCL_STOP*/
           }
@@ -1515,7 +1497,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 
               if(lexer_peek(text, cache->end, &type, &start, &len) < 0) {
                 /* LCOV_EXCL_START*/
-                logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                 return -1;
                 /* LCOV_EXCL_STOP*/
               }
@@ -1552,14 +1534,14 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                   }
                   /* LCOV_EXCL_START*/
                   if(x == t->nrgo) {
-                    logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                    logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                     return -1;
                   }
                   /* LCOV_EXCL_STOP*/
                 } break;
                 /* LCOV_EXCL_START*/
                 default: {
-                  logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                  logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                   return -1;
                 } break;
                 /* LCOV_EXCL_STOP*/
@@ -1599,7 +1581,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                 struct vm_cache_t *cache = vm_cache_get(LPAREN, pos);
                 /* LCOV_EXCL_START*/
                 if(cache == NULL) {
-                  logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                  logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                   return -1;
                 }
                 /* LCOV_EXCL_STOP*/
@@ -1610,7 +1592,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                  */
                 if(lexer_peek(text, cache->end, &type, &start, &len) < 0) {
                   /* LCOV_EXCL_START*/
-                  logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                  logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                   return -1;
                   /* LCOV_EXCL_STOP*/
                 }
@@ -1627,7 +1609,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                   a->go = cache->step;
                   c->ret = step;
                 } else {
-                  logprintf_P(F("ERROR: Unexpected token\n"));
+                  logprintf_P(F("ERROR: Unexpected token"));
                   return -1;
                 }
 
@@ -1648,11 +1630,11 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                   step_out = step;
                   continue;
                 } else {
-                  logprintf_P(F("ERROR: Function without operator in if condition\n"));
+                  logprintf_P(F("ERROR: Function without operator in if condition"));
                   return -1;
                 }
               } else {
-                logprintf_P(F("ERROR: Expected a parenthesis block, function or operator\n"));
+                logprintf_P(F("ERROR: Expected a parenthesis block, function or operator"));
                 return -1;
               }
             } else {
@@ -1673,7 +1655,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                   struct vm_cache_t *x = vm_cache_get(TFUNCTION, pos);
                   /* LCOV_EXCL_START*/
                   if(x == NULL) {
-                    logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                    logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                     return -1;
                   }
                   /* LCOV_EXCL_STOP*/
@@ -1696,7 +1678,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 
                         if(i == t->nrgo) {
                           /* LCOV_EXCL_START*/
-                          logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                          logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                           return -1;
                           /* LCOV_EXCL_STOP*/
                         }
@@ -1710,7 +1692,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                         go = type;
                       } break;
                       default: {
-                        logprintf_P(F("ERROR: Expected an semicolon or operator\n"));
+                        logprintf_P(F("ERROR: Expected an semicolon or operator"));
                         return -1;
                       } break;
                     }
@@ -1727,7 +1709,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 
                     if(lexer_peek(text, pos, &type, &start, &len) < 0 || type != TEND) {
                       /* LCOV_EXCL_START*/
-                      logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                      logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                       return -1;
                       /* LCOV_EXCL_STOP*/
                     }
@@ -1753,7 +1735,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 
                     if(lexer_peek(text, pos, &type, &start, &len) < 0) {
                       /* LCOV_EXCL_START*/
-                      logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                      logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                       return -1;
                       /* LCOV_EXCL_STOP*/
                     }
@@ -1778,7 +1760,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                   continue;
                 } break;
                 default: {
-                  logprintf_P(F("ERROR: Unexpected token\n"));
+                  logprintf_P(F("ERROR: Unexpected token"));
                   return -1;
                 } break;
               }
@@ -1788,7 +1770,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 
             if(lexer_peek(text, pos, &type, &start, &len) < 0) {
               /* LCOV_EXCL_START*/
-              logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+              logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
               return -1;
               /* LCOV_EXCL_STOP*/
             }
@@ -1815,7 +1797,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                 struct vm_cache_t *cache = vm_cache_get(TIF, y-1);
                 if(cache == NULL) {
                   /* LCOV_EXCL_START*/
-                  logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                  logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                   return -1;
                   /* LCOV_EXCL_STOP*/
                 }
@@ -1835,7 +1817,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
             }
 
             if(nrexpressions == 0) {
-              logprintf_P(F("ERROR: If block without body\n"));
+              logprintf_P(F("ERROR: If block without body"));
               return -1;
             }
 #ifdef DEBUG
@@ -1850,7 +1832,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 
             if(lexer_peek(text, pos, &type, &start, &len) < 0) {
               /* LCOV_EXCL_START*/
-              logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+              logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
               return -1;
               /* LCOV_EXCL_STOP*/
             }
@@ -1887,7 +1869,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                 struct vm_cache_t *x = vm_cache_get(LPAREN, pos);
                 /* LCOV_EXCL_START*/
                 if(x == NULL) {
-                  logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                  logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                   return -1;
                 }
                 /* LCOV_EXCL_STOP*/
@@ -1900,7 +1882,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                 struct vm_cache_t *x = vm_cache_get(TFUNCTION, pos);
                 /* LCOV_EXCL_START*/
                 if(x == NULL) {
-                  logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                  logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                   return -1;
                 }
                 /* LCOV_EXCL_STOP*/
@@ -1921,7 +1903,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
               } break;
               /* LCOV_EXCL_START*/
               default: {
-                logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                 return -1;
               } break;
               /* LCOV_EXCL_STOP*/
@@ -1968,7 +1950,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                 continue;
               } break;
               default: {
-                logprintf_P(F("ERROR: Unexpected token\n"));
+                logprintf_P(F("ERROR: Unexpected token"));
                 return -1;
               } break;
             }
@@ -1982,7 +1964,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                 go = TVAR;
               } break;
               default: {
-                logprintf_P(F("ERROR: Unexpected token\n"));
+                logprintf_P(F("ERROR: Unexpected token"));
                 return -1;
               } break;
             }
@@ -1992,7 +1974,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
           struct vm_vnull_t *node = NULL;
           if(lexer_peek(text, pos, &type, &start, &len) < 0) {
             /* LCOV_EXCL_START*/
-            logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+            logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
             return -1;
             /* LCOV_EXCL_STOP*/
           }
@@ -2009,7 +1991,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
              */
             /* LCOV_EXCL_START*/
             default: {
-              logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+              logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
               return -1;
             } break;
             /* LCOV_EXCL_STOP*/
@@ -2024,7 +2006,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
         } break;
         /* LCOV_EXCL_START*/
         case TSEMICOLON: {
-          logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+          logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
           return -1;
         } break;
         /* LCOV_EXCL_STOP*/
@@ -2039,7 +2021,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 
             if(lexer_peek(text, pos, &type, &start, &len) < 0) {
               /* LCOV_EXCL_START*/
-              logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+              logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
               return -1;
               /* LCOV_EXCL_STOP*/
             }
@@ -2061,7 +2043,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 
             /* LCOV_EXCL_START*/
             if(x == node1->nrgo) {
-              logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+              logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
               return -1;
             }
             /* LCOV_EXCL_STOP*/
@@ -2071,7 +2053,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 
             if(lexer_peek(text, pos, &type, &start, &len) < 0 || type != TASSIGN) {
               /* LCOV_EXCL_START*/
-              logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+              logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
               return -1;
               /* LCOV_EXCL_STOP*/
             }
@@ -2115,7 +2097,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                   struct vm_cache_t *x = vm_cache_get(TFUNCTION, pos);
                   /* LCOV_EXCL_START*/
                   if(x == NULL) {
-                    logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                    logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                     return -1;
                   }
                   /* LCOV_EXCL_STOP*/
@@ -2139,7 +2121,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                         go = type;
                       } break;
                       default: {
-                        logprintf_P(F("ERROR: Expected an semicolon or operator\n"));
+                        logprintf_P(F("ERROR: Expected an semicolon or operator"));
                         return -1;
                       } break;
                     }
@@ -2150,7 +2132,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                   struct vm_cache_t *x = vm_cache_get(LPAREN, pos);
                   /* LCOV_EXCL_START*/
                   if(x == NULL) {
-                    logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                    logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                     return -1;
                   }
 
@@ -2176,13 +2158,13 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                   }
                 } break;
                 default: {
-                  logprintf_P(F("ERROR: Unexpected token\n"));
+                  logprintf_P(F("ERROR: Unexpected token"));
                   return -1;
                 } break;
               }
             } else {
               /* LCOV_EXCL_START*/
-              logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+              logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
               return -1;
               /* LCOV_EXCL_STOP*/
             }
@@ -2205,7 +2187,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                   go = TVAR;
                 } break;
                 default: {
-                  logprintf_P(F("ERROR: Expected a semicolon\n"));
+                  logprintf_P(F("ERROR: Expected a semicolon"));
                   return -1;
                 } break;
               }
@@ -2213,7 +2195,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
           } else {
             if(lexer_peek(text, pos, &type, &start, &len) < 0 || type != TSEMICOLON) {
               /* LCOV_EXCL_START*/
-              logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+              logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
               return -1;
               /* LCOV_EXCL_STOP*/
             }
@@ -2238,7 +2220,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
           struct vm_tcevent_t *node = NULL;
           /* LCOV_EXCL_START*/
           if(lexer_peek(text, pos, &type, &start, &len) < 0 || type != TCEVENT) {
-            logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+            logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
             return -1;
           }
           /* LCOV_EXCL_STOP*/
@@ -2251,13 +2233,13 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 
           if(lexer_peek(text, pos, &type, &start, &len) < 0) {
             /* LCOV_EXCL_START*/
-            logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+            logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
             return -1;
             /* LCOV_EXCL_STOP*/
           }
 
           if(type != TSEMICOLON) {
-            logprintf_P(F("ERROR: Expected a semicolon\n"));
+            logprintf_P(F("ERROR: Expected a semicolon"));
             return -1;
           }
 
@@ -2276,7 +2258,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 
           /* LCOV_EXCL_START*/
           if(x == node1->nrgo) {
-            logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+            logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
             return -1;
           }
           /* LCOV_EXCL_STOP*/
@@ -2295,7 +2277,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                 struct vm_cache_t *x = vm_cache_get(LPAREN, has_paren+1);
                 /* LCOV_EXCL_START*/
                 if(x == NULL) {
-                  logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                  logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                   return -1;
                 }
                 /* LCOV_EXCL_STOP*/
@@ -2307,7 +2289,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                 struct vm_cache_t *x = vm_cache_get(TFUNCTION, has_paren+1);
                 /* LCOV_EXCL_START*/
                 if(x == NULL) {
-                  logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                  logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                   return -1;
                 }
                 /* LCOV_EXCL_STOP*/
@@ -2327,15 +2309,15 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                 pos++;
               } break;
               case RPAREN: {
-                logprintf_P(F("ERROR: Empty parenthesis block\n"));
+                logprintf_P(F("ERROR: Empty parenthesis block"));
                 return -1;
               } break;
               case TOPERATOR: {
-                logprintf_P(F("ERROR: Unexpected operator\n"));
+                logprintf_P(F("ERROR: Unexpected operator"));
                 return -1;
               } break;
               default: {
-                logprintf_P(F("ERROR: Unexpected token\n"));
+                logprintf_P(F("ERROR: Unexpected token"));
                 return -1;
               }
             }
@@ -2349,13 +2331,13 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 
           if(lexer_peek(text, pos, &b, &start, &len) < 0) {
             /* LCOV_EXCL_START*/
-            logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+            logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
             return -1;
             /* LCOV_EXCL_STOP*/
           }
 
           if(b != RPAREN) {
-            logprintf_P(F("ERROR: Expected a right parenthesis\n"));
+            logprintf_P(F("ERROR: Expected a right parenthesis"));
             return -1;
           }
 
@@ -2368,7 +2350,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 
           if(lexer_peek(text, has_paren, &type, &start, &len) < 0 || type != LPAREN) {
             /* LCOV_EXCL_START*/
-            logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+            logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
             return -1;
             /* LCOV_EXCL_STOP*/
           }
@@ -2408,7 +2390,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
             pos = has_function+1;
             if(lexer_peek(text, has_function, &type, &start, &len) < 0) {
               /* LCOV_EXCL_START*/
-              logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+              logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
               return -1;
               /* LCOV_EXCL_STOP*/
             }
@@ -2426,7 +2408,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                 struct vm_cache_t *cache = vm_cache_get(LPAREN, y-1);
                 if(cache == NULL) {
                   /* LCOV_EXCL_START*/
-                  logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                  logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                   return -1;
                   /* LCOV_EXCL_STOP*/
                 }
@@ -2437,7 +2419,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                 struct vm_cache_t *cache = vm_cache_get(TFUNCTION, y-1);
                 if(cache == NULL) {
                   /* LCOV_EXCL_START*/
-                  logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                  logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                   return -1;
                   /* LCOV_EXCL_STOP*/
                 }
@@ -2453,7 +2435,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 #endif
             if(lexer_peek(text, has_function, &type, &start, &len) < 0 || type != TFUNCTION) {
               /* LCOV_EXCL_START*/
-              logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+              logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
               return -1;
               /* LCOV_EXCL_STOP*/
             }
@@ -2490,7 +2472,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
             while(1) {
               if(lexer_peek(text, pos, &type, &start, &len) < 0) {
                 /* LCOV_EXCL_START*/
-                logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                 return -1;
                 /* LCOV_EXCL_STOP*/
               }
@@ -2518,7 +2500,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
             while(1) {
               if(lexer_peek(text, pos + 1, &type, &start, &len) < 0) {
                 /* LCOV_EXCL_START*/
-                logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                 return -1;
                 /* LCOV_EXCL_STOP*/
               } else if(type == TOPERATOR) {
@@ -2529,7 +2511,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 
               if(lexer_peek(text, pos, &type, &start, &len) < 0) {
                 /* LCOV_EXCL_START*/
-                logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                 return -1;
                 /* LCOV_EXCL_STOP*/
               }
@@ -2543,7 +2525,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                   struct vm_cache_t *cache = vm_cache_get(LPAREN, pos);
                   /* LCOV_EXCL_START*/
                   if(cache == NULL) {
-                    logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                    logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                     return -1;
                   }
                   /* LCOV_EXCL_STOP*/
@@ -2560,7 +2542,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                   struct vm_cache_t *cache = vm_cache_get(TFUNCTION, pos);
                   /* LCOV_EXCL_START*/
                   if(cache == NULL) {
-                    logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                    logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                     return -1;
                   }
 
@@ -2600,14 +2582,14 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                   tmp->ret = step;
                 } break;
                 default: {
-                  logprintf_P(F("ERROR: Unexpected token\n"));
+                  logprintf_P(F("ERROR: Unexpected token"));
                   return -1;
                 } break;
               }
 
               if(lexer_peek(text, pos, &type, &start, &len) < 0) {
                 /* LCOV_EXCL_START*/
-                logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                 return -1;
                 /* LCOV_EXCL_STOP*/
               }
@@ -2620,7 +2602,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                 pos++;
                 break;
               } else if(type != TCOMMA) {
-                logprintf_P(F("ERROR: Expected a closing parenthesis\n"));
+                logprintf_P(F("ERROR: Expected a closing parenthesis"));
                 return -1;
               }
 
@@ -2629,7 +2611,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
           } else {
             if(lexer_peek(text, pos, &type, &start, &len) < 0) {
               /* LCOV_EXCL_START*/
-              logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+              logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
               return -1;
               /* LCOV_EXCL_STOP*/
             }
@@ -2667,7 +2649,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
       if(r_rewind == -1) {
         if(lexer_peek(text, pos++, &type, &start, &len) < 0) {
           /* LCOV_EXCL_START*/
-          logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+          logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
           return -1;
           /* LCOV_EXCL_STOP*/
         }
@@ -2737,7 +2719,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
           pos = 0;
           continue;
         */
-        logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+        logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
         return -1;
         /* LCOV_EXCL_STOP*/
       }
@@ -2747,7 +2729,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
 /* LCOV_EXCL_START*/
   struct vm_tstart_t *node = (struct vm_tstart_t *)&obj->ast.buffer[0];
   if(node->go == 0) {
-    logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+    logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
     return -1;
   }
 /* LCOV_EXCL_STOP*/
@@ -3149,7 +3131,7 @@ static int vm_value_set(struct rules_t *obj, int step, int ret) {
     } break;
     /* LCOV_EXCL_START*/
     default: {
-      logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+      logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
       return -1;
     } break;
     /* LCOV_EXCL_STOP*/
@@ -3162,21 +3144,21 @@ static int vm_value_upd_pos(struct rules_t *obj, int val, int step) {
   switch(obj->ast.buffer[step]) {
     case TOPERATOR: {
       struct vm_toperator_t *node = (struct vm_toperator_t *)&obj->ast.buffer[step];
-      obj->valstack.buffer[node->value] = val;
+      node->value = val;
     } break;
     case TVAR: {
       struct vm_tvar_t *node = (struct vm_tvar_t *)&obj->ast.buffer[step];
-      obj->valstack.buffer[node->value] = val;
+      node->value = val;
     } break;
     case TFUNCTION: {
       struct vm_tfunction_t *node = (struct vm_tfunction_t *)&obj->ast.buffer[step];
-      obj->valstack.buffer[node->value] = val;
+      node->value = val;
     } break;
     case VNULL: {
     } break;
     /* LCOV_EXCL_START*/
     default: {
-      logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+      logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
       return -1;
     } break;
     /* LCOV_EXCL_STOP*/
@@ -3221,7 +3203,7 @@ static int vm_value_clone(struct rules_t *obj, unsigned char *val) {
     } break;
     /* LCOV_EXCL_START*/
     default: {
-      logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+      logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
       return -1;
     } break;
     /* LCOV_EXCL_STOP*/
@@ -3263,7 +3245,7 @@ static int vm_value_del(struct rules_t *obj, unsigned int idx) {
     } break;
     /* LCOV_EXCL_START*/
     default: {
-      logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+      logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
       return -1;
     } break;
     /* LCOV_EXCL_STOP*/
@@ -3304,7 +3286,7 @@ static int vm_value_del(struct rules_t *obj, unsigned int idx) {
       } break;
       /* LCOV_EXCL_START*/
       default: {
-        logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+        logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
         return -1;
       } break;
       /* LCOV_EXCL_STOP*/
@@ -3392,7 +3374,7 @@ void valprint(struct rules_t *obj, char *out, int size) {
           x += sizeof(struct vm_vnull_t)-1;
         } break;
         default: {
-          logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+          logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
         } break;
       }
     }
@@ -3424,7 +3406,7 @@ static void vm_clear_values(struct rules_t *obj) {
       } break;
       case LPAREN: {
         struct vm_lparen_t *node = (struct vm_lparen_t *)&obj->ast.buffer[i];
-        obj->valstack.buffer[node->value] = 0;
+        node->value = 0;
         i+=sizeof(struct vm_lparen_t)-1;
       } break;
       case TFALSE:
@@ -3434,7 +3416,7 @@ static void vm_clear_values(struct rules_t *obj) {
       } break;
       case TFUNCTION: {
         struct vm_tfunction_t *node = (struct vm_tfunction_t *)&obj->ast.buffer[i];
-        obj->valstack.buffer[node->value] = 0;
+        node->value = 0;
         i+=sizeof(struct vm_tfunction_t)+(sizeof(uint16_t)*node->nrgo)-1;
       } break;
       case TCEVENT: {
@@ -3446,7 +3428,7 @@ static void vm_clear_values(struct rules_t *obj) {
         if(rule_options.clr_token_val_cb != NULL) {
           rule_options.clr_token_val_cb(obj, i);
         } else {
-          obj->valstack.buffer[node->value] = 0;
+          node->value = 0;
         }
         i+=sizeof(struct vm_tvar_t)+strlen((char *)node->token);
       } break;
@@ -3466,7 +3448,7 @@ static void vm_clear_values(struct rules_t *obj) {
       } break;
       case TOPERATOR: {
         struct vm_toperator_t *node = (struct vm_toperator_t *)&obj->ast.buffer[i];
-        obj->valstack.buffer[node->value] = 0;
+        node->value = 0;
         i+=sizeof(struct vm_toperator_t)-1;
       } break;
       default: {
@@ -3538,10 +3520,10 @@ int rule_run(struct rules_t *obj, int validate) {
           switch(obj->ast.buffer[ret]) {
             case TOPERATOR: {
               struct vm_toperator_t *op = (struct vm_toperator_t *)&obj->ast.buffer[ret];
-              struct vm_vinteger_t *tmp = (struct vm_vinteger_t *)&obj->varstack.buffer[obj->valstack.buffer[op->value]];
+              struct vm_vinteger_t *tmp = (struct vm_vinteger_t *)&obj->varstack.buffer[op->value];
 
               val = tmp->value;
-              vm_value_del(obj, obj->valstack.buffer[op->value]);
+              vm_value_del(obj, op->value);
 
               /*
                * Reassign node due to various (unsigned char *)REALLOC's
@@ -3550,10 +3532,10 @@ int rule_run(struct rules_t *obj, int validate) {
             } break;
             case LPAREN: {
               struct vm_lparen_t *op = (struct vm_lparen_t *)&obj->ast.buffer[ret];
-              struct vm_vinteger_t *tmp = (struct vm_vinteger_t *)&obj->varstack.buffer[obj->valstack.buffer[op->value]];
+              struct vm_vinteger_t *tmp = (struct vm_vinteger_t *)&obj->varstack.buffer[op->value];
 
               val = tmp->value;
-              vm_value_del(obj, obj->valstack.buffer[op->value]);
+              vm_value_del(obj, op->value);
 
               /*
                * Reassign node due to various (unsigned char *)REALLOC's
@@ -3567,7 +3549,7 @@ int rule_run(struct rules_t *obj, int validate) {
             break;
             /* LCOV_EXCL_START*/
             default: {
-              logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+              logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
               return -1;
             } break;
             /* LCOV_EXCL_STOP*/
@@ -3605,7 +3587,7 @@ int rule_run(struct rules_t *obj, int validate) {
 
         if(rule_options.event_cb == NULL) {
           /* LCOV_EXCL_START*/
-          logprintf_P(F("FATAL: No 'event_cb' set to handle events\n"));
+          logprintf_P(F("FATAL: No 'event_cb' set to handle events"));
           return -1;
           /* LCOV_EXCL_STOP*/
         }
@@ -3648,7 +3630,7 @@ int rule_run(struct rules_t *obj, int validate) {
                 } break;
                 /* LCOV_EXCL_START*/
                 default: {
-                  logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                  logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                   return -1;
                 } break;
                 /* LCOV_EXCL_STOP*/
@@ -3673,7 +3655,7 @@ int rule_run(struct rules_t *obj, int validate) {
 
           /* LCOV_EXCL_START*/
           if(idx > nr_rule_functions) {
-            logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+            logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
             return -1;
           }
           /* LCOV_EXCL_STOP*/
@@ -3692,23 +3674,23 @@ int rule_run(struct rules_t *obj, int validate) {
               } break;
               case LPAREN: {
                 struct vm_lparen_t *tmp = (struct vm_lparen_t *)&obj->ast.buffer[node->go[i]];
-                struct vm_tgeneric_t *val = (struct vm_tgeneric_t *)&obj->varstack.buffer[obj->valstack.buffer[tmp->value]];
-                values[i] = obj->valstack.buffer[tmp->value];
-                obj->valstack.buffer[tmp->value] = 0;
+                struct vm_tgeneric_t *val = (struct vm_tgeneric_t *)&obj->varstack.buffer[tmp->value];
+                values[i] = tmp->value;
+                tmp->value = 0;
                 val->ret = 0;
               } break;
               case TOPERATOR: {
                 struct vm_toperator_t *tmp = (struct vm_toperator_t *)&obj->ast.buffer[node->go[i]];
-                struct vm_tgeneric_t *val = (struct vm_tgeneric_t *)&obj->varstack.buffer[obj->valstack.buffer[tmp->value]];
-                values[i] = obj->valstack.buffer[tmp->value];
-                obj->valstack.buffer[tmp->value] = 0;
+                struct vm_tgeneric_t *val = (struct vm_tgeneric_t *)&obj->varstack.buffer[tmp->value];
+                values[i] = tmp->value;
+                tmp->value = 0;
                 val->ret = 0;
               } break;
               case TFUNCTION: {
                 struct vm_tfunction_t *tmp = (struct vm_tfunction_t *)&obj->ast.buffer[node->go[i]];
-                struct vm_tgeneric_t *val = (struct vm_tgeneric_t *)&obj->varstack.buffer[obj->valstack.buffer[tmp->value]];
-                values[i] = obj->valstack.buffer[tmp->value];
-                obj->valstack.buffer[tmp->value] = 0;
+                struct vm_tgeneric_t *val = (struct vm_tgeneric_t *)&obj->varstack.buffer[tmp->value];
+                values[i] = tmp->value;
+                tmp->value = 0;
                 val->ret = 0;
               } break;
               case VNULL: {
@@ -3724,7 +3706,7 @@ int rule_run(struct rules_t *obj, int validate) {
                   unsigned char *val = rule_options.get_token_val_cb(obj, node->go[i]);
                   /* LCOV_EXCL_START*/
                   if(val == NULL) {
-                    logprintf_P(F("FATAL: 'get_token_val_cb' did not return a value\n"));
+                    logprintf_P(F("FATAL: 'get_token_val_cb' did not return a value"));
                     return -1;
                   }
                   /* LCOV_EXCL_STOP*/
@@ -3736,14 +3718,14 @@ int rule_run(struct rules_t *obj, int validate) {
                   node = (struct vm_tfunction_t *)&obj->ast.buffer[go];
                 } else {
                   /* LCOV_EXCL_START*/
-                  logprintf_P(F("FATAL: No '[get|cpy]_token_val_cb' set to handle variables\n"));
+                  logprintf_P(F("FATAL: No '[get|cpy]_token_val_cb' set to handle variables"));
                   return -1;
                   /* LCOV_EXCL_STOP*/
                 }
               } break;
               /* LCOV_EXCL_START*/
               default: {
-                logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                 return -1;
               } break;
               /* LCOV_EXCL_STOP*/
@@ -3752,7 +3734,7 @@ int rule_run(struct rules_t *obj, int validate) {
 
           if(rule_functions[idx].callback(obj, node->nrgo, values, &c) != 0) {
             /* LCOV_EXCL_START*/
-            logprintf_P(F("FATAL: function call '%s' failed\n"), rule_functions[idx].name);
+            logprintf_P(F("FATAL: function call '%s' failed"), rule_functions[idx].name);
             return -1;
             /* LCOV_EXCL_STOP*/
           }
@@ -3766,27 +3748,27 @@ int rule_run(struct rules_t *obj, int validate) {
               case VINTEGER: {
                 struct vm_vinteger_t *tmp = (struct vm_vinteger_t *)&obj->varstack.buffer[c];
                 tmp->ret = go;
-                obj->valstack.buffer[node->value] = c;
+                node->value = c;
               } break;
               case VNULL: {
                 struct vm_vnull_t *tmp = (struct vm_vnull_t *)&obj->varstack.buffer[c];
                 tmp->ret = go;
-                obj->valstack.buffer[node->value] = c;
+                node->value = c;
               } break;
               case VFLOAT: {
                 struct vm_vfloat_t *tmp = (struct vm_vfloat_t *)&obj->varstack.buffer[c];
                 tmp->ret = go;
-                obj->valstack.buffer[node->value] = c;
+                node->value = c;
               } break;
               /* LCOV_EXCL_START*/
               default: {
-                logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                 return -1;
               } break;
               /* LCOV_EXCL_STOP*/
             }
           } else {
-            obj->valstack.buffer[node->value] = 0;
+            node->value = 0;
           }
 
           for(i=0;i<node->nrgo;i++) {
@@ -3803,7 +3785,7 @@ int rule_run(struct rules_t *obj, int validate) {
               } break;
               /* LCOV_EXCL_START*/
               default: {
-                logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                 return -1;
               } break;
               /* LCOV_EXCL_STOP*/
@@ -3846,18 +3828,18 @@ int rule_run(struct rules_t *obj, int validate) {
             } break;
             case TOPERATOR: {
               struct vm_toperator_t *tmp = (struct vm_toperator_t *)&obj->ast.buffer[step];
-              a = obj->valstack.buffer[tmp->value];
-              obj->valstack.buffer[tmp->value] = 0;
+              a = tmp->value;
+              tmp->value = 0;
             } break;
             case LPAREN: {
               struct vm_lparen_t *tmp = (struct vm_lparen_t *)&obj->ast.buffer[step];
-              a = obj->valstack.buffer[tmp->value];
-              obj->valstack.buffer[tmp->value] = 0;
+              a = tmp->value;
+              tmp->value = 0;
             } break;
             case TFUNCTION: {
               struct vm_tfunction_t *tmp = (struct vm_tfunction_t *)&obj->ast.buffer[step];
-              a = obj->valstack.buffer[tmp->value];
-              obj->valstack.buffer[tmp->value] = 0;
+              a = tmp->value;
+              tmp->value = 0;
             } break;
             case VNULL: {
               a = vm_value_set(obj, step, step);
@@ -3879,7 +3861,7 @@ int rule_run(struct rules_t *obj, int validate) {
 
                 /* LCOV_EXCL_START*/
                 if(val == NULL) {
-                  logprintf_P(F("FATAL: 'get_token_val_cb' did not return a value\n"));
+                  logprintf_P(F("FATAL: 'get_token_val_cb' did not return a value"));
                   return -1;
                 }
                 /* LCOV_EXCL_STOP*/
@@ -3890,14 +3872,14 @@ int rule_run(struct rules_t *obj, int validate) {
                 node = (struct vm_toperator_t *)&obj->ast.buffer[go];
               } else {
                 /* LCOV_EXCL_START*/
-                logprintf_P(F("FATAL: No '[get|cpy]_token_val_cb' set to handle variables\n"));
+                logprintf_P(F("FATAL: No '[get|cpy]_token_val_cb' set to handle variables"));
                 return -1;
                 /* LCOV_EXCL_STOP*/
               }
             } break;
             /* LCOV_EXCL_START*/
             default: {
-              logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+              logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
               return -1;
             } break;
             /* LCOV_EXCL_STOP*/
@@ -3917,18 +3899,18 @@ int rule_run(struct rules_t *obj, int validate) {
             } break;
             case TOPERATOR: {
               struct vm_toperator_t *tmp = (struct vm_toperator_t *)&obj->ast.buffer[step];
-              b = obj->valstack.buffer[tmp->value];
-              obj->valstack.buffer[tmp->value] = 0;
+              b = tmp->value;
+              tmp->value = 0;
             } break;
             case LPAREN: {
               struct vm_lparen_t *tmp = (struct vm_lparen_t *)&obj->ast.buffer[step];
-              b = obj->valstack.buffer[tmp->value];
-              obj->valstack.buffer[tmp->value] = 0;
+              b = tmp->value;
+              tmp->value = 0;
             } break;
             case TFUNCTION: {
               struct vm_tfunction_t *tmp = (struct vm_tfunction_t *)&obj->ast.buffer[step];
-              b = obj->valstack.buffer[tmp->value];
-              obj->valstack.buffer[tmp->value] = 0;
+              b = tmp->value;
+              tmp->value = 0;
             } break;
             case VNULL: {
               b = vm_value_set(obj, step, step);
@@ -3947,7 +3929,7 @@ int rule_run(struct rules_t *obj, int validate) {
 
                 /* LCOV_EXCL_START*/
                 if(val == NULL) {
-                  logprintf_P(F("FATAL: 'get_token_val_cb' did not return a value\n"));
+                  logprintf_P(F("FATAL: 'get_token_val_cb' did not return a value"));
                   return -1;
                 }
                 /* LCOV_EXCL_STOP*/
@@ -3958,14 +3940,14 @@ int rule_run(struct rules_t *obj, int validate) {
                 node = (struct vm_toperator_t *)&obj->ast.buffer[go];
               } else {
                 /* LCOV_EXCL_START*/
-                logprintf_P(F("FATAL: No '[get|cpy]_token_val_cb' set to handle variables\n"));
+                logprintf_P(F("FATAL: No '[get|cpy]_token_val_cb' set to handle variables"));
                 return -1;
                 /* LCOV_EXCL_STOP*/
               }
             } break;
             /* LCOV_EXCL_START*/
             default: {
-              logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+              logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
               return -1;
             } break;
             /* LCOV_EXCL_STOP*/
@@ -3974,14 +3956,14 @@ int rule_run(struct rules_t *obj, int validate) {
 
           /* LCOV_EXCL_START*/
           if(idx > nr_rule_operators) {
-            logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+            logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
             return -1;
           }
           /* LCOV_EXCL_STOP*/
 
           if(rule_operators[idx].callback(obj, a, b, &c) != 0) {
             /* LCOV_EXCL_START*/
-            logprintf_P(F("FATAL: operator call '%s' failed\n"), rule_operators[idx].name);
+            logprintf_P(F("FATAL: operator call '%s' failed"), rule_operators[idx].name);
             return -1;
             /* LCOV_EXCL_STOP*/
           }
@@ -4000,7 +3982,7 @@ int rule_run(struct rules_t *obj, int validate) {
                */
               node = (struct vm_toperator_t *)&obj->ast.buffer[go];
               tmp->ret = go;
-              obj->valstack.buffer[node->value] = c;
+              node->value = c;
             } break;
             case VFLOAT: {
               struct vm_vfloat_t *tmp = (struct vm_vfloat_t *)&obj->varstack.buffer[c];
@@ -4009,7 +3991,7 @@ int rule_run(struct rules_t *obj, int validate) {
                */
               node = (struct vm_toperator_t *)&obj->ast.buffer[go];
               tmp->ret = go;
-              obj->valstack.buffer[node->value] = c;
+              node->value = c;
             } break;
             case VNULL: {
               struct vm_vnull_t *tmp = (struct vm_vnull_t *)&obj->varstack.buffer[c];
@@ -4018,11 +4000,11 @@ int rule_run(struct rules_t *obj, int validate) {
                */
               node = (struct vm_toperator_t *)&obj->ast.buffer[go];
               tmp->ret = go;
-              obj->valstack.buffer[node->value] = c;
+              node->value = c;
             } break;
             /* LCOV_EXCL_START*/
             default: {
-              logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+              logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
               return -1;
             } break;
             /* LCOV_EXCL_STOP*/
@@ -4075,17 +4057,17 @@ int rule_run(struct rules_t *obj, int validate) {
           switch(obj->ast.buffer[node->go]) {
             case TOPERATOR: {
               struct vm_toperator_t *tmp = (struct vm_toperator_t *)&obj->ast.buffer[ret];
-              obj->valstack.buffer[node->value] = obj->valstack.buffer[tmp->value];
-              obj->valstack.buffer[tmp->value] = 0;
+              node->value = tmp->value;
+              tmp->value = 0;
             } break;
             case LPAREN: {
               struct vm_lparen_t *tmp = (struct vm_lparen_t *)&obj->ast.buffer[ret];
-              obj->valstack.buffer[node->value] = obj->valstack.buffer[tmp->value];
-              obj->valstack.buffer[tmp->value] = 0;
+              node->value = tmp->value;
+              tmp->value = 0;
             } break;
             /* LCOV_EXCL_START*/
             default: {
-              logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+              logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
               return -1;
             } break;
             /* LCOV_EXCL_STOP*/
@@ -4110,8 +4092,8 @@ int rule_run(struct rules_t *obj, int validate) {
           // } break;
           case TFUNCTION: {
             struct vm_tfunction_t *tmp = (struct vm_tfunction_t *)&obj->ast.buffer[ret];
-            if(obj->valstack.buffer[tmp->value] > 0) {
-              vm_value_del(obj, obj->valstack.buffer[tmp->value]);
+            if(tmp->value > 0) {
+              vm_value_del(obj, tmp->value);
             }
             node = (struct vm_ttrue_t *)&obj->ast.buffer[go];
           } break;
@@ -4123,7 +4105,7 @@ int rule_run(struct rules_t *obj, int validate) {
           } break;
           /* LCOV_EXCL_START*/
           default: {
-            logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+            logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
             return -1;
           } break;
           /* LCOV_EXCL_STOP*/
@@ -4189,16 +4171,16 @@ int rule_run(struct rules_t *obj, int validate) {
             switch(obj->ast.buffer[node->go]) {
               case TOPERATOR: {
                 struct vm_toperator_t *tmp = (struct vm_toperator_t *)&obj->ast.buffer[ret];
-                struct vm_tgeneric_t *val = (struct vm_tgeneric_t *)&obj->varstack.buffer[obj->valstack.buffer[tmp->value]];
-                idx = obj->valstack.buffer[tmp->value];
-                obj->valstack.buffer[tmp->value] = 0;
+                struct vm_tgeneric_t *val = (struct vm_tgeneric_t *)&obj->varstack.buffer[tmp->value];
+                idx = tmp->value;
+                tmp->value = 0;
                 val->ret = go;
               } break;
               case TFUNCTION: {
                 struct vm_tfunction_t *tmp = (struct vm_tfunction_t *)&obj->ast.buffer[ret];
-                struct vm_tgeneric_t *val = (struct vm_tgeneric_t *)&obj->varstack.buffer[obj->valstack.buffer[tmp->value]];
-                idx = obj->valstack.buffer[tmp->value];
-                obj->valstack.buffer[tmp->value] = 0;
+                struct vm_tgeneric_t *val = (struct vm_tgeneric_t *)&obj->varstack.buffer[tmp->value];
+                idx = tmp->value;
+                tmp->value = 0;
                 val->ret = go;
               } break;
               case TNUMBER:
@@ -4227,14 +4209,14 @@ int rule_run(struct rules_t *obj, int validate) {
                   unsigned char *val = rule_options.get_token_val_cb(obj, ret);
                   /* LCOV_EXCL_START*/
                   if(val == NULL) {
-                    logprintf_P(F("FATAL: 'get_token_val_cb' did not return a value\n"));
+                    logprintf_P(F("FATAL: 'get_token_val_cb' did not return a value"));
                     return -1;
                   }
                   /* LCOV_EXCL_STOP*/
                   idx = vm_value_clone(obj, val);
                 } else {
                   /* LCOV_EXCL_START*/
-                  logprintf_P(F("FATAL: No '[get|cpy]_token_val_cb' set to handle variables\n"));
+                  logprintf_P(F("FATAL: No '[get|cpy]_token_val_cb' set to handle variables"));
                   return -1;
                   /* LCOV_EXCL_STOP*/
                 }
@@ -4245,14 +4227,14 @@ int rule_run(struct rules_t *obj, int validate) {
               } break;
               case LPAREN: {
                 struct vm_lparen_t *tmp = (struct vm_lparen_t *)&obj->ast.buffer[ret];
-                struct vm_tgeneric_t *val = (struct vm_tgeneric_t *)&obj->varstack.buffer[obj->valstack.buffer[tmp->value] - shift];
-                idx = obj->valstack.buffer[tmp->value] - shift;
-                obj->valstack.buffer[tmp->value] = 0;
+                struct vm_tgeneric_t *val = (struct vm_tgeneric_t *)&obj->varstack.buffer[tmp->value - shift];
+                idx = tmp->value - shift;
+                tmp->value = 0;
                 val->ret = go;
               } break;
               /* LCOV_EXCL_START*/
               default: {
-                logprintf_P(F("FATAL: Internal error in %s #%d\n"), __FUNCTION__, __LINE__);
+                logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
                 return -1;
               } break;
               /* LCOV_EXCL_STOP*/
@@ -4261,7 +4243,7 @@ int rule_run(struct rules_t *obj, int validate) {
             if(idx > -1) {
               if(rule_options.set_token_val_cb == NULL) {
                 /* LCOV_EXCL_START*/
-                logprintf_P(F("FATAL: No 'set_token_val_cb' set to handle variables\n"));
+                logprintf_P(F("FATAL: No 'set_token_val_cb' set to handle variables"));
                 return -1;
                 /* LCOV_EXCL_STOP*/
               }
@@ -4275,7 +4257,7 @@ int rule_run(struct rules_t *obj, int validate) {
                */
               node = (struct vm_tvar_t *)&obj->ast.buffer[go];
             } else {
-              obj->valstack.buffer[node->value] = 0;
+              node->value = 0;
             }
 
             ret = go;
@@ -4324,7 +4306,7 @@ void print_bytecode(struct rules_t *obj) {
         printf("type: %d, ", node->type);
         printf("ret: %d, ", node->ret);
         printf("go: %d, ", node->go);
-        printf("value: %d]\n", obj->valstack.buffer[node->value]);
+        printf("value: %d]\n", node->value);
         i += sizeof(struct vm_lparen_t)-1;
       } break;
       case TVAR: {
@@ -4333,7 +4315,7 @@ void print_bytecode(struct rules_t *obj) {
         printf("type: %d, ", node->type);
         printf("ret: %d, ", node->ret);
         printf("go: %d, ", node->go);
-        printf("value: %d, ", obj->valstack.buffer[node->value]);
+        printf("value: %d, ", node->value);
         printf("token: %s]\n", node->token);
         i += sizeof(struct vm_tvar_t)+strlen((char *)node->token);
       } break;
@@ -4412,7 +4394,7 @@ void print_bytecode(struct rules_t *obj) {
         printf("type: %d, ", node->type);
         printf("ret: %d, ", node->ret);
         printf("token: %d, ", node->token);
-        printf("value: %d, ", obj->valstack.buffer[node->value]);
+        printf("value: %d, ", node->value);
         printf("nrgo: %d, ", node->nrgo);
         printf("go[");
         int x = 0;
@@ -4433,7 +4415,7 @@ void print_bytecode(struct rules_t *obj) {
         printf("token: %d, ", node->token);
         printf("left: %d, ", node->left);
         printf("right: %d, ", node->right);
-        printf("value: %d]\n", obj->valstack.buffer[node->value]);
+        printf("value: %d]\n", node->value);
         i += sizeof(struct vm_toperator_t)-1;
       } break;
       case TEOF: {
@@ -4454,12 +4436,12 @@ void print_bytecode(struct rules_t *obj) {
 #endif
 /*LCOV_EXCL_STOP*/
 
-int rule_initialize(char **text, unsigned int *txtoffset, struct rules_t ***rules, int *nrrules, unsigned char *mempool, unsigned int *memoffset, void *userdata) {
-  unsigned int nrbytes = 0, nrval = 0, len = strlen(*text), newlen = len;
+int rule_initialize(struct pbuf *input, struct rules_t ***rules, int *nrrules, struct pbuf *mempool, void *userdata) {
+  unsigned int nrbytes = 0, len = strlen((char *)input->payload), newlen = len;
   unsigned int suggested_varstack_size = 0;
 
-  if(*memoffset < 512) {
-    *memoffset = 512;
+  if(mempool->len < 512) {
+    mempool->len = 512;
   }
   if(*nrrules >= 64) {
 #ifdef ESP8266
@@ -4468,7 +4450,8 @@ int rule_initialize(char **text, unsigned int *txtoffset, struct rules_t ***rule
     printf("more than the maximum of 64 rule blocks defined\n");
 #endif
   }
-  if(*txtoffset < alignedbuffer(*memoffset)) {
+
+  if(input->len < alignedbuffer(mempool->len)) {
 #ifdef ESP8266
     Serial1.println(PSTR("not enough free space in rules mempool"));
 #else
@@ -4479,10 +4462,10 @@ int rule_initialize(char **text, unsigned int *txtoffset, struct rules_t ***rule
   if(len == 0) {
     return 1;
   }
-  *rules = (struct rules_t **)&mempool[0];
-  (*rules)[*nrrules] = (struct rules_t *)&mempool[alignedbuffer(*memoffset)];
+  *rules = (struct rules_t **)&((unsigned char *)mempool->payload)[0];
+  (*rules)[*nrrules] = (struct rules_t *)&((unsigned char *)mempool->payload)[alignedbuffer(mempool->len)];
   memset((*rules)[*nrrules], 0, sizeof(struct rules_t));
-  *memoffset += sizeof(struct rules_t);
+  mempool->len += sizeof(struct rules_t);
 
   (*rules)[*nrrules]->userdata = userdata;
 
@@ -4494,7 +4477,6 @@ int rule_initialize(char **text, unsigned int *txtoffset, struct rules_t ***rule
   obj->ast.bufsize = 0;
   obj->varstack.nrbytes = 4;
   obj->varstack.bufsize = 4;
-  obj->valstack.bufsize = 0;
 
 /*LCOV_EXCL_START*/
 #if defined(DEBUG) or defined(ESP8266)
@@ -4506,7 +4488,7 @@ int rule_initialize(char **text, unsigned int *txtoffset, struct rules_t ***rule
 #endif
 /*LCOV_EXCL_STOP*/
 
-  if(rule_prepare(text, &nrbytes, &nrval, &newlen) == -1) {
+  if(rule_prepare((char **)&input->payload, &nrbytes, &newlen) == -1) {
     return -1;
   }
 
@@ -4539,41 +4521,29 @@ int rule_initialize(char **text, unsigned int *txtoffset, struct rules_t ***rule
 
   {
     obj->ast.bufsize = alignedbuffer(nrbytes);
-    obj->valstack.bufsize = nrval;
 
-    obj->ast.buffer = (unsigned char *)&mempool[alignedbuffer(*memoffset)];
-    *memoffset += obj->ast.bufsize;
+    obj->ast.buffer = (unsigned char *)&((unsigned char *)mempool->payload)[alignedbuffer(mempool->len)];
+    mempool->len += obj->ast.bufsize;
 
-    obj->valstack.buffer = (uint16_t *)&mempool[alignedbuffer(*memoffset)];
-    *memoffset += nrval*(sizeof(uint16_t));
-
-    suggested_varstack_size = (*txtoffset-*memoffset);
+    suggested_varstack_size = (input->len-mempool->len);
 
     /*
      * The memoffset will be increased below
      * as soon as we know how many bytes
      * we maximally need.
      */
-    obj->varstack.buffer = &mempool[*memoffset];
+    obj->varstack.buffer = &((unsigned char *)mempool->payload)[mempool->len];
 
     memset(obj->ast.buffer, 0, obj->ast.bufsize);
-    memset(obj->valstack.buffer, 0, nrval*(sizeof(uint16_t)));
     memset(obj->varstack.buffer, 0, suggested_varstack_size);
 
-    if(rule_parse(text, (int *)&newlen, obj) == -1) {
+    if(rule_parse((char **)&input->payload, (int *)&newlen, obj) == -1) {
       return -1;
     }
 
-    *txtoffset += newlen;
-    if((*text)[newlen] == 0 && len > newlen) {
-      *txtoffset += 1;
-    }
-  }
-
-  {
-    int i = 0;
-    for(i=0;i<obj->valstack.bufsize;i++) {
-      obj->valstack.buffer[i] = 0;
+    input->len += newlen;
+    if(((char *)input->payload)[newlen] == 0 && len > newlen) {
+      input->len += 1;
     }
   }
 
@@ -4584,16 +4554,14 @@ int rule_initialize(char **text, unsigned int *txtoffset, struct rules_t ***rule
 
   logprintf_P(F("rule #%d was parsed in %d microseconds"), obj->nr, obj->timestamp.second - obj->timestamp.first);
   logprintf_P(F("bytecode is %d bytes"), obj->ast.nrbytes);
-  logprintf_P(F("valstack is %d bytes"), obj->valstack.bufsize);
   #else
   clock_gettime(CLOCK_MONOTONIC, &obj->timestamp.second);
 
-  printf("rule #%d was parsed in %.6f seconds)", obj->nr,
+  printf("rule #%d was parsed in %.6f seconds\n", obj->nr,
     ((double)obj->timestamp.second.tv_sec + 1.0e-9*obj->timestamp.second.tv_nsec) -
     ((double)obj->timestamp.first.tv_sec + 1.0e-9*obj->timestamp.first.tv_nsec));
 
-  printf("bytecode is %d bytes", obj->ast.nrbytes);
-  printf("valstack is %d bytes", obj->valstack.bufsize);
+  printf("bytecode is %d bytes\n", obj->ast.nrbytes);
   #endif
 #endif
 /*LCOV_EXCL_STOP*/
@@ -4622,12 +4590,11 @@ int rule_initialize(char **text, unsigned int *txtoffset, struct rules_t ***rule
     return -1;
   }
 
-
   /*
    * Reserve space for the actual maximum
    * varstack buffer size
    */
-  *memoffset += alignedbuffer(obj->varstack.bufsize);
+  mempool->len += alignedbuffer(obj->varstack.bufsize);
 
 /*LCOV_EXCL_START*/
 #if defined(DEBUG) or defined(ESP8266)

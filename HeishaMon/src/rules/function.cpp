@@ -24,23 +24,22 @@
 #include <math.h>
 
 #include "rules.h"
-#include "../common/mem.h"
 #include "function.h"
 
-#include "max.h"
-#include "min.h"
-#include "coalesce.h"
-#include "round.h"
-#include "settimer.h"
-#include "isset.h"
+#include "functions/max.h"
+#include "functions/min.h"
+#include "functions/coalesce.h"
+#include "functions/settimer.h"
+#include "functions/isset.h"
+#include "functions/round.h"
 
 struct rule_function_t rule_functions[] = {
-  { "max", event_function_max_callback },
-  { "min", event_function_min_callback },
-  { "coalesce", event_function_coalesce_callback },
-  { "round", event_function_round_callback },
-  { "setTimer", event_function_set_timer_callback },
-  { "isset", event_function_isset_callback },
+  { "max", rule_function_max_callback },
+  { "min", rule_function_min_callback },
+  { "coalesce", rule_function_coalesce_callback },
+  { "settimer", rule_function_set_timer_callback },
+  { "isset", rule_function_isset_callback },
+  { "round", rule_function_round_callback }
 };
 
-int nr_rule_functions = sizeof(rule_functions)/sizeof(rule_functions[0]);
+unsigned int nr_rule_functions = sizeof(rule_functions)/sizeof(rule_functions[0]);
