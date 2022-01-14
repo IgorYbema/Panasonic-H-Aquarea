@@ -15,7 +15,7 @@
 
 #include "src/common/mem.h"
 #include "src/common/stricmp.h"
-#include "src/common/strincmp.h"
+#include "src/common/strnicmp.h"
 #include "src/common/log.h"
 #include "src/common/timerqueue.h"
 #include "src/rules/rules.h"
