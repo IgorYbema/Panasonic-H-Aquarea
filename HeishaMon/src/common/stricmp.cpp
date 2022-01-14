@@ -10,8 +10,6 @@
 #include <ctype.h>
 
 int stricmp(char const *a, char const *b) {
-  int i = 0;
-
   if(a == NULL || b == NULL) {
     return -1;
   }
