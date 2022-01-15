@@ -1437,7 +1437,7 @@ void rules_event_cb(char *name) {
     }
   }
   for(int i=0;i<nrrules;i++) {
-    FREE(rules[i]->varstack.buffer);
+    memset(&rules[i]->varstack.buffer, 0, rules[i]->varstack.bufsize);
     rules[i]->varstack.nrbytes = 4;
     rules[i]->varstack.bufsize = 4;
   }
