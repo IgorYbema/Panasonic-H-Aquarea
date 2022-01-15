@@ -51,6 +51,7 @@ unsigned long lastMqttReconnectAttempt = 0;
 unsigned long lastWifiRetryTimer = 0;
 
 unsigned long lastRunTime = 0;
+unsigned long lastOptionalPCBRunTime = 0;
 
 unsigned long sendCommandReadTime = 0; //set to millis value during send, allow to wait millis for answer
 unsigned long goodreads = 0;
@@ -937,6 +938,7 @@ void setupConditionals() {
     }
     delay(1500); //need 1.5 sec delay before sending first datagram
     send_optionalpcb_query(); //send one datagram already at start
+    lastOptionalPCBRunTime = millis();
   }
 
   //these two after optional pcb because it needs to send a datagram fast after boot
@@ -1093,7 +1095,10 @@ void loop() {
 
   if (heishamonSettings.use_s0) s0Loop(mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.s0Settings);
 
-  if ((!sending) && (!heishamonSettings.listenonly) && (heishamonSettings.optionalPCB)) send_optionalpcb_query(); //send this as fast as possible or else we could get warnings on heatpump
+  if ((!sending) && (!heishamonSettings.listenonly) && (heishamonSettings.optionalPCB) && ((unsigned long)(millis() - lastOptionalPCBRunTime) > OPTIONALPCBQUERYTIME) ) {
+    lastOptionalPCBRunTime = millis();
+    send_optionalpcb_query();
+  }
 
   // run the data query only each WAITTIME
   if ((unsigned long)(millis() - lastRunTime) > (1000 * heishamonSettings.waitTime)) {
