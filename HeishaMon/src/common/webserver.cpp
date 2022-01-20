@@ -2079,7 +2079,11 @@ uint8_t webserver_sync_receive(struct webserver_t *client, uint8_t *rbuffer, uin
         client->step = WEBSERVER_CLIENT_CLOSE;
       }
     }
-
+    if((client->readlen+2000) > client->totallen) {
+        char log_msg[256];
+        sprintf_P(log_msg, "Readlen: %d, Totallen: %d", client->readlen, client->totallen);
+		log_message(log_msg);
+    }
     if(client->readlen == client->totallen) {
       client->step = WEBSERVER_CLIENT_WRITE;
     }
