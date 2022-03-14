@@ -113,8 +113,11 @@ int timerqueue_size = 0;
 */
 void check_wifi()
 {
-
-  if ((WiFi.status() != WL_CONNECTED) || (!WiFi.localIP()))  {
+  if ((WiFi.status() != WL_CONNECTED) && (WiFi.localIP()))  {
+    // special case where it seems that we are not connect but we do have working IP (causing the -1% wifi signal), do a reset.
+    log_message((char *)"Weird case, WiFi seems disconnected but is not. Resetting WiFi!");
+    setupWifi(&heishamonSettings); 
+  } else if ((WiFi.status() != WL_CONNECTED) || (!WiFi.localIP()))  {
     /*
         if we are not connected to an AP
         we must be in softAP so respond to DNS
@@ -301,20 +304,22 @@ bool isValidReceiveChecksum() {
 
 bool readSerial()
 {
-  if (data_length == 0 ) totalreads++; //this is the start of a new read
-
-  while ((Serial.available()) && (data_length < MAXDATASIZE)) {
-    data[data_length] = Serial.read(); //read available data and place it after the last received data
-    data_length++;
+  int len = 0;
+  while ((Serial.available()) && (len < MAXDATASIZE)) {
+    data[data_length+len] = Serial.read(); //read available data and place it after the last received data
+    len++;
     if (data[0] != 113) { //wrong header received!
       log_message(F("Received bad header. Ignoring this data!"));
-      if (heishamonSettings.logHexdump) logHex(data, data_length);
+      if (heishamonSettings.logHexdump) logHex(data, len);
       badheaderread++;
       data_length = 0;
       return false; //return so this while loop does not loop forever if there happens to be a continous invalid data stream
     }
   }
 
+  if ((len > 0) && (data_length == 0 )) totalreads++; //this is the start of a new read
+  data_length += len;
+  
   if (data_length > 1) { //should have received length part of header now
 
     if ((data_length > (data[1] + 3)) || (data_length >= MAXDATASIZE) ) {
@@ -341,6 +346,11 @@ bool readSerial()
       if (data_length == DATASIZE) { //decode the normal data
         decode_heatpump_data(data, actData, mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
         memcpy(actData, data, DATASIZE);
+        {
+          char mqtt_topic[256];
+          sprintf(mqtt_topic, "%s/raw/data", heishamonSettings.mqtt_topic_base);
+          mqtt_client.publish(mqtt_topic, (const uint8_t *)actData, DATASIZE, false); //do not retain this raw data
+        }
         data_length = 0;
         return true;
       }
