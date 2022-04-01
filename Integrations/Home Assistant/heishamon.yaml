@@ -18,7 +18,6 @@
 ##   Fixed
 ##   - New/changed topics
 
-
 # Automations #
 ###############
 automation:
@@ -175,7 +174,6 @@ automation:
         payload_template: >-
           {{ "%.0f" % (states('input_number.heishamon_tank_temp') | int) }}
 
-
 # input_number #
 ################
 input_number:
@@ -191,14 +189,13 @@ input_number:
     max: 5
     step: 1
 
-
 # input_select #
 ################
 input_select:
   heishamon_quietmode:
     name: Set Quiet Mode
     options:
-      - 'Off'
+      - "Off"
       - 1
       - 2
       - 3
@@ -206,7 +203,7 @@ input_select:
   heishamon_powermode:
     name: Set Powerful Mode
     options:
-      - 'Off'
+      - "Off"
       - 30 min
       - 60 min
       - 90 min
@@ -235,8 +232,9 @@ sensor:
   #TOP1 - Pumpflow
   - platform: mqtt
     name: Aquarea Pump Flow
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/Pump_Flow"
-    unit_of_measurement: 'L/min'
+    unit_of_measurement: "L/min"
 
   #TOP2 - Force DHW
   - platform: mqtt
@@ -269,77 +267,95 @@ sensor:
       {%- elif value == "6" -%}
         Auto+DHW
       {%- endif -%}
-      
+
   #TOP5 - Water inlet temp
   - platform: mqtt
     name: Aquarea Inlet Temperature
+    device_class: temperature
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/Main_Inlet_Temp"
-    unit_of_measurement: '°C'
+    unit_of_measurement: "°C"
 
   #TOP6 - Water outlet temp
   - platform: mqtt
     name: Aquarea Outlet Temperature
+    device_class: temperature
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/Main_Outlet_Temp"
-    unit_of_measurement: '°C'
+    unit_of_measurement: "°C"
 
   #TOP7 - Water outlet target temp
   - platform: mqtt
     name: Aquarea Outlet Target Temperature
+    device_class: temperature
     state_topic: "panasonic_heat_pump/main/Main_Target_Temp"
-    unit_of_measurement: '°C'
+    unit_of_measurement: "°C"
 
   #TOP8 - Compressor frequency
   - platform: mqtt
     name: Aquarea Compressor Frequency
+    device_class: frequency
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/Compressor_Freq"
-    unit_of_measurement: 'Hz'
+    unit_of_measurement: "Hz"
 
   #TOP9 - Tank set temperature
   - platform: mqtt
     name: Aquarea Tank Set Temperature
+    device_class: temperature
     state_topic: "panasonic_heat_pump/main/DHW_Target_Temp"
-    unit_of_measurement: '°C'
+    unit_of_measurement: "°C"
 
   #TOP10 - Tank current temperature
   - platform: mqtt
     name: Aquarea Actual Tank Temperature
+    device_class: temperature
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/DHW_Temp"
-    unit_of_measurement: '°C'
+    unit_of_measurement: "°C"
 
   #TOP11 - Compressor Operating Time
   - platform: mqtt
     name: Aquarea Compressor Operating Hours
+    state_class: total_increasing
     state_topic: "panasonic_heat_pump/main/Operations_Hours"
-    unit_of_measurement: 'Hours'
+    unit_of_measurement: "Hours"
 
   #TOP12 - Compressor On/Off cycle number
   - platform: mqtt
+    state_class: total_increasing
     name: Aquarea Compressor Start/Stop Counter
     state_topic: "panasonic_heat_pump/main/Operations_Counter"
 
   #TOP14 - Outdoor unit ambient temperature
   - platform: mqtt
     name: Aquarea Outdoor Ambient
+    device_class: temperature
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/Outside_Temp"
-    unit_of_measurement: '°C'
+    unit_of_measurement: "°C"
 
   #TOP15 - Heating power produced
   - platform: mqtt
     name: Aquarea Power Produced
+    device_class: power
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/Heat_Energy_Production"
-    unit_of_measurement: 'W'
+    unit_of_measurement: "W"
 
   #TOP16 - Heating power consumed
   - platform: mqtt
     name: Aquarea Power Consumed
+    device_class: power
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/Heat_Energy_Consumption"
-    unit_of_measurement: 'W'
+    unit_of_measurement: "W"
 
   #TOP17 - Heating powerful mode
   - platform: mqtt
     name: Aquarea Powerful Mode
     state_topic: "panasonic_heat_pump/main/Powerful_Mode_Time"
-    unit_of_measurement: 'Min'
+    unit_of_measurement: "Min"
     value_template: >-
       {{ (value | int) * 30 }}
 
@@ -381,8 +397,10 @@ sensor:
   #TOP21 - Outside pipe temp
   - platform: mqtt
     name: Aquarea Outdoor Pipe Temperature
+    device_class: temperature
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/Outside_Pipe_Temp"
-    unit_of_measurement: '°C'
+    unit_of_measurement: "°C"
 
   #TOP26 - Defrost state
   - platform: mqtt
@@ -398,20 +416,26 @@ sensor:
   #TOP27 - Heatshift Temperature
   - platform: mqtt
     name: Aquarea Heatshift Temperature
+    device_class: temperature
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/Z1_Heat_Request_Temp"
-    unit_of_measurement: '°C'
+    unit_of_measurement: "°C"
 
   #TOP40 - DHW power produced
   - platform: mqtt
     name: Aquarea DHW Power Produced
+    device_class: power
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/DHW_Energy_Production"
-    unit_of_measurement: 'W'
+    unit_of_measurement: "W"
 
   #TOP41 - DHW power consumed
   - platform: mqtt
     name: Aquarea DHW Power Consumed
+    device_class: power
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/DHW_Energy_Consumption"
-    unit_of_measurement: 'W'
+    unit_of_measurement: "W"
 
   #TOP44 - Last active error
   - platform: mqtt
@@ -421,44 +445,58 @@ sensor:
   #TOP49 - Main HEX Outlet temp
   - platform: mqtt
     name: Aquarea Main HEX Outlet Temperature
+    device_class: temperature
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/Main_Hex_Outlet_Temp"
-    unit_of_measurement: '°C'
+    unit_of_measurement: "°C"
 
   #TOP50 - Discharge temp
   - platform: mqtt
     name: Aquarea Discharge Temperature
+    device_class: temperature
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/Discharge_Temp"
-    unit_of_measurement: '°C'
+    unit_of_measurement: "°C"
 
   #TOP51 - Inside Pipe temp
   - platform: mqtt
     name: Aquarea Inside Pipe Temperature
+    device_class: temperature
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/Inside_Pipe_Temp"
-    unit_of_measurement: '°C'
+    unit_of_measurement: "°C"
 
   #TOP52 - Defrost temp
   - platform: mqtt
     name: Aquarea Defrost Temperature
+    device_class: temperature
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/Defrost_Temp"
-    unit_of_measurement: '°C'
+    unit_of_measurement: "°C"
 
   #TOP53 - Eva Outlet temp
   - platform: mqtt
     name: Aquarea Eva Outlet Temperature
+    device_class: temperature
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/Eva_Outlet_Temp"
-    unit_of_measurement: '°C'
+    unit_of_measurement: "°C"
 
   #TOP54 - Bypass Outlet temp
   - platform: mqtt
     name: Aquarea Bypass Outlet Temperature
+    device_class: temperature
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/Bypass_Outlet_Temp"
-    unit_of_measurement: '°C'
+    unit_of_measurement: "°C"
 
   #TOP55 - lpm temp
   - platform: mqtt
     name: Aquarea Ipm Temperature
+    device_class: temperature
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/Ipm_Temp"
-    unit_of_measurement: '°C'
+    unit_of_measurement: "°C"
 
   #TOP58 - Tank electric heater allowed state
   - platform: mqtt
@@ -504,47 +542,59 @@ sensor:
         On
       {%- endif -%}
 
-
   #TOP62 - Fan1 speed
   - platform: mqtt
     name: Aquarea Fan 1 Speed
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/Fan1_Motor_Speed"
     unit_of_measurement: "R/min"
 
   #TOP63 - Fan2 speed
   - platform: mqtt
     name: Aquarea Fan 2 Speed
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/Fan2_Motor_Speed"
     unit_of_measurement: "R/min"
 
   #TOP64 - High pressure
   - platform: mqtt
     name: Aquarea High pressure
+    state_class: measurement
+    device_class: pressure
     state_topic: "panasonic_heat_pump/main/High_Pressure"
-    unit_of_measurement: "Kgf/cm2"
+    unit_of_measurement: "bar"
+    value_template: >-
+      {{ ((value | float) * 0.980665 ) | round(2) }}
 
   #TOP65 - Pump speed
   - platform: mqtt
     name: Aquarea Pump Speed
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/Pump_Speed"
     unit_of_measurement: "R/min"
 
   #TOP66 - Low pressure
   - platform: mqtt
     name: Aquarea Low pressure
+    state_class: measurement
+    device_class: pressure
     state_topic: "panasonic_heat_pump/main/Low_Pressure"
-    unit_of_measurement: "Kgf/cm2"
+    unit_of_measurement: "bar"
+    value_template: >-
+      {{ ((value | float) * 0.980665) | round(2) }}
 
   #TOP67 - Compressor Current
   - platform: mqtt
     name: Aquarea Compressor Current
+    device_class: current
+    state_class: measurement
     state_topic: "panasonic_heat_pump/main/Compressor_Current"
     unit_of_measurement: "A"
 
   #TOP68 - Force Heater State
   - platform: mqtt
     name: Aquarea Force heater status
-    state_topic: "sensors/heatpump/main/Force_Heater_State"
+    state_topic: "panasonic_heat_pump/main/Force_Heater_State"
     value_template: >-
       {%- if value == "0" -%}
         Inactive
@@ -555,7 +605,7 @@ sensor:
   #TOP69 - Sterilisation State
   - platform: mqtt
     name: Aquarea Sterilisation State
-    state_topic: "sensors/heatpump/main/Sterilization_State"
+    state_topic: "panasonic_heat_pump/main/Sterilization_State"
     value_template: >-
       {%- if value == "0" -%}
         Inactive
@@ -566,43 +616,48 @@ sensor:
   #TOP70 - Sterilisation Temperature
   - platform: mqtt
     name: Aquarea sterilisation temperature
-    state_topic: "sensors/heatpump/main/Sterilization_Temp"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Sterilization_Temp"
     unit_of_measurement: "°C"
 
   #TOP71 - Sterilisation maximum time
   - platform: mqtt
     name: Aquarea Sterilisation maximum time
-    state_topic: "sensors/heatpump/main/Sterilization_Max_Time"
+    state_topic: "panasonic_heat_pump/main/Sterilization_Max_Time"
     unit_of_measurement: "Minutes"
 
   #TOP72 - Target temperature at highest point on the cooling curve
   - platform: mqtt
     name: Aquarea Zone 1 cool curve target high temp
-    state_topic: "sensors/heatpump/main/Z1_Cool_Curve_Target_High_Temp"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Z1_Cool_Curve_Target_High_Temp"
     unit_of_measurement: "°C"
 
   #TOP73 - Target temperature at lowest point on the cooling curve
   - platform: mqtt
     name: Aquarea Zone 1 cool curve target low temp
-    state_topic: "sensors/heatpump/main/Z1_Cool_Curve_Target_Low_Temp"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Z1_Cool_Curve_Target_Low_Temp"
     unit_of_measurement: "°C"
 
   #TOP74 - Highest outside temperature on the cooling curve
   - platform: mqtt
     name: Aquarea Zone 1 cool curve outside high temp
-    state_topic: "sensors/heatpump/main/Z1_Cool_Curve_Outside_High_Temp"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Z1_Cool_Curve_Outside_High_Temp"
     unit_of_measurement: "°C"
 
   #TOP75 - Lowest outside temperature on the cooling curve
   - platform: mqtt
     name: Aquarea Zone 1 cool curve outside low temp
-    state_topic: "sensors/heatpump/main/Z1_Cool_Curve_Outside_Low_Temp"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Z1_Cool_Curve_Outside_Low_Temp"
     unit_of_measurement: "°C"
 
   #TOP76 - Compensation / Direct mode for heat
   - platform: mqtt
     name: Aquarea Heating Mode
-    state_topic: "sensors/heatpump/main/Heating_Mode"
+    state_topic: "panasonic_heat_pump/main/Heating_Mode"
     value_template: >-
       {%- if value == "0" -%}
         Compensation
@@ -613,31 +668,35 @@ sensor:
   #TOP77 - Above this outdoor temperature all heating is turned off
   - platform: mqtt
     name: Aquarea heating off outside temp
-    state_topic: "sensors/heatpump/main/Heating_Off_Outdoor_Temp"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Heating_Off_Outdoor_Temp"
     unit_of_measurement: "°C"
 
   #TOP78 - Below this temperature the backup heater is allowed to be used by heatpump heating logic
   - platform: mqtt
     name: Aquarea resistive heater on temp
-    state_topic: "sensors/heatpump/main/Heater_On_Outdoor_Temp"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Heater_On_Outdoor_Temp"
     unit_of_measurement: "°C"
 
   #TOP79 - Outdoor temperature to switch from heat to cool mode when in auto setting
   - platform: mqtt
     name: Aquarea heat to cool temp
-    state_topic: "sensors/heatpump/main/Heat_To_Cool_Temp"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Heat_To_Cool_Temp"
     unit_of_measurement: "°C"
 
   #TOP80 - Outdoor temperature to switch from cool to heat mode when in auto setting
   - platform: mqtt
     name: Aquarea cool to heat temp
-    state_topic: "sensors/heatpump/main/Cool_To_Heat_Temp"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Cool_To_Heat_Temp"
     unit_of_measurement: "°C"
 
   #TOP81 - Compensation / Direct mode for cool
   - platform: mqtt
     name: Aquarea Cooling Mode
-    state_topic: "sensors/heatpump/main/Cooling_Mode"
+    state_topic: "panasonic_heat_pump/main/Cooling_Mode"
     value_template: >-
       {%- if value == "0" -%}
         Compensation
@@ -648,67 +707,77 @@ sensor:
   #TOP82 - Target temperature at lowest point on the heating curve
   - platform: mqtt
     name: Aquarea Zone 2 heat curve target low temp
-    state_topic: "sensors/heatpump/main/Z2_Heat_Curve_Target_High_Temp"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Z2_Heat_Curve_Target_High_Temp"
     unit_of_measurement: "°C"
 
   #TOP83 - Target temperature at highest point on the heating curve
   - platform: mqtt
     name: Aquarea Zone 2 heat curve target high temp
-    state_topic: "sensors/heatpump/main/Z2_Heat_Curve_Target_Low_Temp"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Z2_Heat_Curve_Target_Low_Temp"
     unit_of_measurement: "°C"
 
   #TOP84 - Lowest outside temperature on the heating curve
   - platform: mqtt
     name: Aquarea Zone 2 heat curve outside low temp
-    state_topic: "sensors/heatpump/main/Z2_Heat_Curve_Outside_High_Temp"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Z2_Heat_Curve_Outside_High_Temp"
     unit_of_measurement: "°C"
 
   #TOP85 - Highest outside temperature on the heating curve
   - platform: mqtt
     name: Aquarea Zone 2 heat curve outside high temp
-    state_topic: "sensors/heatpump/main/Z2_Heat_Curve_Outside_Low_Temp"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Z2_Heat_Curve_Outside_Low_Temp"
     unit_of_measurement: "°C"
 
   #TOP86 - Target temperature at highest point on the cooling curve
   - platform: mqtt
     name: Aquarea Zone 2 cool curve target high temp
-    state_topic: "sensors/heatpump/main/Z2_Heat_Curve_Outside_Low_Temp"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Z2_Heat_Curve_Outside_Low_Temp"
     unit_of_measurement: "°C"
 
   #TOP87 - Target temperature at lowest point on the cooling curve
   - platform: mqtt
     name: Aquarea Zone 2 cool curve target low temp
-    state_topic: "sensors/heatpump/main/Z2_Cool_Curve_Target_Low_Temp"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Z2_Cool_Curve_Target_Low_Temp"
     unit_of_measurement: "°C"
 
   #TOP88 - Highest outside temperature on the cooling curve
   - platform: mqtt
     name: Aquarea Zone 2 cool curve outside high temp
-    state_topic: "sensors/heatpump/main/Z2_Cool_Curve_Outside_High_Temp"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Z2_Cool_Curve_Outside_High_Temp"
     unit_of_measurement: "°C"
 
   #TOP89 - Lowest outside temperature on the cooling curve
   - platform: mqtt
     name: Aquarea Zone 2 cool curve outside low temp
-    state_topic: "sensors/heatpump/main/Z2_Cool_Curve_Outside_Low_Temp"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Z2_Cool_Curve_Outside_Low_Temp"
     unit_of_measurement: "°C"
 
   #TOP90 - Electric heater operating time for Room
   - platform: mqtt
     name: Aquarea resistive heater room hours
-    state_topic: "sensors/heatpump/main/Room_Heater_Operations_Hours"
+    state_class: total_increasing
+    state_topic: "panasonic_heat_pump/main/Room_Heater_Operations_Hours"
     unit_of_measurement: "Hours"
 
   #TOP91 - Electric heater operating time for DHW
   - platform: mqtt
     name: Aquarea resistive heater DHW hours
-    state_topic: "sensors/heatpump/main/DHW_Heater_Operations_Hours"
+    state_class: total_increasing
+    state_topic: "panasonic_heat_pump/main/DHW_Heater_Operations_Hours"
     unit_of_measurement: "Hours"
 
   #TOP92 - Heat pump model, all values in HeatPumpType.md
   - platform: mqtt
     name: Aquarea heat pump model
-    state_topic: "sensors/heatpump/main/Heat_Pump_Model"
+    state_topic: "panasonic_heat_pump/main/Heat_Pump_Model"
     value_template: >-
       {%- if value == "0" -%}
         WH-MDC05H3E5
@@ -763,13 +832,14 @@ sensor:
   #TOP93 - Pump duty
   - platform: mqtt
     name: Aquarea pump duty
-    state_topic: "sensors/heatpump/main/Pump_Duty"
+    state_class: measurement
+    state_topic: "panasonic_heat_pump/main/Pump_Duty"
     unit_of_measurement: "Count"
 
   #TOP94 - Zones state
   - platform: mqtt
     name: Aquarea active Zone
-    state_topic: "sensors/heatpump/main/Zones_State"
+    state_topic: "panasonic_heat_pump/main/Zones_State"
     value_template: >-
       {%- if value == "0" -%}
         Zone 1
@@ -782,31 +852,33 @@ sensor:
   #TOP95 - Max pump duty configured
   - platform: mqtt
     name: Aquarea max pump duty
-    state_topic: "sensors/heatpump/main/Max_Pump_Duty"
+    state_topic: "panasonic_heat_pump/main/Max_Pump_Duty"
     unit_of_measurement: "Count"
 
   #TOP96 - Heater delay time (J-series only)
   - platform: mqtt
     name: Aquarea heater delay time
-    state_topic: "sensors/heatpump/main/Heater_Delay_Time"
+    state_topic: "panasonic_heat_pump/main/Heater_Delay_Time"
     unit_of_measurement: "Minutes"
 
   #TOP97 - Heater start delta (J-series only)
   - platform: mqtt
     name: Aquarea start delta
-    state_topic: "sensors/heatpump/main/Heater_Start_Delta"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Heater_Start_Delta"
     unit_of_measurement: "°C"
 
   #TOP98 - Heater stop delta (J-series only)
   - platform: mqtt
     name: Aquarea stop delta
-    state_topic: "sensors/heatpump/main/Heater_Stop_Delta"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Heater_Stop_Delta"
     unit_of_measurement: "°C"
 
   #TOP99 - Buffer tank installed
   - platform: mqtt
     name: Aquarea Buffer tank installed
-    state_topic: "sensors/heatpump/main/Zones_State"
+    state_topic: "panasonic_heat_pump/main/Zones_State"
     value_template: >-
       {%- if value == "0" -%}
         False
@@ -817,7 +889,7 @@ sensor:
   #TOP100 - DHW tank installed
   - platform: mqtt
     name: Aquarea DHW tank installed
-    state_topic: "sensors/heatpump/main/DHW_Installed"
+    state_topic: "panasonic_heat_pump/main/DHW_Installed"
     value_template: >-
       {%- if value == "0" -%}
         False
@@ -828,7 +900,7 @@ sensor:
   #TOP101 - Solar mode
   - platform: mqtt
     name: Aquarea Solar mode
-    state_topic: "sensors/heatpump/main/Solar_Mode"
+    state_topic: "panasonic_heat_pump/main/Solar_Mode"
     value_template: >-
       {%- if value == "0" -%}
         Disabled
@@ -841,31 +913,35 @@ sensor:
   #TOP102 - Solar heating delta on
   - platform: mqtt
     name: Aquarea Solar heating delta on
-    state_topic: "sensors/heatpump/main/Solar_On_Delta"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Solar_On_Delta"
     unit_of_measurement: "°C"
 
   #TOP103 - Solar heating delta off
   - platform: mqtt
     name: Aquarea Solar heating delta off
-    state_topic: "sensors/heatpump/main/Solar_Off_Delta"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Solar_Off_Delta"
     unit_of_measurement: "°C"
 
   #TOP104 - Solar frost protection temp
   - platform: mqtt
     name: Aquarea Solar frost protection temp
-    state_topic: "sensors/heatpump/main/Solar_Frost_Protection"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Solar_Frost_Protection"
     unit_of_measurement: "°C"
 
   #TOP105 - Solar max temp limit
   - platform: mqtt
     name: Aquarea Solar max temp limit
-    state_topic: "sensors/heatpump/main/Solar_High_Limit"
+    device_class: temperature
+    state_topic: "panasonic_heat_pump/main/Solar_High_Limit"
     unit_of_measurement: "°C"
 
   #TOP106 - Settings for pump flow rate
   - platform: mqtt
     name: Aquarea pump max flow setting
-    state_topic: "sensors/heatpump/main/Pump_Flowrate_mode"
+    state_topic: "panasonic_heat_pump/main/Pump_Flowrate_mode"
     value_template: >-
       {%- if value == "0" -%}
         DeltaT
@@ -885,26 +961,28 @@ sensor:
   #S0 kWh Meter 1 - Assumed to measure the heat pump consumption
   - platform: mqtt
     name: Aquarea Metered Power Consumption
+    device_class: power
     state_topic: "panasonic_heat_pump/s0/Watt/1"
-    unit_of_measurement: 'W'
+    unit_of_measurement: "W"
 
   - platform: mqtt
     name: Aquarea Metered Power Consumption Total
     state_topic: "panasonic_heat_pump/s0/WatthourTotal/1"
-    unit_of_measurement: 'kWh'
+    unit_of_measurement: "kWh"
     value_template: >-
       {{ (value | int) / 1000}}
 
   #S0 kWh Meter 2 - Assumed to measure the backup heater consumption
   - platform: mqtt
     name: Aquarea Metered Backup Heater Power Consumption
+    device_class: power
     state_topic: "panasonic_heat_pump/s0/Watt/2"
-    unit_of_measurement: 'W'
+    unit_of_measurement: "W"
 
   - platform: mqtt
     name: Aquarea Metered Backup Heater Power Consumption Total
     state_topic: "panasonic_heat_pump/s0/WatthourTotal/2"
-    unit_of_measurement: 'kWh'
+    unit_of_measurement: "kWh"
     value_template: >-
       {{ (value | int) / 1000}}
 
@@ -914,7 +992,8 @@ sensor:
     sensors:
       heishamon_w_production:
         friendly_name: "Aquarea Energy Production"
-        unit_of_measurement: 'W'
+        unit_of_measurement: "W"
+        device_class: power
         value_template: >-
           {%- if states('sensor.aquarea_dhw_power_produced') != "0" -%}
             {{ states('sensor.aquarea_dhw_power_produced') }}
@@ -923,7 +1002,8 @@ sensor:
           {%- endif -%}
       heishamon_w_consumption:
         friendly_name: "Aquarea Energy Consumption"
-        unit_of_measurement: 'W'
+        unit_of_measurement: "W"
+        device_class: power
         value_template: >-
           {%- if states('sensor.aquarea_dhw_power_consumed') != "0" -%}
             {{ states('sensor.aquarea_dhw_power_consumed') }}
@@ -948,12 +1028,10 @@ sensor:
             n/a
           {%- endif -%}
 
-
-
 # switch #
 ##########
 switch:
-#Turn on/off holiday mode
+  #Turn on/off holiday mode
   - platform: mqtt
     name: Aquarea Holiday Mode
     command_topic: "panasonic_heat_pump/commands/SetHolidayMode"
@@ -962,8 +1040,8 @@ switch:
     payload_on: "1"
     payload_off: "0"
     retain: false
-  
-#Turn on/off heatpump  
+
+  #Turn on/off heatpump
   - platform: mqtt
     name: Aquarea Main Power
     command_topic: "panasonic_heat_pump/commands/SetHeatpump"
@@ -981,4 +1059,3 @@ switch:
     payload_on: "1"
     payload_off: "0"
     retain: false
-
