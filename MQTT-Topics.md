@@ -113,20 +113,20 @@ TOP93 | main/Pump_Duty | Pump duty
 TOP94 | main/Zones_State | Zones state (0 = zone1 active, 1 = zone2 active, 2 = zone1 and zone2 active)
 TOP95 | main/Max_Pump_Duty | Max pump duty configured
 TOP96 | main/Heater_Delay_Time | Heater delay time (J-series only)
-TOP97 | main/Heater_Start_Delta | Heater start delta (J-series only)
-TOP98 | main/Heater_Stop_Delta | Heater stop delta (J-series only)
-TOP99 | main/Buffer_Installed | Buffer tank installed
-TOP100 | main/DHW_Installed | DHW tank installed
-TOP101 | main/Solar_Mode | Solar mode (disabled, to buffer, to DHW)
-TOP102 | main/Solar_On_Delta | Solar heating delta on
-TOP103 | main/Solar_Off_Delta | solar heating delta off
-TOP104 | main/Solar_Frost_Protection | Solar frost protection temp
-TOP105 | main/Solar_High_Limit | Solar max temp limit
-TOP106 | main/Pump_Flowrate_mode | Settings for pump flow rate (0=DeltaT, 1=Maximum flow, J-series only)
+TOP97 | main/Heater_Start_Delta | Heater start delta (°C) (J-series only)
+TOP98 | main/Heater_Stop_Delta | Heater stop delta (°C) (J-series only)
+TOP99 | main/Buffer_Installed | Buffer tank installed (0 = false, 1 = true)
+TOP100 | main/DHW_Installed | DHW tank installed (0 = false, 1 = true)
+TOP101 | main/Solar_Mode | Solar mode (0 = disabled, 1 = to buffer, 2 = to DHW)
+TOP102 | main/Solar_On_Delta | Solar heating delta on (°C)
+TOP103 | main/Solar_Off_Delta | solar heating delta off (°C)
+TOP104 | main/Solar_Frost_Protection | Solar frost protection temp (°C)
+TOP105 | main/Solar_High_Limit | Solar max temp limit (°C)
+TOP106 | main/Pump_Flowrate_mode | Settings for pump flow rate (0 = DeltaT, 1 = Maximum flow, J-series only)
 
 
 
-All Topics realated with state can have also value -1 - unknown - but only in ubnormal situations.
+All Topics realated with state can have also value -1 - unknown - but only in abnormal situations.
 
 ## Option PCB Topics:
 The following topics are actions from the heatpump to the optional pcb (for example, start pump on zone 2). This is only available if you have enable optional pcb emulation.
