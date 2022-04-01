@@ -566,7 +566,7 @@ sensor:
   #TOP70 - Sterilisation Temperature
   - platform: mqtt
     name: Aquarea sterilisation temperature
-    state_topic: "sensors/heatpump/main/Compressor_Current"
+    state_topic: "sensors/heatpump/main/Sterilization_Temp"
     unit_of_measurement: "°C"
 
   #TOP71 - Sterilisation maximum time
