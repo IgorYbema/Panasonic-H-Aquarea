@@ -535,7 +535,7 @@ sensor:
     state_topic: "panasonic_heat_pump/main/Low_Pressure"
     unit_of_measurement: "Kgf/cm2"
 
-  #TOP66 - Compressor Current
+  #TOP67 - Compressor Current
   - platform: mqtt
     name: Aquarea Compressor Current
     state_topic: "panasonic_heat_pump/main/Compressor_Current"
