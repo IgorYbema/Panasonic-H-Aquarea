@@ -311,7 +311,7 @@ bool readSerial()
     len++;
     if (data[0] != 113) { //wrong header received!
       log_message(F("Received bad header. Ignoring this data!"));
-      if (heishamonSettings.logHexdump) logHex(data, data_length);
+      if (heishamonSettings.logHexdump) logHex(data, len);
       badheaderread++;
       data_length = 0;
       return false; //return so this while loop does not loop forever if there happens to be a continous invalid data stream
