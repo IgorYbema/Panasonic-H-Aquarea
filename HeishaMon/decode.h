@@ -28,6 +28,8 @@ String getOpMode(byte input);
 String getEnergy(byte input);
 String getHeatMode(byte input);
 String getModel(byte input);
+String get1Byte(byte input);
+String get2Byte(byte input);
 
 static const char _unknown[] PROGMEM = "unknown";
 
@@ -91,7 +93,7 @@ static const byte knownModels[sizeof(Model) / sizeof(Model[0])][10] PROGMEM = { 
   0x42, 0xD4, 0x0B, 0x83, 0x71, 0x42, 0xD2, 0x0C, 0x46, 0x55,
 };
 
-#define NUMBER_OF_TOPICS 107 //last topic number + 1
+#define NUMBER_OF_TOPICS 109 //last topic number + 1
 #define NUMBER_OF_OPT_TOPICS 7 //last topic number + 1
 #define MAX_TOPIC_LEN 41 // max length + 1
 
@@ -213,6 +215,8 @@ static const char topics[][MAX_TOPIC_LEN] PROGMEM = {
   "Solar_Frost_Protection", //TOP104
   "Solar_High_Limit", //TOP105
   "Pump_Flowrate_Mode", //TOP106
+  "Z2_Sensor_Settings", //TOP107
+  "Z1_Sensor_Settings", //TOP108
 };
 
 static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit unsigned humber) as there aren't more then 255 bytes (actually only 203 bytes) to decode
@@ -323,6 +327,8 @@ static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit 
   63,     //TOP104
   64,     //TOP105
   29,     //TOP106
+  22,     //TOP107
+  22,     //TOP108
 };
 
 typedef String (*topicFP)(byte);
@@ -435,6 +441,8 @@ static const topicFP topicFunctions[] PROGMEM = {
   getIntMinus128,      //TOP104
   getIntMinus128,      //TOP105
   getBit3and4,         //TOP106
+  get1Byte,            //TOP107
+  get2Byte,            //TOP108
 };
 
 static const char *DisabledEnabled[] PROGMEM = {"2", "Disabled", "Enabled"};
@@ -463,6 +471,7 @@ static const char *Duty[] PROGMEM = {"0", "Duty"};
 static const char *ZonesState[] PROGMEM = {"3", "Zone1 active", "Zone2 active", "Zone1 and zone2 active"};
 static const char *HeatCoolModeDesc[] PROGMEM = {"2", "Comp. Curve", "Direct"};
 static const char *SolarModeDesc[] PROGMEM = {"3", "Disabled", "Buffer", "DHW"};
+static const char *ZonesSensorType[] PROGMEM = {"4", "Water Temperature", "External Thermostat", "Internal Thermostat", "Thermistor"};
 
 static const char **topicDescription[] PROGMEM = {
   OffOn,           //TOP0
@@ -572,4 +581,6 @@ static const char **topicDescription[] PROGMEM = {
   Celsius,         //TOP104
   Celsius,         //TOP105
   PumpFlowRateMode,//TOP106
+  ZonesSensorType, //TOP107
+  ZonesSensorType, //TOP108
 };

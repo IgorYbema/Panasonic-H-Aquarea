@@ -200,6 +200,14 @@ String getOptDataValue(char* data, unsigned int Topic_Number) {
   return Topic_Value;
 }
 
+String get1Byte(byte input) {  // TOP107 //
+  return String((input & 0b111) - 1);
+}
+
+String get2Byte(byte input) {  // TOP108 //
+    return get1Byte((input >> 4));
+}
+
 // Decode ////////////////////////////////////////////////////////////////////////////
 void decode_heatpump_data(char* data, char* actData, PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime) {
   bool updatenow = false;
