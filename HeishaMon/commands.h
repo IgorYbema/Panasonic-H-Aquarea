@@ -52,6 +52,7 @@ unsigned int set_heater_delay_time(char *msg, unsigned char *cmd, char *log_msg)
 unsigned int set_heater_start_delta(char *msg, unsigned char *cmd, char *log_msg);
 unsigned int set_heater_stop_delta(char *msg, unsigned char *cmd, char *log_msg);
 unsigned int set_main_schedule(char *msg, unsigned char *cmd, char *log_msg);
+unsigned int set_alt_external_sensor(char *msg, unsigned char *cmd, char *log_msg);
 
 //optional pcb commands
 unsigned int set_heat_cool_mode(char *msg, char *log_msg);
@@ -117,6 +118,7 @@ const cmdStruct commands[] PROGMEM = {
   { "SetHeaterStartDelta", set_heater_start_delta },
   { "SetHeaterStopDelta", set_heater_stop_delta },
   { "SetMainSchedule", set_main_schedule },
+  { "SetAltExternalSensor", set_alt_external_sensor },
 };
 
 struct optCmdStruct{

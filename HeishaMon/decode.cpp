@@ -5,6 +5,10 @@
 unsigned long lastalldatatime = 0;
 unsigned long lastalloptdatatime = 0;
 
+String getBit1(byte input) {
+  return String(input  >> 7);
+}
+
 String getBit1and2(byte input) {
   return String((input  >> 6) - 1);
 }

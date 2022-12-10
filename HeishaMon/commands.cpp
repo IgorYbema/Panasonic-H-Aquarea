@@ -595,6 +595,29 @@ unsigned int set_main_schedule(char *msg, unsigned char *cmd, char *log_msg) {
   return sizeof(panasonicSendQuery);
 }
 
+unsigned int set_alt_external_sensor(char *msg, unsigned char *cmd, char *log_msg) {
+
+  String set_alt_string(msg);
+
+  byte set_alt = 16;
+  if ( set_alt_string.toInt() == 1 ) {
+    set_alt = 32;
+  }
+
+    {
+    char tmp[256] = { 0 };
+    snprintf_P(tmp, 255, PSTR("set alternative external sensor to %d"), ((set_alt / 16) - 1) );
+    memcpy(log_msg, tmp, sizeof(tmp));
+  }
+
+  {
+    memcpy_P(cmd, panasonicSendQuery, sizeof(panasonicSendQuery));
+    cmd[20] = set_alt;
+  }
+
+  return sizeof(panasonicSendQuery);
+}
+
 //start of optional pcb commands
 unsigned int set_byte_6(int val, int base, int bit, char *log_msg, const char *func) {
   unsigned char hex = (optionalPCBQuery[6] & ~(base << bit)) | (val << bit);

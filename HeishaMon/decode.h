@@ -12,6 +12,7 @@ void decode_heatpump_data(char* data, char* actData, PubSubClient &mqtt_client, 
 void decode_optional_heatpump_data(char* data, char* actOptDat, PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime);
 
 String unknown(byte input);
+String getBit1(byte input);
 String getBit1and2(byte input);
 String getBit3and4(byte input);
 String getBit5and6(byte input);
@@ -91,7 +92,7 @@ static const byte knownModels[sizeof(Model) / sizeof(Model[0])][10] PROGMEM = { 
   0x42, 0xD4, 0x0B, 0x83, 0x71, 0x42, 0xD2, 0x0C, 0x46, 0x55,
 };
 
-#define NUMBER_OF_TOPICS 107 //last topic number + 1
+#define NUMBER_OF_TOPICS 111 //last topic number + 1
 #define NUMBER_OF_OPT_TOPICS 7 //last topic number + 1
 #define MAX_TOPIC_LEN 41 // max length + 1
 
@@ -213,6 +214,10 @@ static const char topics[][MAX_TOPIC_LEN] PROGMEM = {
   "Solar_Frost_Protection", //TOP104
   "Solar_High_Limit", //TOP105
   "Pump_Flowrate_Mode", //TOP106
+  "Liquid_Type", //TOP107
+  "Alt_External_Sensor", //TOP108
+  "Anti_Freeze_Mode", //TOP109
+  "Optional_PCB", //TOP110
 };
 
 static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit unsigned humber) as there aren't more then 255 bytes (actually only 203 bytes) to decode
@@ -323,6 +328,10 @@ static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit 
   63,     //TOP104
   64,     //TOP105
   29,     //TOP106
+  20,     //TOP107
+  20,     //TOP108
+  20,     //TOP109
+  20,     //TOP110
 };
 
 typedef String (*topicFP)(byte);
@@ -435,6 +444,10 @@ static const topicFP topicFunctions[] PROGMEM = {
   getIntMinus128,      //TOP104
   getIntMinus128,      //TOP105
   getBit3and4,         //TOP106
+  getBit1,             //TOP107
+  getBit3and4,         //TOP108
+  getBit5and6,         //TOP109
+  getBit7and8,         //TOP110
 };
 
 static const char *DisabledEnabled[] PROGMEM = {"2", "Disabled", "Enabled"};
@@ -463,6 +476,8 @@ static const char *Duty[] PROGMEM = {"0", "Duty"};
 static const char *ZonesState[] PROGMEM = {"3", "Zone1 active", "Zone2 active", "Zone1 and zone2 active"};
 static const char *HeatCoolModeDesc[] PROGMEM = {"2", "Comp. Curve", "Direct"};
 static const char *SolarModeDesc[] PROGMEM = {"3", "Disabled", "Buffer", "DHW"};
+static const char *LiquidType[] PROGMEM = {"2", "Water", "Glycol"};
+
 
 static const char **topicDescription[] PROGMEM = {
   OffOn,           //TOP0
@@ -572,4 +587,8 @@ static const char **topicDescription[] PROGMEM = {
   Celsius,         //TOP104
   Celsius,         //TOP105
   PumpFlowRateMode,//TOP106
+  LiquidType,      //TOP107
+  DisabledEnabled, //TOP108
+  DisabledEnabled, //TOP109
+  DisabledEnabled, //TOP110
 };
