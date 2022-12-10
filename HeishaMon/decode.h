@@ -93,7 +93,7 @@ static const byte knownModels[sizeof(Model) / sizeof(Model[0])][10] PROGMEM = { 
   0x42, 0xD4, 0x0B, 0x83, 0x71, 0x42, 0xD2, 0x0C, 0x46, 0x55,
 };
 
-#define NUMBER_OF_TOPICS 109 //last topic number + 1
+#define NUMBER_OF_TOPICS 110 //last topic number + 1
 #define NUMBER_OF_OPT_TOPICS 7 //last topic number + 1
 #define MAX_TOPIC_LEN 41 // max length + 1
 
@@ -198,25 +198,26 @@ static const char topics[][MAX_TOPIC_LEN] PROGMEM = {
   "Z2_Cool_Curve_Target_Low_Temp",       //TOP87
   "Z2_Cool_Curve_Outside_High_Temp",     //TOP88
   "Z2_Cool_Curve_Outside_Low_Temp",      //TOP89
-  "Room_Heater_Operations_Hours", //TOP90
-  "DHW_Heater_Operations_Hours",  //TOP91
-  "Heat_Pump_Model", //TOP92,
-  "Pump_Duty", //TOP93
-  "Zones_State", //TOP94
-  "Max_Pump_Duty", //TOP95
-  "Heater_Delay_Time", //TOP96
-  "Heater_Start_Delta", //TOP97
-  "Heater_Stop_Delta", //TOP98
-  "Buffer_Installed", //TOP99
-  "DHW_Installed", //TOP100
-  "Solar_Mode", //TOP101
-  "Solar_On_Delta", //TOP102
-  "Solar_Off_Delta", //TOP103
-  "Solar_Frost_Protection", //TOP104
-  "Solar_High_Limit", //TOP105
-  "Pump_Flowrate_Mode", //TOP106
-  "Z2_Sensor_Settings", //TOP111
-  "Z1_Sensor_Settings", //TOP112
+  "Room_Heater_Operations_Hours",        //TOP90
+  "DHW_Heater_Operations_Hours",         //TOP91
+  "Heat_Pump_Model",         //TOP92
+  "Pump_Duty",               //TOP93
+  "Zones_State",             //TOP94
+  "Max_Pump_Duty",           //TOP95
+  "Heater_Delay_Time",       //TOP96
+  "Heater_Start_Delta",      //TOP97
+  "Heater_Stop_Delta",       //TOP98
+  "Buffer_Installed",        //TOP99
+  "DHW_Installed",           //TOP100
+  "Solar_Mode",              //TOP101
+  "Solar_On_Delta",          //TOP102
+  "Solar_Off_Delta",         //TOP103
+  "Solar_Frost_Protection",  //TOP104
+  "Solar_High_Limit",        //TOP105
+  "Pump_Flowrate_Mode",      //TOP106
+  "Z2_Sensor_Settings",      //TOP111
+  "Z1_Sensor_Settings",      //TOP112
+  "Buffer_Tank_Delta",       //TOP113
 };
 
 static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit unsigned humber) as there aren't more then 255 bytes (actually only 203 bytes) to decode
@@ -329,6 +330,7 @@ static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit 
   29,     //TOP106
   22,     //TOP111
   22,     //TOP112
+  59,     //TOP113
 };
 
 typedef String (*topicFP)(byte);
@@ -443,6 +445,7 @@ static const topicFP topicFunctions[] PROGMEM = {
   getBit3and4,         //TOP106
   get1Byte,            //TOP111
   get2Byte,            //TOP112
+  getIntMinus128,      //TOP113
 };
 
 static const char *DisabledEnabled[] PROGMEM = {"2", "Disabled", "Enabled"};
@@ -583,4 +586,5 @@ static const char **topicDescription[] PROGMEM = {
   PumpFlowRateMode,//TOP106
   ZonesSensorType, //TOP111
   ZonesSensorType, //TOP112
+  Kelvin,          //TOP113
 };

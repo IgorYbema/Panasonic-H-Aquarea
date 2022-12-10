@@ -61,7 +61,7 @@
 |  TOP | 56 | 00 |   | 0 byte |
 |  TOP | 57 | 00 |   | 0 byte |
 |  TOP | 58 | 80 | Convert to DEC-128   | Delta T for Pool [°K] |
-|  TOP | 59 | 85 | Convert to DEC-128  | Delta T for buffer tank [°K]|
+|  TOP113 | 59 | 85 | Convert to DEC-128  | Delta T for buffer tank [°K]|
 |  TOP | 60 | 15 | Convert to DEC X-1   | Time set for external heaters 20min-3h, step 5min. |
 |  TOP102 | 61 | 8a | Convert to DEC-128  | Solar Connection Set delta T for tank ON (DHW or Buffer) |
 |  TOP103 | 62 | 85 | Convert to DEC-128 | Solar Connection Set delta T for tank OFF (DHW or Buffer)| 
