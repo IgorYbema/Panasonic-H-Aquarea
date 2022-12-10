@@ -215,8 +215,8 @@ static const char topics[][MAX_TOPIC_LEN] PROGMEM = {
   "Solar_Frost_Protection", //TOP104
   "Solar_High_Limit", //TOP105
   "Pump_Flowrate_Mode", //TOP106
-  "Z2_Sensor_Settings", //TOP107
-  "Z1_Sensor_Settings", //TOP108
+  "Z2_Sensor_Settings", //TOP111
+  "Z1_Sensor_Settings", //TOP112
 };
 
 static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit unsigned humber) as there aren't more then 255 bytes (actually only 203 bytes) to decode
@@ -327,8 +327,8 @@ static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit 
   63,     //TOP104
   64,     //TOP105
   29,     //TOP106
-  22,     //TOP107
-  22,     //TOP108
+  22,     //TOP111
+  22,     //TOP112
 };
 
 typedef String (*topicFP)(byte);
@@ -441,8 +441,8 @@ static const topicFP topicFunctions[] PROGMEM = {
   getIntMinus128,      //TOP104
   getIntMinus128,      //TOP105
   getBit3and4,         //TOP106
-  get1Byte,            //TOP107
-  get2Byte,            //TOP108
+  get1Byte,            //TOP111
+  get2Byte,            //TOP112
 };
 
 static const char *DisabledEnabled[] PROGMEM = {"2", "Disabled", "Enabled"};
@@ -581,6 +581,6 @@ static const char **topicDescription[] PROGMEM = {
   Celsius,         //TOP104
   Celsius,         //TOP105
   PumpFlowRateMode,//TOP106
-  ZonesSensorType, //TOP107
-  ZonesSensorType, //TOP108
+  ZonesSensorType, //TOP111
+  ZonesSensorType, //TOP112
 };
