@@ -29,6 +29,8 @@ String getOpMode(byte input);
 String getEnergy(byte input);
 String getHeatMode(byte input);
 String getModel(byte input);
+String get1Byte(byte input);
+String get2Byte(byte input);
 
 static const char _unknown[] PROGMEM = "unknown";
 
@@ -92,7 +94,7 @@ static const byte knownModels[sizeof(Model) / sizeof(Model[0])][10] PROGMEM = { 
   0x42, 0xD4, 0x0B, 0x83, 0x71, 0x42, 0xD2, 0x0C, 0x46, 0x55,
 };
 
-#define NUMBER_OF_TOPICS 111 //last topic number + 1
+#define NUMBER_OF_TOPICS 114 //last topic number + 1
 #define NUMBER_OF_OPT_TOPICS 7 //last topic number + 1
 #define MAX_TOPIC_LEN 41 // max length + 1
 
@@ -197,27 +199,30 @@ static const char topics[][MAX_TOPIC_LEN] PROGMEM = {
   "Z2_Cool_Curve_Target_Low_Temp",       //TOP87
   "Z2_Cool_Curve_Outside_High_Temp",     //TOP88
   "Z2_Cool_Curve_Outside_Low_Temp",      //TOP89
-  "Room_Heater_Operations_Hours", //TOP90
-  "DHW_Heater_Operations_Hours",  //TOP91
-  "Heat_Pump_Model", //TOP92,
-  "Pump_Duty", //TOP93
-  "Zones_State", //TOP94
-  "Max_Pump_Duty", //TOP95
-  "Heater_Delay_Time", //TOP96
-  "Heater_Start_Delta", //TOP97
-  "Heater_Stop_Delta", //TOP98
-  "Buffer_Installed", //TOP99
-  "DHW_Installed", //TOP100
-  "Solar_Mode", //TOP101
-  "Solar_On_Delta", //TOP102
-  "Solar_Off_Delta", //TOP103
-  "Solar_Frost_Protection", //TOP104
-  "Solar_High_Limit", //TOP105
-  "Pump_Flowrate_Mode", //TOP106
-  "Liquid_Type", //TOP107
-  "Alt_External_Sensor", //TOP108
-  "Anti_Freeze_Mode", //TOP109
-  "Optional_PCB", //TOP110
+  "Room_Heater_Operations_Hours",        //TOP90
+  "DHW_Heater_Operations_Hours",         //TOP91
+  "Heat_Pump_Model",         //TOP92
+  "Pump_Duty",               //TOP93
+  "Zones_State",             //TOP94
+  "Max_Pump_Duty",           //TOP95
+  "Heater_Delay_Time",       //TOP96
+  "Heater_Start_Delta",      //TOP97
+  "Heater_Stop_Delta",       //TOP98
+  "Buffer_Installed",        //TOP99
+  "DHW_Installed",           //TOP100
+  "Solar_Mode",              //TOP101
+  "Solar_On_Delta",          //TOP102
+  "Solar_Off_Delta",         //TOP103
+  "Solar_Frost_Protection",  //TOP104
+  "Solar_High_Limit",        //TOP105
+  "Pump_Flowrate_Mode",      //TOP106
+  "Liquid_Type",             //TOP107
+  "Alt_External_Sensor",     //TOP108
+  "Anti_Freeze_Mode",        //TOP109
+  "Optional_PCB",            //TOP110
+  "Z2_Sensor_Settings",      //TOP111
+  "Z1_Sensor_Settings",      //TOP112
+  "Buffer_Tank_Delta",       //TOP113
 };
 
 static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit unsigned humber) as there aren't more then 255 bytes (actually only 203 bytes) to decode
@@ -332,6 +337,9 @@ static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit 
   20,     //TOP108
   20,     //TOP109
   20,     //TOP110
+  22,     //TOP111
+  22,     //TOP112
+  59,     //TOP113
 };
 
 typedef String (*topicFP)(byte);
@@ -447,7 +455,10 @@ static const topicFP topicFunctions[] PROGMEM = {
   getBit1,             //TOP107
   getBit3and4,         //TOP108
   getBit5and6,         //TOP109
-  getBit7and8,         //TOP110
+  getBit7and8,         //TOP110  
+  get1Byte,            //TOP111
+  get2Byte,            //TOP112
+  getIntMinus128,      //TOP113
 };
 
 static const char *DisabledEnabled[] PROGMEM = {"2", "Disabled", "Enabled"};
@@ -476,8 +487,8 @@ static const char *Duty[] PROGMEM = {"0", "Duty"};
 static const char *ZonesState[] PROGMEM = {"3", "Zone1 active", "Zone2 active", "Zone1 and zone2 active"};
 static const char *HeatCoolModeDesc[] PROGMEM = {"2", "Comp. Curve", "Direct"};
 static const char *SolarModeDesc[] PROGMEM = {"3", "Disabled", "Buffer", "DHW"};
+static const char *ZonesSensorType[] PROGMEM = {"4", "Water Temperature", "External Thermostat", "Internal Thermostat", "Thermistor"};
 static const char *LiquidType[] PROGMEM = {"2", "Water", "Glycol"};
-
 
 static const char **topicDescription[] PROGMEM = {
   OffOn,           //TOP0
@@ -591,4 +602,7 @@ static const char **topicDescription[] PROGMEM = {
   DisabledEnabled, //TOP108
   DisabledEnabled, //TOP109
   DisabledEnabled, //TOP110
+  ZonesSensorType, //TOP111
+  ZonesSensorType, //TOP112
+  Kelvin,          //TOP113
 };
