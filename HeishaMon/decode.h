@@ -94,7 +94,7 @@ static const byte knownModels[sizeof(Model) / sizeof(Model[0])][10] PROGMEM = { 
   0x42, 0xD4, 0x0B, 0x83, 0x71, 0x42, 0xD2, 0x0C, 0x46, 0x55,
 };
 
-#define NUMBER_OF_TOPICS 114 //last topic number + 1
+#define NUMBER_OF_TOPICS 115 //last topic number + 1
 #define NUMBER_OF_OPT_TOPICS 7 //last topic number + 1
 #define MAX_TOPIC_LEN 41 // max length + 1
 
@@ -223,6 +223,7 @@ static const char topics[][MAX_TOPIC_LEN] PROGMEM = {
   "Z2_Sensor_Settings",      //TOP111
   "Z1_Sensor_Settings",      //TOP112
   "Buffer_Tank_Delta",       //TOP113
+  "External_Pad_Heater",     //TOP114
 };
 
 static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit unsigned humber) as there aren't more then 255 bytes (actually only 203 bytes) to decode
@@ -340,6 +341,7 @@ static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit 
   22,     //TOP111
   22,     //TOP112
   59,     //TOP113
+  25,     //TOP114
 };
 
 typedef String (*topicFP)(byte);
@@ -459,6 +461,7 @@ static const topicFP topicFunctions[] PROGMEM = {
   get1Byte,            //TOP111
   get2Byte,            //TOP112
   getIntMinus128,      //TOP113
+  getBit3and4,         //TOP114
 };
 
 static const char *DisabledEnabled[] PROGMEM = {"2", "Disabled", "Enabled"};
@@ -605,4 +608,5 @@ static const char **topicDescription[] PROGMEM = {
   ZonesSensorType, //TOP111
   ZonesSensorType, //TOP112
   Kelvin,          //TOP113
+  DisabledEnabled, //TOP114
 };
