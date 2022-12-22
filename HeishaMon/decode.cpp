@@ -250,11 +250,11 @@ String getOptDataValue(char* data, unsigned int Topic_Number) {
   return Topic_Value;
 }
 
-String get1Byte(byte input) {  // TOP107 //
-  return String((input & 0b111) - 1);
+String get1Byte(byte input) {
+  return String((input & 0b1111) - 1);
 }
 
-String get2Byte(byte input) {  // TOP108 //
+String get2Byte(byte input) {
     return get1Byte((input >> 4));
 }
 
