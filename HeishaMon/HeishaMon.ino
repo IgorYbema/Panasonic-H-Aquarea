@@ -928,9 +928,12 @@ void switchSerial() {
 
   setupGPIO(heishamonSettings.gpioSettings); //switch extra GPIOs to configured mode
 
-  //enable gpio15 after boot using gpio5 (D1) which enables the level shifter for the tx to panasonic
-  pinMode(5, OUTPUT);
-  digitalWrite(5, HIGH);
+  if (!heishamonSettings.listenonly) {
+    //enable gpio15 after boot using gpio5 (D1) which enables the level shifter for the tx to panasonic
+    //do not enable if listen only to keep the line floating
+    pinMode(5, OUTPUT);
+    digitalWrite(5, HIGH);
+  }
 }
 
 void setupMqtt() {
@@ -941,6 +944,20 @@ void setupMqtt() {
 }
 
 void setupConditionals() {
+  //try to detect if cz-taw1 is connected in parallel
+  if (!heishamonSettings.listenonly) {
+    if (!heishamonSettings.optionalPCB) {
+      //add a short delay to detect active data due to cz-taw1 connected
+      delay(5000);
+    }
+    if (Serial.available() > 0) {
+      log_message(F("There is data on the line without asking for it. Switching to listen only mode."));
+      heishamonSettings.listenonly = true;
+    } else {
+      //send_initial_query(); //maybe necessary but for now disable. CZ-TAW1 sends this query on boot
+    }
+  }
+
   //load optional PCB data from flash
   if (heishamonSettings.optionalPCB) {
     if (loadOptionalPCB(optionalPCBQuery, OPTIONALPCBQUERYSIZE)) {
@@ -957,6 +974,8 @@ void setupConditionals() {
   //these two after optional pcb because it needs to send a datagram fast after boot
   if (heishamonSettings.use_1wire) initDallasSensors(log_message, heishamonSettings.updataAllDallasTime, heishamonSettings.waitDallasTime, heishamonSettings.dallasResolution);
   if (heishamonSettings.use_s0) initS0Sensors(heishamonSettings.s0Settings);
+
+
 }
 
 void timer_cb(int nr) {
@@ -1033,9 +1052,6 @@ void setup() {
 
   dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
   dnsServer.start(DNS_PORT, "*", apIP);
-
-  //maybe necessary but for now disable. CZ-TAW1 sends this query on boot
-  //if (!heishamonSettings.listenonly) send_initial_query();
 
   rst_info *resetInfo = ESP.getResetInfoPtr();
   Serial1.printf(PSTR("Reset reason: %d, exception cause: %d\n"), resetInfo->reason, resetInfo->exccause);
