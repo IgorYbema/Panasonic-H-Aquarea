@@ -932,11 +932,18 @@ void switchSerial() {
 
   setupGPIO(heishamonSettings.gpioSettings); //switch extra GPIOs to configured mode
 
+  //try to detect if cz-taw1 is connected in parallel
   if (!heishamonSettings.listenonly) {
-    //enable gpio15 after boot using gpio5 (D1) which enables the level shifter for the tx to panasonic
-    //do not enable if listen only to keep the line floating
-    pinMode(5, OUTPUT);
-    digitalWrite(5, HIGH);
+    if (Serial.available() > 0) {
+      log_message(F("There is data on the line without asking for it. Switching to listen only mode."));
+      heishamonSettings.listenonly = true;
+    }
+    else {
+      //enable gpio15 after boot using gpio5 (D1) which enables the level shifter for the tx to panasonic
+      //do not enable if listen only to keep the line floating
+      pinMode(5, OUTPUT);
+      digitalWrite(5, HIGH);
+    }
   }
 }
 
@@ -948,19 +955,12 @@ void setupMqtt() {
 }
 
 void setupConditionals() {
-  //try to detect if cz-taw1 is connected in parallel
-  if (!heishamonSettings.listenonly) {
-    if (!heishamonSettings.optionalPCB) {
-      //add a short delay to detect active data due to cz-taw1 connected
-      delay(5000);
-    }
     if (Serial.available() > 0) {
       log_message(F("There is data on the line without asking for it. Switching to listen only mode."));
       heishamonSettings.listenonly = true;
     } else {
       //send_initial_query(); //maybe necessary but for now disable. CZ-TAW1 sends this query on boot
-    }
-  }
+  //send_initial_query(); //maybe necessary but for now disable. CZ-TAW1 sends this query on boot
 
   //load optional PCB data from flash
   if (heishamonSettings.optionalPCB) {
