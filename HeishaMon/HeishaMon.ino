@@ -955,11 +955,6 @@ void setupMqtt() {
 }
 
 void setupConditionals() {
-    if (Serial.available() > 0) {
-      log_message(F("There is data on the line without asking for it. Switching to listen only mode."));
-      heishamonSettings.listenonly = true;
-    } else {
-      //send_initial_query(); //maybe necessary but for now disable. CZ-TAW1 sends this query on boot
   //send_initial_query(); //maybe necessary but for now disable. CZ-TAW1 sends this query on boot
 
   //load optional PCB data from flash
