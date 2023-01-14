@@ -4,7 +4,7 @@ static const char webHeader[] PROGMEM  =
   "<title>Heisha monitor</title>"
   "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
   "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">";
-
+  
 static const char refreshMeta[] PROGMEM = "<meta http-equiv=\"refresh\" content=\"5; url=/\" />";
 static const char webBodyStart[] PROGMEM =
   "<body>"

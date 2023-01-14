@@ -745,6 +745,10 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
             } break;
           case 110: {
               int ret = saveSettings(client, &heishamonSettings);
+              if (heishamonSettings.listenonly) {
+                //make sure we disable TX to heatpump-RX using the mosfet so this line is floating and will not disturb cz-taw1
+                digitalWrite(5, LOW);
+              }
               switch (client->route) {
                 case 111: {
                     return settingsNewPassword(client, &heishamonSettings);
