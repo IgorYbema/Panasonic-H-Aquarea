@@ -748,6 +748,8 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
               if (heishamonSettings.listenonly) {
                 //make sure we disable TX to heatpump-RX using the mosfet so this line is floating and will not disturb cz-taw1
                 digitalWrite(5, LOW);
+              } else {
+                digitalWrite(5, HIGH);
               }
               switch (client->route) {
                 case 111: {
@@ -932,6 +934,9 @@ void switchSerial() {
 
   setupGPIO(heishamonSettings.gpioSettings); //switch extra GPIOs to configured mode
 
+  //mosfet output enable
+  pinMode(5, OUTPUT);
+
   //try to detect if cz-taw1 is connected in parallel
   if (!heishamonSettings.listenonly) {
     if (Serial.available() > 0) {
@@ -941,7 +946,6 @@ void switchSerial() {
     else {
       //enable gpio15 after boot using gpio5 (D1) which enables the level shifter for the tx to panasonic
       //do not enable if listen only to keep the line floating
-      pinMode(5, OUTPUT);
       digitalWrite(5, HIGH);
     }
   }
