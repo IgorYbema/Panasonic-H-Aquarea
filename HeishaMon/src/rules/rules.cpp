@@ -2556,6 +2556,9 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                   func->ret = step;
                   vm_cache_del(oldpos);
                 } break;
+                case VINTEGER:
+                case VNULL:
+                case TVAR:
                 case TNUMBER1:
                 case TNUMBER2:
                 case TNUMBER3: {
@@ -2567,18 +2570,6 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
                   node->go[arg++] = a;
 
                   struct vm_tnumber_t *tmp = (struct vm_tnumber_t *)&obj->ast.buffer[a];
-                  tmp->ret = step;
-                } break;
-                case VNULL:
-                case TVAR: {
-                  int a = vm_parent(text, obj, type, start, len, 0);
-
-                  pos++;
-
-                  node = (struct vm_tfunction_t *)&obj->ast.buffer[step];
-                  node->go[arg++] = a;
-
-                  struct vm_tvar_t *tmp = (struct vm_tvar_t *)&obj->ast.buffer[a];
                   tmp->ret = step;
                 } break;
                 default: {
