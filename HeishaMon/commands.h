@@ -56,6 +56,8 @@ unsigned int set_alt_external_sensor(char *msg, unsigned char *cmd, char *log_ms
 unsigned int set_external_pad_heater(char *msg, unsigned char *cmd, char *log_msg);
 unsigned int set_buffer_delta(char *msg, unsigned char *cmd, char *log_msg);
 unsigned int set_buffer(char *msg, unsigned char *cmd, char *log_msg);
+unsigned int set_external_control(char *msg, unsigned char *cmd, char *log_msg);
+unsigned int set_external_error(char *msg, unsigned char *cmd, char *log_msg);
 
 //optional pcb commands
 unsigned int set_heat_cool_mode(char *msg, char *log_msg);
@@ -73,8 +75,13 @@ unsigned int set_z2_water_temp(char *msg, char *log_msg);
 unsigned int set_solar_temp(char *msg, char *log_msg);
 unsigned int set_byte_9(char *msg, char *log_msg);
 
+//optional pcb commands whichs are settings for main pcb
+unsigned int set_external_compressor_control(char *msg, unsigned char *cmd, char *log_msg);
+unsigned int set_external_heat_cool_control(char *msg, unsigned char *cmd, char *log_msg);
+
+
 struct cmdStruct {
-  char name[28];
+  char name[30];
   unsigned int (*func)(char *msg, unsigned char *cmd, char *log_msg);
 };
 
@@ -125,6 +132,10 @@ const cmdStruct commands[] PROGMEM = {
   { "SetExternalPadHeater", set_external_pad_heater },
   { "SetBufferDelta", set_buffer_delta },
   { "SetBuffer", set_buffer },
+  { "SetExternalControl", set_external_control },
+  { "SetExternalError", set_external_error },
+  { "SetExternalCompressorControl", set_external_compressor_control },
+  { "SetExternalHeatCoolControl", set_external_heat_cool_control },
 };
 
 struct optCmdStruct{
