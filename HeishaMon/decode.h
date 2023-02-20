@@ -99,7 +99,7 @@ static const byte knownModels[sizeof(Model) / sizeof(Model[0])][10] PROGMEM = { 
   0xC2, 0xD3, 0x0C, 0x33, 0x65, 0xB2, 0xD3, 0x0B, 0x94, 0x65, //28
 };
 
-#define NUMBER_OF_TOPICS 119 //last topic number + 1
+#define NUMBER_OF_TOPICS 123 //last topic number + 1
 #define NUMBER_OF_OPT_TOPICS 7 //last topic number + 1
 #define MAX_TOPIC_LEN 41 // max length + 1
 
@@ -233,6 +233,10 @@ static const char topics[][MAX_TOPIC_LEN] PROGMEM = {
   "External_Heat_Cool_Control", //TOP116
   "External_Error_Signal",   //TOP117
   "External_Compressor_Control", //TOP118
+  "Z1_Pump_State",           //TOP119
+  "Z2_Pump_State",           //TOP120
+  "TwoWay_Valve_State",      //TOP121
+  "ThreeWay_Valve_State2",   //TOP122
 };
 
 static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit unsigned humber) as there aren't more then 255 bytes (actually only 203 bytes) to decode
@@ -355,6 +359,10 @@ static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit 
   23,     //TOP116
   23,     //TOP117
   23,     //TOP118
+  116,     //TOP119
+  116,     //TOP120
+  116,     //TOP121
+  116,     //TOP122
 };
 
 typedef String (*topicFP)(byte);
@@ -478,7 +486,11 @@ static const topicFP topicFunctions[] PROGMEM = {
   getBit7and8,         //TOP115
   getBit5and6,         //TOP116
   getBit3and4,         //TOP117
-  getBit1and2,         //TOP118
+  getBit3and4,         //TOP118
+  getBit1and2,         //TOP119
+  getBit1and2,         //TOP120
+  getBit5and6,         //TOP121
+  getBit7and8,         //TOP121
 };
 
 static const char *DisabledEnabled[] PROGMEM = {"2", "Disabled", "Enabled"};
@@ -491,6 +503,7 @@ static const char *OpModeDesc[] PROGMEM = {"9", "Heat", "Cool", "Auto(heat)", "D
 static const char *Powerfulmode[] PROGMEM = {"4", "Off", "30min", "60min", "90min"};
 static const char *Quietmode[] PROGMEM = {"4", "Off", "Level 1", "Level 2", "Level 3"};
 static const char *Valve[] PROGMEM = {"2", "Room", "DHW"};
+static const char *Valve2[] PROGMEM = {"2", "Cool", "Heat"};
 static const char *LitersPerMin[] PROGMEM = {"0", "l/min"};
 static const char *RotationsPerMin[] PROGMEM = {"0", "r/min"};
 static const char *Pressure[] PROGMEM = {"0", "Kgf/cm2"};
@@ -627,8 +640,12 @@ static const char **topicDescription[] PROGMEM = {
   ZonesSensorType, //TOP112
   Kelvin,          //TOP113
   ExtPadHeaterType,//TOP114
-  DisabledEnabled,//TOP115
-  DisabledEnabled,//TOP116
-  DisabledEnabled,//TOP117
-  DisabledEnabled,//TOP118
+  DisabledEnabled, //TOP115
+  DisabledEnabled, //TOP116
+  DisabledEnabled, //TOP117
+  DisabledEnabled, //TOP118
+  OffOn,           //TOP119
+  OffOn,           //TOP120
+  Valve2,          //TOP121
+  Valve,           //TOP122
 };
