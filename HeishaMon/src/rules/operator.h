@@ -13,12 +13,12 @@
 
 struct rule_operator_t {
   const char *name;
-  int precedence;
-  int associativity;
-  int (*callback)(struct rules_t *obj, int a, int b, int *ret);
+  uint8_t precedence;
+  uint8_t associativity;
+  int8_t (*callback)(struct rules_t *obj, uint16_t a, uint16_t b, uint16_t *ret);
 } __attribute__((packed));
 
 extern struct rule_operator_t rule_operators[];
-extern unsigned int nr_rule_operators;
+extern uint8_t nr_rule_operators;
 
 #endif

@@ -15,20 +15,20 @@
 #include <string.h>
 #include <math.h>
 
-#include "../function.h"
-#include "../../common/mem.h"
+#include "../../common/uint32float.h"
 #include "../rules.h"
 
-int rule_operator_divide_callback(struct rules_t *obj, int a, int b, int *ret) {
-  *ret = obj->varstack.nrbytes;
+int8_t rule_operator_divide_callback(struct rules_t *obj, uint16_t a, uint16_t b, uint16_t *ret) {
+  unsigned char nodeA[rule_max_var_bytes()], nodeB[rule_max_var_bytes()];
+  rule_stack_pull(obj->varstack, a, nodeA);
+  rule_stack_pull(obj->varstack, b, nodeB);
 
-  if((obj->varstack.buffer[a]) == VNULL || (obj->varstack.buffer[b]) == VNULL) {
-    unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vnull_t));
+  if(nodeA[0] == VNULL || nodeB[0] == VNULL) {
+    struct vm_vnull_t out;
+    out.ret = 0;
+    out.type = VNULL;
 
-    struct vm_vnull_t *out = (struct vm_vnull_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
-
-    out->ret = 0;
-    out->type = VNULL;
+    *ret = rule_stack_push(obj->varstack, &out);
 
 /* LCOV_EXCL_START*/
 #ifdef DEBUG
@@ -36,13 +36,84 @@ int rule_operator_divide_callback(struct rules_t *obj, int a, int b, int *ret) {
 #endif
 /* LCOV_EXCL_STOP*/
 
-    obj->varstack.nrbytes = size;
-    obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
-  } else if((obj->varstack.buffer[a]) == VCHAR || (obj->varstack.buffer[b]) == VCHAR) {
-  } else if((obj->varstack.buffer[a]) == VFLOAT || (obj->varstack.buffer[b]) == VFLOAT) {
+  } else if(nodeA[0] == VCHAR || nodeB[0] == VCHAR) {
+  } else if(nodeA[0] == VFLOAT && nodeB[0] == VFLOAT) {
+    struct vm_vfloat_t out;
+    struct vm_vfloat_t *na = (struct vm_vfloat_t *)&nodeA[0];
+    struct vm_vfloat_t *nb = (struct vm_vfloat_t *)&nodeB[0];
+
+    float av = 0.0, bv = 0.0;
+    uint322float(na->value, &av);
+    uint322float(nb->value, &bv);
+
+    out.ret = 0;
+    out.type = VFLOAT;
+
+    float2uint32(av / bv, &out.value);
+
+/* LCOV_EXCL_START*/
+#ifdef DEBUG
+    printf("%s %g %g\n", __FUNCTION__, av, bv);
+#endif
+/* LCOV_EXCL_STOP*/
+
+    *ret = rule_stack_push(obj->varstack, &out);
+  } else if(nodeA[0] == VFLOAT || nodeB[0] == VFLOAT) {
+    float f = 0;
+    int i = 0;
+
+    struct vm_vfloat_t out;
+    out.ret = 0;
+    out.type = VFLOAT;
+
+    if(nodeA[0] == VFLOAT) {
+      struct vm_vfloat_t *na = (struct vm_vfloat_t *)&nodeA[0];
+      uint322float(na->value, &f);
+    } else if(nodeA[0] == VINTEGER) {
+      struct vm_vinteger_t *na = (struct vm_vinteger_t *)&nodeA[0];
+      i = na->value;
+    }
+    if(nodeB[0] == VFLOAT) {
+      struct vm_vfloat_t *nb = (struct vm_vfloat_t *)&nodeB[0];
+      uint322float(nb->value, &f);
+      float2uint32(i / f, &out.value);
+    } else if(nodeB[0] == VINTEGER) {
+      struct vm_vinteger_t *nb = (struct vm_vinteger_t *)&nodeB[0];
+      float2uint32(f / nb->value, &out.value);
+    }
+
+
+/* LCOV_EXCL_START*/
+#ifdef DEBUG
+    printf("%s %g %d\n", __FUNCTION__, f, i);
+#endif
+/* LCOV_EXCL_STOP*/
+
+    *ret = rule_stack_push(obj->varstack, &out);
   } else {
-    struct vm_vinteger_t *na = (struct vm_vinteger_t *)&obj->varstack.buffer[a];
-    struct vm_vinteger_t *nb = (struct vm_vinteger_t *)&obj->varstack.buffer[b];
+    struct vm_vinteger_t *na = (struct vm_vinteger_t *)&nodeA[0];
+    struct vm_vinteger_t *nb = (struct vm_vinteger_t *)&nodeB[0];
+
+    float var = (float)na->value / (float)nb->value;
+    float nr = 0;
+
+    if(modff(var, &nr) == 0) {
+      struct vm_vinteger_t out;
+
+      out.ret = 0;
+      out.type = VINTEGER;
+      out.value = var;
+
+      *ret = rule_stack_push(obj->varstack, &out);
+    } else {
+      struct vm_vfloat_t out;
+
+      out.ret = 0;
+      out.type = VFLOAT;
+      float2uint32(var, &out.value);
+
+      *ret = rule_stack_push(obj->varstack, &out);
+    }
 
 /* LCOV_EXCL_START*/
 #ifdef DEBUG
@@ -50,32 +121,6 @@ int rule_operator_divide_callback(struct rules_t *obj, int a, int b, int *ret) {
 #endif
 /* LCOV_EXCL_STOP*/
 
-    float var = (float)na->value / (float)nb->value;
-    float nr = 0;
-
-    if(modff(var, &nr) == 0) {
-      unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vinteger_t));
-
-      struct vm_vinteger_t *out = (struct vm_vinteger_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
-
-      out->ret = 0;
-      out->type = VINTEGER;
-      out->value = (int)var;
-
-      obj->varstack.nrbytes = size;
-      obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
-    } else {
-      unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vfloat_t));
-
-      struct vm_vfloat_t *out = (struct vm_vfloat_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
-
-      out->ret = 0;
-      out->type = VFLOAT;
-      out->value = var;
-
-      obj->varstack.nrbytes = size;
-      obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
-    }
   }
 
   return 0;

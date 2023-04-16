@@ -11,6 +11,6 @@
 
 #include "../rules.h"
 
-int rule_operator_multiply_callback(struct rules_t *obj, int a, int b, int *ret);
+int8_t rule_operator_multiply_callback(struct rules_t *obj, uint16_t a, uint16_t b, uint16_t *ret);
 
 #endif

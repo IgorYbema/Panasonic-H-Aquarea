@@ -58,4 +58,4 @@ struct rule_operator_t rule_operators[] = {
   { "^", 80, 2, rule_operator_power_callback },
 };
 
-unsigned int nr_rule_operators = sizeof(rule_operators)/sizeof(rule_operators[0]);
+uint8_t nr_rule_operators = sizeof(rule_operators)/sizeof(rule_operators[0]);

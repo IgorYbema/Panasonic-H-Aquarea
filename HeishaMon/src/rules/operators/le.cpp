@@ -15,35 +15,34 @@
 #include <string.h>
 #include <math.h>
 
-#include "../function.h"
-#include "../../common/mem.h"
+#include "../../common/uint32float.h"
 #include "../rules.h"
 
-int rule_operator_le_callback(struct rules_t *obj, int a, int b, int *ret) {
-  *ret = obj->varstack.nrbytes;
+int8_t rule_operator_le_callback(struct rules_t *obj, uint16_t a, uint16_t b, uint16_t *ret) {
+  struct vm_vinteger_t out;
+  out.ret = 0;
+  out.type = VINTEGER;
 
-  unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vinteger_t));
-
-  struct vm_vinteger_t *out = (struct vm_vinteger_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
-  out->ret = 0;
-  out->type = VINTEGER;
+  unsigned char nodeA[rule_max_var_bytes()], nodeB[rule_max_var_bytes()];
+  rule_stack_pull(obj->varstack, a, nodeA);
+  rule_stack_pull(obj->varstack, b, nodeB);
 
   /*
    * Values can only be equal when the type matches
    */
   if(
       (
-        obj->varstack.buffer[a] == VNULL || obj->varstack.buffer[a] == VCHAR ||
-        obj->varstack.buffer[b] == VNULL || obj->varstack.buffer[b] == VCHAR
+        nodeA[0] == VNULL || nodeA[0] == VCHAR ||
+        nodeB[0] == VNULL || nodeB[0] == VCHAR
       )
     &&
-      (obj->varstack.buffer[a] != obj->varstack.buffer[b])
+      (nodeA[0] != nodeB[0])
     ) {
-    out->value = 0;
+    out.value = 0;
   } else {
-    switch(obj->varstack.buffer[a]) {
+    switch(nodeA[0]) {
       case VNULL: {
-        out->value = 0;
+        out.value = 0;
 
 /* LCOV_EXCL_START*/
 #ifdef DEBUG
@@ -54,22 +53,22 @@ int rule_operator_le_callback(struct rules_t *obj, int a, int b, int *ret) {
       case VINTEGER: {
         float av = 0.0;
         float bv = 0.0;
-        if(obj->varstack.buffer[a] == VINTEGER) {
-          struct vm_vinteger_t *na = (struct vm_vinteger_t *)&obj->varstack.buffer[a];
+        if(nodeA[0] == VINTEGER) {
+          struct vm_vinteger_t *na = (struct vm_vinteger_t *)&nodeA[0];
           av = (float)na->value;
         }
-        if(obj->varstack.buffer[b] == VFLOAT) {
-          struct vm_vfloat_t *nb = (struct vm_vfloat_t *)&obj->varstack.buffer[b];
-          bv = nb->value;
+        if(nodeB[0] == VFLOAT) {
+          struct vm_vfloat_t *nb = (struct vm_vfloat_t *)&nodeB[0];
+          uint322float(nb->value, &bv);
         }
-        if(obj->varstack.buffer[b] == VINTEGER) {
-          struct vm_vinteger_t *nb = (struct vm_vinteger_t *)&obj->varstack.buffer[b];
+        if(nodeB[0] == VINTEGER) {
+          struct vm_vinteger_t *nb = (struct vm_vinteger_t *)&nodeB[0];
           bv = (float)nb->value;
         }
         if(av < bv || fabs(av-bv) < EPSILON) {
-          out->value = 1;
+          out.value = 1;
         } else {
-          out->value = 0;
+          out.value = 0;
         }
 
 /* LCOV_EXCL_START*/
@@ -81,22 +80,23 @@ int rule_operator_le_callback(struct rules_t *obj, int a, int b, int *ret) {
       case VFLOAT: {
         float av = 0.0;
         float bv = 0.0;
-        if(obj->varstack.buffer[a] == VFLOAT) {
-          struct vm_vfloat_t *na = (struct vm_vfloat_t *)&obj->varstack.buffer[a];
-          av = na->value;
+        if(nodeA[0] == VFLOAT) {
+          struct vm_vfloat_t *na = (struct vm_vfloat_t *)&nodeA[0];
+          uint322float(na->value, &av);
         }
-        if(obj->varstack.buffer[b] == VFLOAT) {
-          struct vm_vfloat_t *nb = (struct vm_vfloat_t *)&obj->varstack.buffer[b];
-          bv = nb->value;
+        if(nodeB[0] == VFLOAT) {
+          struct vm_vfloat_t *nb = (struct vm_vfloat_t *)&nodeB[0];
+          uint322float(nb->value, &bv);
         }
-        if(obj->varstack.buffer[b] == VINTEGER) {
-          struct vm_vinteger_t *nb = (struct vm_vinteger_t *)&obj->varstack.buffer[b];
+        if(nodeB[0] == VINTEGER) {
+          struct vm_vinteger_t *nb = (struct vm_vinteger_t *)&nodeB[0];
           bv = (float)nb->value;
         }
+
         if(av < bv || fabs(av-bv) < EPSILON) {
-          out->value = 1;
+          out.value = 1;
         } else {
-          out->value = 0;
+          out.value = 0;
         }
 
 /* LCOV_EXCL_START*/
@@ -110,20 +110,12 @@ int rule_operator_le_callback(struct rules_t *obj, int a, int b, int *ret) {
        */
       /* LCOV_EXCL_START*/
       case VCHAR: {
-        struct vm_vchar_t *na = (struct vm_vchar_t *)&obj->varstack.buffer[a];
-        struct vm_vchar_t *nb = (struct vm_vchar_t *)&obj->varstack.buffer[b];
-        if(na->value <= nb->value) {
-          out->value = 1;
-        } else {
-          out->value = 0;
-        }
       } break;
       /* LCOV_EXCL_STOP*/
     }
   }
 
-  obj->varstack.nrbytes = size;
-  obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
+  *ret = rule_stack_push(obj->varstack, &out);
 
   return 0;
 }

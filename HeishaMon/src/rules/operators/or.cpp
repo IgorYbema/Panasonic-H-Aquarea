@@ -15,98 +15,121 @@
 #include <string.h>
 #include <math.h>
 
-#include "../function.h"
-#include "../../common/mem.h"
+#include "../../common/uint32float.h"
 #include "../rules.h"
 
+int8_t rule_operator_or_callback(struct rules_t *obj, uint16_t a, uint16_t b, uint16_t *ret) {
+  struct vm_vinteger_t out;
+  out.ret = 0;
+  out.type = VINTEGER;
 
-int rule_operator_or_callback(struct rules_t *obj, int a, int b, int *ret) {
-  *ret = obj->varstack.nrbytes;
+  unsigned char nodeA[rule_max_var_bytes()], nodeB[rule_max_var_bytes()];
+  rule_stack_pull(obj->varstack, a, nodeA);
+  rule_stack_pull(obj->varstack, b, nodeB);
 
-  unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vinteger_t));
+  /*
+   * Values can only be equal when the type matches
+   */
+  switch(nodeA[0]) {
+    case VNULL: {
+      out.value = 0;
 
-  struct vm_vinteger_t *out = (struct vm_vinteger_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
-  out->ret = 0;
-  out->type = VINTEGER;
-
-  if(obj->varstack.buffer[a] == VNULL && obj->varstack.buffer[b] == VNULL) {
-    out->value = 0;
 /* LCOV_EXCL_START*/
 #ifdef DEBUG
-    printf("%s NULL\n", __FUNCTION__);
+      printf("%s NULL\n", __FUNCTION__);
 #endif
 /* LCOV_EXCL_STOP*/
-  } else {
+    } break;
+    case VINTEGER: {
+      struct vm_vinteger_t *n = (struct vm_vinteger_t *)&nodeA[0];
+      if(n->value > 0) {
+        out.value = 1;
+      } else {
+        out.value = 0;
+      }
+
+/* LCOV_EXCL_START*/
+#ifdef DEBUG
+      printf("%s %d\n", __FUNCTION__, n->value);
+#endif
+/* LCOV_EXCL_STOP*/
+
+    } break;
+    case VFLOAT: {
+      struct vm_vfloat_t *n = (struct vm_vfloat_t *)&nodeA[0];
+      float av = 0.0;
+      uint322float(n->value, &av);
+
+      if(av > 0) {
+        out.value = 1;
+      } else {
+        out.value = 0;
+      }
+
+/* LCOV_EXCL_START*/
+#ifdef DEBUG
+      printf("%s %g\n", __FUNCTION__, av);
+#endif
+/* LCOV_EXCL_STOP*/
+    } break;
     /*
-     * Values can only be equal when the type matches
+     * FIXME
      */
-    switch(obj->varstack.buffer[a]) {
-      case VINTEGER: {
-        struct vm_vinteger_t *n = (struct vm_vinteger_t *)&obj->varstack.buffer[a];
-        if(n->value > 0) {
-          out->value = 1;
-        } else {
-          out->value = 0;
-        }
-/* LCOV_EXCL_START*/
-#ifdef DEBUG
-        printf("%s %d\n", __FUNCTION__, n->value);
-#endif
-/* LCOV_EXCL_STOP*/
+    /* LCOV_EXCL_START*/
+    case VCHAR: {
+    } break;
+    /* LCOV_EXCL_STOP*/
+  }
+  switch(nodeB[0]) {
+    case VNULL: {
+      out.value = 0;
 
-      } break;
-      case VFLOAT: {
-        struct vm_vfloat_t *n = (struct vm_vfloat_t *)&obj->varstack.buffer[a];
-        if(n->value > 0) {
-          out->value = 1;
-        } else {
-          out->value = 0;
-        }
-      } break;
-      /*
-       * FIXME
-       */
-      /* LCOV_EXCL_START*/
-      case VCHAR: {
-        out->value = 1;
-      } break;
-      /* LCOV_EXCL_STOP*/
-    }
-    switch(obj->varstack.buffer[b]) {
-      case VINTEGER: {
-        struct vm_vinteger_t *n = (struct vm_vinteger_t *)&obj->varstack.buffer[b];
-        if(n->value > 0 || out->value == 1) {
-          out->value = 1;
-        } else {
-          out->value = 0;
-        }
 /* LCOV_EXCL_START*/
 #ifdef DEBUG
-        printf("%s %d\n", __FUNCTION__, n->value);
+      printf("%s NULL\n", __FUNCTION__);
 #endif
 /* LCOV_EXCL_STOP*/
-      } break;
-      case VFLOAT: {
-        struct vm_vfloat_t *n = (struct vm_vfloat_t *)&obj->varstack.buffer[b];
-        if(n->value > 0 || out->value == 1) {
-          out->value = 1;
-        } else {
-          out->value = 0;
-        }
-      } break;
-      /*
-       * FIXME
-       */
-      /* LCOV_EXCL_START*/
-      case VCHAR: {
-        out->value = 1;
-      } break;
-      /* LCOV_EXCL_STOP*/
-    }
+    } break;
+    case VINTEGER: {
+      struct vm_vinteger_t *n = (struct vm_vinteger_t *)&nodeB[0];
+      if(n->value > 0 || out.value == 1) {
+        out.value = 1;
+      } else {
+        out.value = 0;
+      }
+
+#ifdef DEBUG
+      printf("%s %d\n", __FUNCTION__, n->value);
+#endif
+
+    } break;
+    case VFLOAT: {
+      struct vm_vfloat_t *n = (struct vm_vfloat_t *)&nodeB[0];
+      float av = 0.0;
+      uint322float(n->value, &av);
+
+      if(av > 0 || out.value == 1) {
+        out.value = 1;
+      } else {
+        out.value = 0;
+      }
+
+/* LCOV_EXCL_START*/
+#ifdef DEBUG
+      printf("%s %g\n", __FUNCTION__, av);
+#endif
+/* LCOV_EXCL_STOP*/
+    } break;
+    /*
+     * FIXME
+     */
+    /* LCOV_EXCL_START*/
+    case VCHAR: {
+    } break;
+    /* LCOV_EXCL_STOP*/
   }
 
-  obj->varstack.nrbytes = size;
-  obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
+  *ret = rule_stack_push(obj->varstack, &out);
 
   return 0;
 }

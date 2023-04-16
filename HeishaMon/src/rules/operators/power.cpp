@@ -15,20 +15,20 @@
 #include <string.h>
 #include <math.h>
 
-#include "../function.h"
-#include "../../common/mem.h"
+#include "../../common/uint32float.h"
 #include "../rules.h"
 
-int rule_operator_power_callback(struct rules_t *obj, int a, int b, int *ret) {
-  *ret = obj->varstack.nrbytes;
+int8_t rule_operator_power_callback(struct rules_t *obj, uint16_t a, uint16_t b, uint16_t *ret) {
+  unsigned char nodeA[rule_max_var_bytes()], nodeB[rule_max_var_bytes()];
+  rule_stack_pull(obj->varstack, a, nodeA);
+  rule_stack_pull(obj->varstack, b, nodeB);
 
-  if((obj->varstack.buffer[a]) == VNULL || (obj->varstack.buffer[b]) == VNULL) {
-    unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vnull_t));
+  if(nodeA[0] == VNULL || nodeB[0] == VNULL) {
+    struct vm_vnull_t out;
+    out.ret = 0;
+    out.type = VNULL;
 
-    struct vm_vnull_t *out = (struct vm_vnull_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
-
-    out->ret = 0;
-    out->type = VNULL;
+    *ret = rule_stack_push(obj->varstack, &out);
 
 /* LCOV_EXCL_START*/
 #ifdef DEBUG
@@ -36,52 +36,53 @@ int rule_operator_power_callback(struct rules_t *obj, int a, int b, int *ret) {
 #endif
 /* LCOV_EXCL_STOP*/
 
-    obj->varstack.nrbytes = size;
-    obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
-  } else if((obj->varstack.buffer[a]) == VCHAR || (obj->varstack.buffer[b]) == VCHAR) {
-  } else if((obj->varstack.buffer[a]) == VFLOAT || (obj->varstack.buffer[b]) == VFLOAT) {
+  } else if(nodeA[0] == VCHAR || nodeB[0] == VCHAR) {
+  } else if(nodeA[0] == VFLOAT && nodeB[0] == VFLOAT) {
+    struct vm_vfloat_t out;
+    struct vm_vfloat_t *na = (struct vm_vfloat_t *)&nodeA[0];
+    struct vm_vfloat_t *nb = (struct vm_vfloat_t *)&nodeB[0];
+
+    float av = 0.0, bv = 0.0;
+    uint322float(na->value, &av);
+    uint322float(nb->value, &bv);
+
+    out.ret = 0;
+    out.type = VFLOAT;
+
+    float2uint32(pow(av, bv), &out.value);
+
+/* LCOV_EXCL_START*/
+#ifdef DEBUG
+    printf("%s %g %g\n", __FUNCTION__, av, bv);
+#endif
+/* LCOV_EXCL_STOP*/
+
+    *ret = rule_stack_push(obj->varstack, &out);
+  } else if(nodeA[0] == VFLOAT || nodeB[0] == VFLOAT) {
     float f = 0;
     int i = 0;
-    unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vfloat_t));
 
-    struct vm_vfloat_t *out = (struct vm_vfloat_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
+    struct vm_vfloat_t out;
+    out.ret = 0;
+    out.type = VFLOAT;
 
-    if((obj->varstack.buffer[a]) == VFLOAT) {
-      struct vm_vfloat_t *na = (struct vm_vfloat_t *)&obj->varstack.buffer[a];
-      f = na->value;
-    } else if((obj->varstack.buffer[a]) == VINTEGER) {
-      struct vm_vinteger_t *na = (struct vm_vinteger_t *)&obj->varstack.buffer[a];
+    if(nodeA[0] == VFLOAT) {
+      struct vm_vfloat_t *na = (struct vm_vfloat_t *)&nodeA[0];
+      uint322float(na->value, &f);
+    } else if(nodeA[0] == VINTEGER) {
+      struct vm_vinteger_t *na = (struct vm_vinteger_t *)&nodeA[0];
       i = na->value;
     }
-    if((obj->varstack.buffer[b]) == VFLOAT) {
-      struct vm_vfloat_t *nb = (struct vm_vfloat_t *)&obj->varstack.buffer[b];
-      if((obj->varstack.buffer[a]) == VFLOAT) {
-        out->value = pow(f, nb->value);
-/* LCOV_EXCL_START*/
-#ifdef DEBUG
-        printf("1 %s %g %g\n", __FUNCTION__,f, nb->value);
-#endif
-/* LCOV_EXCL_STOP*/
-      } else if((obj->varstack.buffer[a]) == VINTEGER) {
-        out->value = pow(i, nb->value);
-/* LCOV_EXCL_START*/
-#ifdef DEBUG
-        printf("2 %s %d %g\n", __FUNCTION__,i, nb->value);
-#endif
-/* LCOV_EXCL_STOP*/
-      }
-    } else if((obj->varstack.buffer[b]) == VINTEGER) {
-      struct vm_vinteger_t *nb = (struct vm_vinteger_t *)&obj->varstack.buffer[b];
-      out->value = pow(f, nb->value);
-/* LCOV_EXCL_START*/
-#ifdef DEBUG
-      printf("3 %s %g %d\n", __FUNCTION__,f, nb->value);
-#endif
-/* LCOV_EXCL_STOP*/
+    if(nodeB[0] == VFLOAT) {
+      struct vm_vfloat_t *nb = (struct vm_vfloat_t *)&nodeB[0];
+      uint322float(nb->value, &f);
+      float2uint32(pow(i, f), &out.value);
+    } else if(nodeB[0] == VINTEGER) {
+      struct vm_vinteger_t *nb = (struct vm_vinteger_t *)&nodeB[0];
+      i = nb->value;
+      float2uint32(pow(f, nb->value), &out.value);
     }
 
-    out->ret = 0;
-    out->type = VFLOAT;
 
 /* LCOV_EXCL_START*/
 #ifdef DEBUG
@@ -89,28 +90,24 @@ int rule_operator_power_callback(struct rules_t *obj, int a, int b, int *ret) {
 #endif
 /* LCOV_EXCL_STOP*/
 
-    obj->varstack.nrbytes = size;
-    obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
-  } else if((obj->varstack.buffer[a]) == VINTEGER && (obj->varstack.buffer[b]) == VINTEGER) {
-    unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vinteger_t));
+    *ret = rule_stack_push(obj->varstack, &out);
+  } else {
+    struct vm_vinteger_t out;
+    struct vm_vinteger_t *na = (struct vm_vinteger_t *)&nodeA[0];
+    struct vm_vinteger_t *nb = (struct vm_vinteger_t *)&nodeB[0];
 
-    struct vm_vinteger_t *out = (struct vm_vinteger_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
-
-    struct vm_vinteger_t *na = (struct vm_vinteger_t *)&obj->varstack.buffer[a];
-    struct vm_vinteger_t *nb = (struct vm_vinteger_t *)&obj->varstack.buffer[b];
-    out->ret = 0;
-    out->type = VINTEGER;
-    out->value = pow(na->value, nb->value);
+    out.ret = 0;
+    out.type = VINTEGER;
+    out.value = pow(na->value, nb->value);
 
 /* LCOV_EXCL_START*/
 #ifdef DEBUG
-    printf("4 %s %d %d\n", __FUNCTION__, na->value, nb->value);
+    printf("%s %d %d\n", __FUNCTION__, na->value, nb->value);
 #endif
 /* LCOV_EXCL_STOP*/
-    obj->varstack.nrbytes = size;
-    obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
-  }
 
+    *ret = rule_stack_push(obj->varstack, &out);
+  }
 
   return 0;
 }

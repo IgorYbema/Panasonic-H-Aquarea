@@ -18,72 +18,72 @@
 #include <unistd.h>
 
 #include "../function.h"
-#include "../../common/log.h"
 #include "../../common/mem.h"
 #include "../rules.h"
 #include "../../common/timerqueue.h"
 
-int rule_function_set_timer_callback(struct rules_t *obj, uint16_t argc, uint16_t *argv, int *ret) {
+int8_t rule_function_set_timer_callback(struct rules_t *obj, uint16_t argc, uint16_t *argv, uint16_t *ret) {
   struct timerqueue_t *node = NULL;
   struct itimerval it_val;
-  int i = 0, x = 0, sec = 0, usec = 0, nr = 0;
+  uint16_t i = 0, x = 0, sec = 0, usec = 0, nr = 0;
+
+  unsigned char nodeA[rule_max_var_bytes()];
+  unsigned char nodeB[rule_max_var_bytes()];
 
   if(argc > 2) {
     return -1;
   }
 
   if(argc == 2) {
-    if(obj->varstack.buffer[argv[0]] != VINTEGER) {
+    rule_stack_pull(obj->varstack, argv[0], nodeA);
+    rule_stack_pull(obj->varstack, argv[1], nodeB);
+
+    if(nodeA[0] != VINTEGER) {
       return -1;
     }
-    if(obj->varstack.buffer[argv[1]] != VINTEGER) {
+    if(nodeB[0] != VINTEGER) {
       return -1;
     }
 
-    struct vm_vinteger_t *val = (struct vm_vinteger_t *)&obj->varstack.buffer[argv[0]];
+    struct vm_vinteger_t *val = (struct vm_vinteger_t *)&nodeA[0];
     nr = val->value;
 
-    val = (struct vm_vinteger_t *)&obj->varstack.buffer[argv[1]];
+    val = (struct vm_vinteger_t *)&nodeB[0];
 
     timerqueue_insert(val->value, 0, nr);
 
-    logprintf_P(F("%s set timer #%d to %d seconds"), __FUNCTION__, nr, val->value);
+    printf("\n\n%s set timer #%d to %d seconds\n\n", __FUNCTION__, nr, val->value);
   }
 
   if(argc == 1) {
-    if(obj->varstack.buffer[argv[0]] != VINTEGER) {
+    if(nodeA[0] != VINTEGER) {
       return -1;
     }
 
-    struct vm_vinteger_t *val = (struct vm_vinteger_t *)&obj->varstack.buffer[argv[0]];
+    struct vm_vinteger_t *val = (struct vm_vinteger_t *)&nodeA[0];
     nr = val->value;
 
-   *ret = obj->varstack.nrbytes;
-
-    unsigned int size = 0;
+    uint16_t size = 0;
 
     int a = 0;
     for(a=0;a<timerqueue_size;a++) {
       if(timerqueue[a]->nr == nr) {
-        size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vinteger_t));
+        struct vm_vinteger_t out;
+        out.ret = 0;
+        out.type = VINTEGER;
+        out.value = timerqueue[a]->sec;
 
-        struct vm_vinteger_t *out = (struct vm_vinteger_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
-        out->ret = 0;
-        out->type = VINTEGER;
-        out->value = timerqueue[a]->sec;
+        *ret = rule_stack_push(obj->varstack, &out);
         break;
       }
     }
     if(size == 0) {
-      size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vnull_t));
+      struct vm_vnull_t out;
+      out.ret = 0;
+      out.type = VNULL;
 
-      struct vm_vnull_t *out = (struct vm_vnull_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
-      out->ret = 0;
-      out->type = VNULL;
+      *ret = rule_stack_push(obj->varstack, &out);
     }
-
-    obj->varstack.nrbytes = size;
-    obj->varstack.bufsize = MAX(obj->varstack.bufsize, alignedvarstack(obj->varstack.nrbytes));
   }
 
   return 0;

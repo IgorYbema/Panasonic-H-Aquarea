@@ -6,11 +6,12 @@
   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-#ifndef _RULES_EQ_H_
-#define _RULES_EQ_H_
+#ifndef __UINT322FLOAT_H_
+#define __UINT322FLOAT_H_
 
-#include "../rules.h"
+#include <stdint.h>
 
-int8_t rule_operator_eq_callback(struct rules_t *obj, uint16_t a, uint16_t b, uint16_t *ret);
+void uint322float(uint32_t in, float *out);
+void float2uint32(float in, uint32_t *out);
 
 #endif

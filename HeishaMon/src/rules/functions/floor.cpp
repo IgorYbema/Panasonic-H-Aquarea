@@ -16,10 +16,9 @@
 #include <math.h>
 
 #include "../function.h"
-#include "../../common/mem.h"
 #include "../rules.h"
 
-int rule_function_floor_callback(struct rules_t *obj, uint16_t argc, uint16_t *argv, int *ret) {
+int8_t rule_function_floor_callback(struct rules_t *obj, uint16_t argc, uint16_t *argv, uint16_t *ret) {
 /* LCOV_EXCL_START*/
 #ifdef DEBUG
   printf("%s\n", __FUNCTION__);
@@ -30,29 +29,25 @@ int rule_function_floor_callback(struct rules_t *obj, uint16_t argc, uint16_t *a
     return -1;
   }
 
-  *ret = obj->varstack.nrbytes;
+  struct vm_vinteger_t out;
+  out.ret = 0;
+  out.type = VINTEGER;
+  out.value = 0;
 
-  unsigned int size = alignedbytes(obj->varstack.nrbytes+sizeof(struct vm_vinteger_t));
-  if((obj->varstack.buffer = (unsigned char *)REALLOC(obj->varstack.buffer, alignedbuffer(size))) == NULL) {
-    OUT_OF_MEMORY /*LCOV_EXCL_LINE*/
-  }
-  struct vm_vinteger_t *out = (struct vm_vinteger_t *)&obj->varstack.buffer[obj->varstack.nrbytes];
-  out->ret = 0;
-  out->type = VINTEGER;
-
-  switch(obj->varstack.buffer[argv[0]]) {
+  unsigned char nodeA[rule_max_var_bytes()];
+  rule_stack_pull(obj->varstack, argv[0], nodeA);
+  switch(nodeA[0]) {
     case VINTEGER: {
-      struct vm_vinteger_t *val = (struct vm_vinteger_t *)&obj->varstack.buffer[argv[0]];
-      out->value = val->value;
+      struct vm_vinteger_t *val = (struct vm_vinteger_t *)nodeA;
+      out.value = val->value;
     } break;
     case VFLOAT: {
-      struct vm_vfloat_t *val = (struct vm_vfloat_t *)&obj->varstack.buffer[argv[0]];
-      out->value = (int)floor(val->value);
+      struct vm_vfloat_t *val = (struct vm_vfloat_t *)nodeA;
+      out.value = (int)floor(val->value);
     } break;
   }
 
-  obj->varstack.nrbytes = size;
-  obj->varstack.bufsize = alignedbuffer(size);
+  *ret = rule_stack_push(obj->varstack, &out);
 
   return 0;
 }
