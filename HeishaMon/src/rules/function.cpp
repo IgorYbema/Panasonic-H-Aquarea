@@ -42,6 +42,7 @@ struct rule_function_t rule_functions[] = {
   { "isset", rule_function_isset_callback },
   { "settimer", rule_function_set_timer_callback },
   { "floor", rule_function_floor_callback },
+  { "ceil", rule_function_ceil_callback },
   { "round", rule_function_round_callback }
 };
 

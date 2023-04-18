@@ -248,7 +248,12 @@ static int8_t is_event(char *text, uint16_t size) {
     return 24;
   }
 
-  return size;
+  uint8_t nr = rule_by_name(rules, nrrules, text);
+  if(nr > 0) {
+    return size;
+  }
+
+  return -1;
 }
 
 static int8_t event_cb(struct rules_t *obj, char *name) {
