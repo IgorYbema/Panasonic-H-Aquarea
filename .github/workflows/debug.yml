@@ -41,5 +41,4 @@ jobs:
         with:
           name: HeishaMon-dbg
           path: |
-            HeishaMon/HeishaMon-*.bin
-            HeishaMon/HeishaMon.ino.elf
+            HeishaMon/*
