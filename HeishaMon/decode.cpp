@@ -1,6 +1,7 @@
 #include "decode.h"
 #include "commands.h"
 #include "rules.h"
+#include "src/common/progmem.h"
 
 unsigned long lastalldatatime = 0;
 unsigned long lastalloptdatatime = 0;
@@ -278,7 +279,7 @@ void decode_heatpump_data(char* data, char* actData, PubSubClient &mqtt_client, 
       log_message(log_msg);
       sprintf_P(mqtt_topic, PSTR("%s/%s/%s"), mqtt_topic_base, mqtt_topic_values, topics[Topic_Number]);
       mqtt_client.publish(mqtt_topic, Topic_Value.c_str(), MQTT_RETAIN_VALUES);
-      rules_new_event(topics[Topic_Number]);
+      rules_event_cb(_F("@"), topics[Topic_Number]);
     }
   }
 }
@@ -300,7 +301,7 @@ void decode_optional_heatpump_data(char* data, char* actOptData, PubSubClient & 
       log_message(log_msg);
       sprintf_P(mqtt_topic, PSTR("%s/%s/%s"), mqtt_topic_base, mqtt_topic_pcbvalues, optTopics[Topic_Number]);
       mqtt_client.publish(mqtt_topic, Topic_Value.c_str(), MQTT_RETAIN_VALUES);
-      rules_new_event(optTopics[Topic_Number]);
+      rules_event_cb(_F("@"), optTopics[Topic_Number]);
     }
   }
   //response to heatpump should contain the data from heatpump on byte 4 and 5
