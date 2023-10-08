@@ -105,7 +105,7 @@ String getModel(char* data) { // TOP92 //
   return String(modelResult);
 }
 
-String getEnergy(byte input) {
+String getPower(byte input) {
   int value = ((int)input - 1) * 200;
   return (String)value;
 }

@@ -27,7 +27,7 @@ String getIntMinus1Div5(byte input);
 String getIntMinus1Times10(byte input);
 String getIntMinus1Times50(byte input);
 String getOpMode(byte input);
-String getEnergy(byte input);
+String getPower(byte input);
 String getHeatMode(byte input);
 String getModel(byte input);
 String getFirstByte(byte input);
@@ -168,8 +168,8 @@ static const char topics[][MAX_TOPIC_LEN] PROGMEM = {
   "Operations_Counter",      //TOP12
   "Main_Schedule_State",     //TOP13
   "Outside_Temp",            //TOP14
-  "Heat_Energy_Production",  //TOP15
-  "Heat_Energy_Consumption", //TOP16
+  "Heat_Power_Production",  //TOP15
+  "Heat_Power_Consumption", //TOP16
   "Powerful_Mode_Time",      //TOP17
   "Quiet_Mode_Level",        //TOP18
   "Holiday_Mode_State",      //TOP19
@@ -191,10 +191,10 @@ static const char topics[][MAX_TOPIC_LEN] PROGMEM = {
   "Z2_Cool_Request_Temp",    //TOP35
   "Z1_Water_Temp",           //TOP36
   "Z2_Water_Temp",           //TOP37
-  "Cool_Energy_Production",  //TOP38
-  "Cool_Energy_Consumption", //TOP39
-  "DHW_Energy_Production",   //TOP40
-  "DHW_Energy_Consumption",  //TOP41
+  "Cool_Power_Production",  //TOP38
+  "Cool_Power_Consumption", //TOP39
+  "DHW_Power_Production",   //TOP40
+  "DHW_Power_Consumption",  //TOP41
   "Z1_Water_Target_Temp",    //TOP42
   "Z2_Water_Target_Temp",    //TOP43
   "Error",                   //TOP44
@@ -416,8 +416,8 @@ static const topicFP topicFunctions[] PROGMEM = {
   unknown,             //TOP12
   getBit1and2,         //TOP13
   getIntMinus128,      //TOP14
-  getEnergy,           //TOP15
-  getEnergy,           //TOP16
+  getPower,            //TOP15
+  getPower,            //TOP16
   getRight3bits,       //TOP17
   getBit3and4and5,     //TOP18
   getBit3and4,         //TOP19
@@ -439,10 +439,10 @@ static const topicFP topicFunctions[] PROGMEM = {
   getIntMinus128,      //TOP35
   getIntMinus128,      //TOP36
   getIntMinus128,      //TOP37
-  getEnergy,           //TOP38
-  getEnergy,           //TOP39
-  getEnergy,           //TOP40
-  getEnergy,           //TOP41
+  getPower,            //TOP38
+  getPower,            //TOP39
+  getPower,            //TOP40
+  getPower,            //TOP41
   getIntMinus128,      //TOP42
   getIntMinus128,      //TOP43
   unknown,             //TOP44

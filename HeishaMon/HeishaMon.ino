@@ -1150,9 +1150,9 @@ void send_panasonic_query() {
   // rest is for the new data block on new models
   if (extraDataBlockAvailable) {
     log_message(F("Requesting new panasonic extra data"));
-    panasonicQuery[3] = 0x21;
+    panasonicQuery[3] = 0x21; //setting 4th byte to 0x21 is a request for extra block
     send_command(panasonicQuery, PANASONICQUERYSIZE);
-    panasonicQuery[3] = 0x10;
+    panasonicQuery[3] = 0x10; //setting 4th back to 0x10 for normal data request next time
   } else if (!extraDataBlockChecked) {
     extraDataBlockChecked = true;
     log_message(F("Checking if connected heatpump has extra data"));
