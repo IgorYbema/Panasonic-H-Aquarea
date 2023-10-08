@@ -17,6 +17,7 @@ extern byte optionalPCBQuery[OPTIONALPCBQUERYSIZE];
 
 
 extern const char* mqtt_topic_values;
+extern const char* mqtt_topic_xvalues;
 extern const char* mqtt_topic_commands;
 extern const char* mqtt_topic_pcbvalues;
 extern const char* mqtt_topic_1wire;

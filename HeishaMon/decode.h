@@ -9,6 +9,7 @@ void resetlastalldatatime();
 
 String getDataValue(char* data, unsigned int Topic_Number);
 void decode_heatpump_data(char* data, char* actData, PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime);
+void decode_heatpump_data_extra(char* data, char* actDataExtra, PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime);
 void decode_optional_heatpump_data(char* data, char* actOptDat, PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime);
 
 String unknown(byte input);
@@ -31,6 +32,7 @@ String getHeatMode(byte input);
 String getModel(byte input);
 String getFirstByte(byte input);
 String getSecondByte(byte input);
+String getUintt16(char * data, byte input);
 
 static const char _unknown[] PROGMEM = "unknown";
 
@@ -118,6 +120,7 @@ static const byte knownModels[sizeof(Model) / sizeof(Model[0])][10] PROGMEM = { 
 };
 
 #define NUMBER_OF_TOPICS 115 //last topic number + 1
+#define NUMBER_OF_TOPICS_EXTRA 6 //last topic number + 1
 #define NUMBER_OF_OPT_TOPICS 7 //last topic number + 1
 #define MAX_TOPIC_LEN 41 // max length + 1
 
@@ -129,6 +132,24 @@ static const char optTopics[][20] PROGMEM = {
   "Pool_Water_Pump", // OPT4
   "Solar_Water_Pump", // OPT5
   "Alarm_State", // OPT6
+};
+
+static const char xtopics[][MAX_TOPIC_LEN] PROGMEM = {
+  "Heat_Energy_Consumption", //XTOP0
+  "Cool_Energy_Consumption", //XTOP1
+  "DHW_Energy_Consumption", //XTOP2
+  "Heat_Energy_Production",  //XTOP3
+  "Cool_Energy_Production",  //XTOP4
+  "DHW_Energy_Production",  //XTOP5
+};
+
+static const byte xtopicBytes[] PROGMEM = { //can store the index as byte (8-bit unsigned humber) as there aren't more then 255 bytes (actually only 203 bytes) to decode
+  14,      //XTOP0
+  16,      //XTOP1
+  18,      //XTOP2
+  20,      //XTOP3
+  22,      //XTOP4
+  24,      //XTOP5
 };
 
 static const char topics[][MAX_TOPIC_LEN] PROGMEM = {
@@ -367,8 +388,18 @@ static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit 
   25,     //TOP114
 };
 
-typedef String (*topicFP)(byte);
 
+typedef String (*xtopicFP)(char*, byte);
+static const xtopicFP xtopicFunctions[] PROGMEM = {
+  getUintt16,         //XTOP0
+  getUintt16,         //XTOP1
+  getUintt16,         //XTOP2
+  getUintt16,         //XTOP3
+  getUintt16,         //XTOP4
+  getUintt16,         //XTOP5
+};
+
+typedef String (*topicFP)(byte);
 static const topicFP topicFunctions[] PROGMEM = {
   getBit7and8,         //TOP0
   unknown,             //TOP1
@@ -516,6 +547,16 @@ static const char *SolarModeDesc[] PROGMEM = {"3", "Disabled", "Buffer", "DHW"};
 static const char *ZonesSensorType[] PROGMEM = {"4", "Water Temperature", "External Thermostat", "Internal Thermostat", "Thermistor"};
 static const char *LiquidType[] PROGMEM = {"2", "Water", "Glycol"};
 static const char *ExtPadHeaterType[] PROGMEM = {"3", "Disabled", "Type-A","Type-B"};
+
+
+static const char **xtopicDescription[] PROGMEM = {
+  Watt,           //XTOP0
+  Watt,           //XTOP1
+  Watt,           //XTOP2
+  Watt,           //XTOP3
+  Watt,           //XTOP4
+  Watt,           //XTOP5
+};
 
 static const char **topicDescription[] PROGMEM = {
   OffOn,           //TOP0

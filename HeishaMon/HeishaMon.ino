@@ -74,6 +74,7 @@ byte data_length = 0;
 // store actual data
 String openTherm[2];
 char actData[DATASIZE] = { '\0' };
+char actDataExtra[DATASIZE] = { '\0' };
 #define OPTDATASIZE 20
 char actOptData[OPTDATASIZE]  = { '\0' };
 String RESTmsg = "";
@@ -365,16 +366,32 @@ bool readSerial()
       log_message(F("Checksum and header received ok!"));
       goodreads++;
 
-      if ((data_length == DATASIZE) && (data[3] == 0x10) ) { //decode the normal data
-        decode_heatpump_data(data, actData, mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
-        memcpy(actData, data, DATASIZE);
-        {
-          char mqtt_topic[256];
-          sprintf(mqtt_topic, "%s/raw/data", heishamonSettings.mqtt_topic_base);
-          mqtt_client.publish(mqtt_topic, (const uint8_t *)actData, DATASIZE, false); //do not retain this raw data
+      if (data_length == DATASIZE)  {  //receive a full data block
+        if  (data[3] == 0x10) { //decode the normal data block
+          decode_heatpump_data(data, actData, mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
+          memcpy(actData, data, DATASIZE);
+          {
+            char mqtt_topic[256];
+            sprintf(mqtt_topic, "%s/raw/data", heishamonSettings.mqtt_topic_base);
+            mqtt_client.publish(mqtt_topic, (const uint8_t *)actData, DATASIZE, false); //do not retain this raw data
+          }
+          data_length = 0;
+          return true;
+        } else if (data[3] == 0x21) { //decode the new model extra data block
+          decode_heatpump_data_extra(data, actDataExtra, mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
+          memcpy(actDataExtra, data, DATASIZE);
+          {
+            char mqtt_topic[256];
+            sprintf(mqtt_topic, "%s/raw/dataextra", heishamonSettings.mqtt_topic_base);
+            mqtt_client.publish(mqtt_topic, (const uint8_t *)actDataExtra, DATASIZE, false); //do not retain this raw data
+          }
+          data_length = 0;
+          return true;        
+        } else {
+          log_message(F("Received an unknown full size datagram. Can't decode this yet."));
+          data_length = 0;
+          return false;       
         }
-        data_length = 0;
-        return true;
       }
       else if (data_length == OPTDATASIZE ) { //optional pcb acknowledge answer
         log_message(F("Received optional PCB ack answer. Decoding this in OPT topics."));
