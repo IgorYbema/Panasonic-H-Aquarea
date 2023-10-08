@@ -45,6 +45,9 @@ settingsStruct heishamonSettings;
 bool sending = false; // mutex for sending data
 bool mqttcallbackinprogress = false; // mutex for processing mqtt callback
 
+bool extraDataBlockAvailable = false; // this will be set to true if, during boot, heishamon detects this heatpump has extra data block (like K and L series do)
+bool extraDataBlockChecked = false; // this will be true if we already checked for the extra data block
+
 #define MQTTRECONNECTTIMER 30000 //it takes 30 secs for each mqtt server reconnect attempt
 unsigned long lastMqttReconnectAttempt = 0;
 
@@ -378,6 +381,7 @@ bool readSerial()
           data_length = 0;
           return true;
         } else if (data[3] == 0x21) { //decode the new model extra data block
+          extraDataBlockAvailable = true; //set the flag to true so we know we can request this data always
           decode_heatpump_data_extra(data, actDataExtra, mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
           memcpy(actDataExtra, data, DATASIZE);
           {
@@ -1143,6 +1147,19 @@ void send_initial_query() {
 void send_panasonic_query() {
   log_message(F("Requesting new panasonic data"));
   send_command(panasonicQuery, PANASONICQUERYSIZE);
+  // rest is for the new data block on new models
+  if (extraDataBlockAvailable) {
+    log_message(F("Requesting new panasonic extra data"));
+    panasonicQuery[3] = 0x21;
+    send_command(panasonicQuery, PANASONICQUERYSIZE);
+    panasonicQuery[3] = 0x10;
+  } else if (!extraDataBlockChecked) {
+    extraDataBlockChecked = true;
+    log_message(F("Checking if connected heatpump has extra data"));
+    panasonicQuery[3] = 0x21;
+    send_command(panasonicQuery, PANASONICQUERYSIZE);
+    panasonicQuery[3] = 0x10;   
+  }
 }
 
 void send_optionalpcb_query() {

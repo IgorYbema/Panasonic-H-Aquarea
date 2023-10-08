@@ -3,6 +3,7 @@
 #include "rules.h"
 
 unsigned long lastalldatatime = 0;
+unsigned long lastallextradatatime = 0;
 unsigned long lastalloptdatatime = 0;
 
 String getBit1(byte input) {
@@ -109,9 +110,9 @@ String getEnergy(byte input) {
   return (String)value;
 }
 
-String getUintt16(char* data, byte address) {
-  uint16_t value = static_cast<uint16_t>((data[address] << 8) | data[address + 1]);
-  return (String)value;
+String getUintt16(char* data, byte addr) {
+  uint16_t value = static_cast<uint16_t>((data[addr + 1] << 8) | data[addr]);
+  return (String)(value - 1);
 }
 
 String getPumpFlow(char* data) {  // TOP1 //
@@ -142,6 +143,7 @@ String getErrorInfo(char* data) { // TOP44 //
 
 void resetlastalldatatime() {
   lastalldatatime = 0;
+  lastallextradatatime = 0;
   lastalloptdatatime = 0;
 }
 
@@ -228,12 +230,11 @@ String getDataValue(char* data, unsigned int Topic_Number) {
 
 String getDataValueExtra(char* data, unsigned int Topic_Number) {
   String Topic_Value;
-  byte Input_Byte;
   switch (Topic_Number) { //switch on topic numbers, some have special needs
     default:
-      byte address;
-      memcpy_P(&address, &topicBytes[Topic_Number], sizeof(byte));
-      Topic_Value = xtopicFunctions[Topic_Number](data, address);
+      byte addr;
+      memcpy_P(&addr, &xtopicBytes[Topic_Number], sizeof(byte));
+      Topic_Value = xtopicFunctions[Topic_Number](data, addr);
       break;
   }
   return Topic_Value;
@@ -304,13 +305,18 @@ void decode_heatpump_data(char* data, char* actData, PubSubClient &mqtt_client, 
 
 void decode_heatpump_data_extra(char* data, char* actDataExtra, PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime) {
   bool updatenow = false;
-  if ((lastalldatatime == 0) || ((unsigned long)(millis() - lastalldatatime) > (1000 * updateAllTime))) {
+  if ((lastallextradatatime == 0) || ((unsigned long)(millis() - lastallextradatatime) > (1000 * updateAllTime))) {
     updatenow = true;
-    lastalldatatime = millis();
+    lastallextradatatime = millis();
   }
   for (unsigned int Topic_Number = 0 ; Topic_Number < NUMBER_OF_TOPICS_EXTRA ; Topic_Number++) {
     String Topic_Value;
     Topic_Value = getDataValueExtra(data, Topic_Number);
+    {
+      char log_msg[256];
+      sprintf_P(log_msg, PSTR("testing XTOP%d %s: %s"), Topic_Number, xtopics[Topic_Number], Topic_Value.c_str());
+      log_message(log_msg);
+    }
 
     if ((updatenow) || ( getDataValueExtra(actDataExtra, Topic_Number) != Topic_Value )) {
       char log_msg[256];
