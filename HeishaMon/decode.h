@@ -8,6 +8,7 @@
 void resetlastalldatatime();
 
 String getDataValue(char* data, unsigned int Topic_Number);
+String getDataValueExtra(char* data, unsigned int Topic_Number);
 void decode_heatpump_data(char* data, char* actData, PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime);
 void decode_heatpump_data_extra(char* data, char* actDataExtra, PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime);
 void decode_optional_heatpump_data(char* data, char* actOptDat, PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime);

@@ -1065,11 +1065,13 @@ int handleTableRefresh(struct webserver_t *client, char* actData) {
   return 0;
 }
 
-int handleJsonOutput(struct webserver_t *client, char* actData, settingsStruct *heishamonSettings) {
+
+
+int handleJsonOutput(struct webserver_t *client, char* actData, char* actDataExtra, settingsStruct *heishamonSettings, bool extraDataBlockAvailable) {
   if (client->content == 0) {
     webserver_send(client, 200, (char *)"application/json", 0);
     webserver_send_content_P(client, PSTR("{\"heatpump\":["), 13);
-  } else if (client->content < NUMBER_OF_TOPICS) {
+  } else if ((client->content - 1) < NUMBER_OF_TOPICS) {
     for (uint8_t topic = client->content - 1; topic < NUMBER_OF_TOPICS && topic < client->content + 4 ; topic++) {
 
       webserver_send_content_P(client, PSTR("{\"Topic\":\"TOP"), 13);
@@ -1117,7 +1119,58 @@ int handleJsonOutput(struct webserver_t *client, char* actData, settingsStruct *
     if (client->content > NUMBER_OF_TOPICS) {
       client->content = NUMBER_OF_TOPICS;
     }
-  } else if (client->content == NUMBER_OF_TOPICS + 1) {
+  } else if ((client->content - NUMBER_OF_TOPICS - 1) < NUMBER_OF_TOPICS_EXTRA) {
+    if (client->content == NUMBER_OF_TOPICS + 1) {
+     webserver_send_content_P(client, PSTR("],\"heatpump extra\":["), 20);
+    }
+    for (uint8_t topic = (client->content - NUMBER_OF_TOPICS - 1); topic < NUMBER_OF_TOPICS_EXTRA && topic < (client->content - NUMBER_OF_TOPICS + 4) ; topic++) {
+
+      webserver_send_content_P(client, PSTR("{\"Topic\":\"XTOP"), 14);
+
+      {
+        char str[12];
+        itoa(topic, str, 10);
+        webserver_send_content(client, str, strlen(str));
+      }
+
+      webserver_send_content_P(client, PSTR("\",\"Name\":\""), 10);
+
+      webserver_send_content_P(client, xtopics[topic], strlen_P(xtopics[topic]));
+
+      webserver_send_content_P(client, PSTR("\",\"Value\":\""), 11);
+
+      {
+        String dataValue = getDataValueExtra(actDataExtra, topic);
+        char* str = (char *)dataValue.c_str();
+        webserver_send_content(client, str, strlen(str));
+      }
+
+      webserver_send_content_P(client, PSTR("\",\"Description\":\""), 17);
+
+      int maxvalue = atoi(xtopicDescription[topic][0]);
+      int value = actDataExtra[0] == '\0' ? 0 : getDataValueExtra(actDataExtra, topic).toInt();
+      if (maxvalue == 0) { //this takes the special case where the description is a real value description instead of a mode, so value should take first index (= 0 + 1)
+        value = 0;
+      }
+      if ((value < 0) || (value > maxvalue)) {
+        webserver_send_content_P(client, _unknown, strlen_P(_unknown));
+      }
+      else {
+        webserver_send_content_P(client, xtopicDescription[topic][value + 1], strlen_P(xtopicDescription[topic][value + 1]));
+      }
+
+      webserver_send_content_P(client, PSTR("\"}"), 2);
+
+      if (topic < (NUMBER_OF_TOPICS_EXTRA - 1)) {
+        webserver_send_content_P(client, PSTR(","), 1);
+      }
+    }
+    // The webserver also increases by 4
+    client->content += 4;
+    if (client->content > (NUMBER_OF_TOPICS + NUMBER_OF_TOPICS_EXTRA)) {
+      client->content = NUMBER_OF_TOPICS + NUMBER_OF_TOPICS_EXTRA;
+    }
+  } else if (client->content == (NUMBER_OF_TOPICS + NUMBER_OF_TOPICS_EXTRA + 1)) {
     webserver_send_content_P(client, PSTR("]"), 1);
     if (heishamonSettings->use_1wire) {
       webserver_send_content_P(client, PSTR(",\"1wire\":"), 9);
@@ -1135,6 +1188,7 @@ int handleJsonOutput(struct webserver_t *client, char* actData, settingsStruct *
   }
   return 0;
 }
+
 
 int showRules(struct webserver_t *client) {
   uint16_t len = 0, len1 = 0;
