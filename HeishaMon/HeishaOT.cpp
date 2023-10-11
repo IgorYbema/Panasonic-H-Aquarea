@@ -15,6 +15,7 @@ unsigned long otResponse = 0;
 struct heishaOTDataStruct_t heishaOTDataStruct[] = {
   //WRITE values
   { "chEnable", TBOOL, { .b = false }, 3 }, //is central heating enabled by thermostat
+  { "dhwEnable", TBOOL, { .b = false }, 3 }, //is dhw heating enabled by thermostat
   { "roomTemp", TFLOAT, { .f = 0 }, 3 }, //what is measured room temp by thermostat
   { "roomTempSet", TFLOAT, { .f = 0 }, 3 }, //what is request room temp setpoint by thermostat
   { "chSetpoint", TFLOAT, { .f = 0 }, 3 }, //what is calculated Ta setpoint by thermostat
@@ -59,13 +60,16 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
     case OpenThermMessageID::Status: { //mandatory
         unsigned long data = ot.getUInt(request);
         unsigned int CHEnable = (data >> 8) & (1 << 0);
-        getOTStructMember(_F("chEnable"))->value.b = (bool)CHEnable;
         unsigned int DHWEnable = ((data >> 8) & (1 << 1)) >> 1;
         unsigned int Cooling = ((data >> 8) & (1 << 2)) >> 2;
         unsigned int OTCEnable = ((data >> 8) & (1 << 3)) >> 3;
         unsigned int CH2Enable = ((data >> 8) & (1 << 4)) >> 4;
         unsigned int SWMode = ((data >> 8) & (1 << 5)) >> 5;
         unsigned int DHWBlock = ((data >> 8) & (1 << 6)) >> 6;
+
+        getOTStructMember(_F("chEnable"))->value.b = (bool)CHEnable;
+        getOTStructMember(_F("dhwEnable"))->value.b = (bool)DHWEnable;
+
         sprintf_P(log_msg, PSTR(
                 "OpenTherm: Received status check: %d, CH: %d, DHW: %d, Cooling, %d, OTC: %d, CH2: %d, SWMode: %d, DHWBlock: %d"),
                 data >> 8, CHEnable, DHWEnable, Cooling, OTCEnable, CH2Enable, SWMode, DHWBlock
@@ -89,6 +93,7 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
         unsigned int responsedata = FaultInd | (CHMode << 1) | (DHWMode << 2) | (FlameStatus << 3) | (CoolingStatus << 4) | (CH2 << 5) | (DiagInd << 6);
         otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::Status, (data |= responsedata));
         rules_event_cb(_F("?"), _F("chEnable"));
+        rules_event_cb(_F("?"), _F("dhwEnable"));
       } break;
     case OpenThermMessageID::TSet: { //mandatory
         getOTStructMember(_F("chSetpoint"))->value.f = ot.getFloat(request);
@@ -224,7 +229,7 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
         }
       } break;
     case OpenThermMessageID::Tdhw: {
-        log_message(_F("OpenTherm: Received read DWH temp"));
+        log_message(_F("OpenTherm: Received read DHW temp"));
         if (getOTStructMember(_F("dhwTemp"))->value.f > -99) {
           unsigned long data = ot.temperatureToData(getOTStructMember(_F("dhwTemp"))->value.f);
           otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::Tdhw, data);
