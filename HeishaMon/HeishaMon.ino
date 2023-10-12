@@ -500,6 +500,8 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
       openTherm[1] = cpy;
 
       rules_event_cb("setpoint");
+    } else if (stricmp((char const *)topic, "panasonic_heat_pump/restart") == 0) {
+      ESP.restart();
     }
     mqttcallbackinprogress = false;
   }
