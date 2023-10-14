@@ -770,7 +770,7 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
           case 11:
           case 12:
           case 13: {
-              return handleTableRefresh(client, actData);
+              return handleTableRefresh(client, actData, actDataExtra, extraDataBlockAvailable);
             } break;
           case 20: {
               return handleJsonOutput(client, actData, actDataExtra, &heishamonSettings, extraDataBlockAvailable);
