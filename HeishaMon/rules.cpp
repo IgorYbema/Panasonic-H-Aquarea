@@ -1342,19 +1342,24 @@ void rules_setup(void) {
 void rules_execute(void) {
   int8_t ret = 0;
   uint8_t nr = 0;
-  ret = rules_loop(rules, nrrules, &nr);
-  if(ret == 0) {
-    char out[512];
-    logprintf_P(F("%s %d %s %d"), F(">>> rule"), nr, F("nrbytes:"), rules[nr]->ast.nrbytes);
-    logprintf_P(F("%s %d"), F(">>> global stack nrbytes:"), global_varstack.nrbytes);
+  while(1) {
+    ret = rules_loop(rules, nrrules, &nr);
+    if(ret == 0) {
+      char out[512];
+      logprintf_P(F("%s %d %s %d"), F(">>> rule"), nr, F("nrbytes:"), rules[nr]->ast.nrbytes);
+      logprintf_P(F("%s %d"), F(">>> global stack nrbytes:"), global_varstack.nrbytes);
 
-    logprintln_P(F("\n>>> local variables"));
-    memset(&out, 0, sizeof(out));
-    vm_value_prt(rules[nr], (char *)&out, sizeof(out));
-    logprintln(out);
-    logprintln_P(F(">>> global variables"));
-    memset(&out, 0, sizeof(out));
-    vm_global_value_prt((char *)&out, sizeof(out));
-    logprintln(out);
+      logprintln_P(F("\n>>> local variables"));
+      memset(&out, 0, sizeof(out));
+      vm_value_prt(rules[nr], (char *)&out, sizeof(out));
+      logprintln(out);
+      logprintln_P(F(">>> global variables"));
+      memset(&out, 0, sizeof(out));
+      vm_global_value_prt((char *)&out, sizeof(out));
+      logprintln(out);
+    }
+    if(ret == -2) {
+      break;
+    }
   }
 }
