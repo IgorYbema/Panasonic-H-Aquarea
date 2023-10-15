@@ -184,6 +184,7 @@ static int8_t is_variable(char *text, uint16_t size) {
         x++;
       }
       if(match == 0) {
+        logprintf_P(F("err: %s %d"), __FUNCTION__, __LINE__);
         return -1;
       }
     }
@@ -275,7 +276,7 @@ static int8_t event_cb(struct rules_t *obj, char *name) {
     log_message(name);
     return -1;
   }
-  
+
   obj->ctx.go = rules[nr];
   rules[nr]->ctx.ret = obj;
 
@@ -332,6 +333,7 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
     FREE(out);
     return (unsigned char *)&varstack->buffer[go];
   }
+
   if(var->token[0] == '#') {
     struct rule_stack_t *varstack = &global_varstack;
 
@@ -494,6 +496,7 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
       }
     }
   }
+
   if(var->token[0] == '%') {
     if(stricmp((char *)&var->token[1], "hour") == 0) {
       time_t now = time(NULL);
@@ -567,6 +570,7 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
     }
     logprintf_P(F("err: %s %d"), __FUNCTION__, __LINE__);
   }
+
   if(strncmp_P((const char *)var->token, PSTR("ds18b20#"), 8) == 0) {
     uint8_t i = 0;
     for(i=0;i<dallasDevicecount;i++) {
@@ -1284,14 +1288,14 @@ int rules_parse(char *file) {
 }
 
 void rules_event_cb(const char *prefix, const char *name) {
-  uint8_t i = 0, len = strlen(name), len1 = strlen(prefix), tlen = 0;
+  uint8_t len = strlen(name), len1 = strlen(prefix), tlen = 0;
   char buf[100] = { '\0' };
   snprintf_P((char *)&buf, 100, PSTR("%s%s"), prefix, name);
   int8_t nr = rule_by_name(rules, nrrules, (char *)buf);
   if(nr > -1) {
-  logprintf_P(F("%s %s %s"), F("===="), name, F("===="));
-  logprintf_P(F("%s %d %s %d"), F(">>> rule"), i, F("nrbytes:"), rules[i]->ast.nrbytes);
-  logprintf_P(F("%s %d"), F(">>> global stack nrbytes:"), global_varstack.nrbytes);
+    logprintf_P(F("%s %s %s"), F("===="), name, F("===="));
+    logprintf_P(F("%s %d %s %d"), F(">>> rule"), nr, F("nrbytes:"), rules[nr]->ast.nrbytes);
+    logprintf_P(F("%s %d"), F(">>> global stack nrbytes:"), global_varstack.nrbytes);
 
     rule_call(nr);
     return;
