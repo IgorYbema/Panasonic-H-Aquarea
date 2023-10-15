@@ -3,6 +3,7 @@
 #include "version.h"
 #include "htmlcode.h"
 #include "commands.h"
+#include "src/common/progmem.h"
 #include "src/common/webserver.h"
 #include "src/common/timerqueue.h"
 
@@ -165,16 +166,16 @@ void ntpReload(settingsStruct *heishamonSettings) {
 
 void loadSettings(settingsStruct *heishamonSettings) {
   //read configuration from FS json
-  log_message(F("mounting FS..."));
+  log_message(_F("mounting FS..."));
 
   if (LittleFS.begin()) {
-    log_message(F("mounted file system"));
+    log_message(_F("mounted file system"));
     if (LittleFS.exists("/config.json")) {
       //file exists, reading and loading
-      log_message(F("reading config file"));
+      log_message(_F("reading config file"));
       File configFile = LittleFS.open("/config.json", "r");
       if (configFile) {
-        log_message(F("opened config file"));
+        log_message(_F("opened config file"));
         size_t size = configFile.size();
         // Allocate a buffer to store contents of the file.
         std::unique_ptr<char[]> buf(new char[size]);
@@ -186,7 +187,7 @@ void loadSettings(settingsStruct *heishamonSettings) {
         serializeJson(jsonDoc, log_msg);
         log_message(log_msg);
         if (!error) {
-          log_message(F("parsed json"));
+          log_message(_F("parsed json"));
           //read updated parameters, make sure no overflow
           if ( jsonDoc["wifi_ssid"] ) strncpy(heishamonSettings->wifi_ssid, jsonDoc["wifi_ssid"], sizeof(heishamonSettings->wifi_ssid));
           if ( jsonDoc["wifi_password"] ) strncpy(heishamonSettings->wifi_password, jsonDoc["wifi_password"], sizeof(heishamonSettings->wifi_password));
@@ -231,7 +232,7 @@ void loadSettings(settingsStruct *heishamonSettings) {
           if (jsonDoc["s0_2_maxpulsewidth"]) heishamonSettings->s0Settings[1].maximalPulseWidth = jsonDoc["s0_2_maxpulsewidth"];
           ntpReload(heishamonSettings);
         } else {
-          log_message(F("Failed to load json config, forcing config reset."));
+          log_message(_F("Failed to load json config, forcing config reset."));
           WiFi.persistent(true);
           WiFi.disconnect();
           WiFi.persistent(false);
@@ -240,20 +241,20 @@ void loadSettings(settingsStruct *heishamonSettings) {
       }
     }
     else {
-      log_message(F("No config.json exists! Forcing a config reset."));
+      log_message(_F("No config.json exists! Forcing a config reset."));
       WiFi.persistent(true);
       WiFi.disconnect();
       WiFi.persistent(false);
     }
   } else {
-    log_message(F("failed to mount FS"));
+    log_message(_F("failed to mount FS"));
   }
   //end read
 
 }
 
 void setupWifi(settingsStruct *heishamonSettings) {
-  log_message(F("Wifi reconnecting with new configuration..."));
+  log_message(_F("Wifi reconnecting with new configuration..."));
   //no sleep wifi
   WiFi.setSleepMode(WIFI_NONE_SLEEP);
   WiFi.mode(WIFI_AP_STA);
@@ -261,7 +262,7 @@ void setupWifi(settingsStruct *heishamonSettings) {
   WiFi.softAPdisconnect(true);
 
   if (heishamonSettings->wifi_ssid[0] != '\0') {
-    log_message(F("Wifi client mode..."));
+    log_message(_F("Wifi client mode..."));
     //WiFi.persistent(true); //breaks stuff
 
     if (heishamonSettings->wifi_password[0] == '\0') {
@@ -271,7 +272,7 @@ void setupWifi(settingsStruct *heishamonSettings) {
     }
   }
   else {
-    log_message(F("Wifi hotspot mode..."));
+    log_message(_F("Wifi hotspot mode..."));
     WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
     WiFi.softAP(F("HeishaMon-Setup"));
   }
@@ -1000,9 +1001,9 @@ int handleRoot(struct webserver_t *client, float readpercentage, int mqttReconne
   return 0;
 }
 
-int handleTableRefresh(struct webserver_t *client, char* actData) {
+int handleTableRefresh(struct webserver_t *client, char* actData, char* actDataExtra, bool extraDataBlockAvailable) {
   int ret = 0;
-
+  int extraTopics = extraDataBlockAvailable ? NUMBER_OF_TOPICS_EXTRA : 0; //set to 0 if there is no datablock so we don't run table data for it
   if (client->route == 11) {
     if (client->content == 0) {
       webserver_send(client, 200, (char *)"text/html", 0);
@@ -1057,20 +1058,62 @@ int handleTableRefresh(struct webserver_t *client, char* actData) {
         }
 
         webserver_send_content_P(client, PSTR("</td></tr>"), 10);
+        client->content++;
       }
-      // The webserver also increases by 1
-      client->content += 3;
+      client->content--; // The webserver also increases by 1
+    } else if (client->content - NUMBER_OF_TOPICS < extraTopics ) {
+      for (uint8_t topic = client->content  - NUMBER_OF_TOPICS ; topic < extraTopics && topic < (client->content - NUMBER_OF_TOPICS + 4 ); topic++) {
+
+        webserver_send_content_P(client, PSTR("<tr><td>XTOP"), 12);
+
+        char str[12];
+        itoa(topic, str, 10);
+        webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR("</td><td>"), 9);
+        webserver_send_content_P(client, xtopics[topic], strlen_P(xtopics[topic]));
+        webserver_send_content_P(client, PSTR("</td><td>"), 9);
+
+        {
+          String dataValue = actData[0] == '\0' ? "" : getDataValueExtra(actDataExtra, topic);
+          char* str = (char *)dataValue.c_str();
+          webserver_send_content(client, str, strlen(str));
+        }
+
+        webserver_send_content_P(client, PSTR("</td><td>"), 9);
+
+        int maxvalue = atoi(xtopicDescription[topic][0]);
+        int value = actData[0] == '\0' ? 0 : getDataValueExtra(actDataExtra, topic).toInt();
+        if (maxvalue == 0) { //this takes the special case where the description is a real value description instead of a mode, so value should take first index (= 0 + 1)
+          value = 0;
+        }
+        if ((value < 0) || (value > maxvalue)) {
+          webserver_send_content_P(client, _unknown, strlen_P(_unknown));
+        }
+        else {
+          webserver_send_content_P(client, xtopicDescription[topic][value + 1], strlen_P(xtopicDescription[topic][value + 1]));
+
+        }
+
+        webserver_send_content_P(client, PSTR("</td></tr>"), 10);
+        client->content++;
+      }
+      client->content--; // The webserver also increases by 1
     }
+
   }
   return 0;
 }
 
-int handleJsonOutput(struct webserver_t *client, char* actData, settingsStruct *heishamonSettings) {
+
+
+int handleJsonOutput(struct webserver_t *client, char* actData, char* actDataExtra, settingsStruct *heishamonSettings, bool extraDataBlockAvailable) {
+  int extraTopics = extraDataBlockAvailable ? NUMBER_OF_TOPICS_EXTRA : 0; //set to 0 if there is no datablock so we don't run json data for it
   if (client->content == 0) {
     webserver_send(client, 200, (char *)"application/json", 0);
     webserver_send_content_P(client, PSTR("{\"heatpump\":["), 13);
-  } else if (client->content < NUMBER_OF_TOPICS) {
-    for (uint8_t topic = client->content - 1; topic < NUMBER_OF_TOPICS && topic < client->content + 4 ; topic++) {
+  } else if ((client->content - 1) < NUMBER_OF_TOPICS) {
+    for (uint8_t topic = client->content - 1; topic < NUMBER_OF_TOPICS && topic < client->content + 4 ; topic++) {  //5 TOPS per webserver run (because content was 1 at start, so makes 5)
 
       webserver_send_content_P(client, PSTR("{\"Topic\":\"TOP"), 13);
 
@@ -1111,13 +1154,58 @@ int handleJsonOutput(struct webserver_t *client, char* actData, settingsStruct *
       if (topic < NUMBER_OF_TOPICS - 1) {
         webserver_send_content_P(client, PSTR(","), 1);
       }
+      client->content++;
     }
-    // The webserver also increases by 4
-    client->content += 4;
-    if (client->content > NUMBER_OF_TOPICS) {
-      client->content = NUMBER_OF_TOPICS;
+    client->content--; // The webserver also increases by 1
+  } else if ((client->content - NUMBER_OF_TOPICS - 1) < extraTopics) {
+    if (client->content == NUMBER_OF_TOPICS + 1) {
+     webserver_send_content_P(client, PSTR("],\"heatpump extra\":["), 20);
     }
-  } else if (client->content == NUMBER_OF_TOPICS + 1) {
+    for (uint8_t topic = (client->content - NUMBER_OF_TOPICS - 1); topic < extraTopics && topic < (client->content - NUMBER_OF_TOPICS + 4) ; topic++) {
+
+      webserver_send_content_P(client, PSTR("{\"Topic\":\"XTOP"), 14);
+
+      {
+        char str[12];
+        itoa(topic, str, 10);
+        webserver_send_content(client, str, strlen(str));
+      }
+
+      webserver_send_content_P(client, PSTR("\",\"Name\":\""), 10);
+
+      webserver_send_content_P(client, xtopics[topic], strlen_P(xtopics[topic]));
+
+      webserver_send_content_P(client, PSTR("\",\"Value\":\""), 11);
+
+      {
+        String dataValue = getDataValueExtra(actDataExtra, topic);
+        char* str = (char *)dataValue.c_str();
+        webserver_send_content(client, str, strlen(str));
+      }
+
+      webserver_send_content_P(client, PSTR("\",\"Description\":\""), 17);
+
+      int maxvalue = atoi(xtopicDescription[topic][0]);
+      int value = actDataExtra[0] == '\0' ? 0 : getDataValueExtra(actDataExtra, topic).toInt();
+      if (maxvalue == 0) { //this takes the special case where the description is a real value description instead of a mode, so value should take first index (= 0 + 1)
+        value = 0;
+      }
+      if ((value < 0) || (value > maxvalue)) {
+        webserver_send_content_P(client, _unknown, strlen_P(_unknown));
+      }
+      else {
+        webserver_send_content_P(client, xtopicDescription[topic][value + 1], strlen_P(xtopicDescription[topic][value + 1]));
+      }
+
+      webserver_send_content_P(client, PSTR("\"}"), 2);
+
+      if (topic < (extraTopics - 1)) {
+        webserver_send_content_P(client, PSTR(","), 1);
+      }
+      client->content++;
+    }
+    client->content--; // The webserver also increases by 1
+  } else if (client->content == (NUMBER_OF_TOPICS + extraTopics + 1)) {
     webserver_send_content_P(client, PSTR("]"), 1);
     if (heishamonSettings->use_1wire) {
       webserver_send_content_P(client, PSTR(",\"1wire\":"), 9);
@@ -1135,6 +1223,7 @@ int handleJsonOutput(struct webserver_t *client, char* actData, settingsStruct *
   }
   return 0;
 }
+
 
 int showRules(struct webserver_t *client) {
   uint16_t len = 0, len1 = 0;

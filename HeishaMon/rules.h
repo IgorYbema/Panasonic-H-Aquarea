@@ -18,11 +18,10 @@
 #include "src/common/mem.h"
 
 void rules_boot(void);
-void rules_new_event(const char *event);
 int rules_parse(char *file);
 void rules_setup(void);
 void rules_timer_cb(int nr);
-void rules_event_cb(char *name);
+void rules_event_cb(const char *prefix, const char *name);
 void rules_execute(void);
 
 #endif
