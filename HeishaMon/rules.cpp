@@ -173,12 +173,24 @@ static int is_variable(char *text, unsigned int *pos, unsigned int size) {
           break;
         }
       }
-
       if(match == 0) {
         int nrtopics = sizeof(topics)/sizeof(topics[0]);
         for(x=0;x<nrtopics;x++) {
           char cpy[MAX_TOPIC_LEN];
           memcpy_P(&cpy, topics[x], MAX_TOPIC_LEN);
+          size_t len = strlen(cpy);
+          if(size-1 == len && strnicmp(&text[(*pos)+1], cpy, len) == 0) {
+            i = len+1;
+            match = 1;
+            break;
+          }
+        }
+      }
+      if(match == 0) {
+        int nrtopics = sizeof(xtopics)/sizeof(xtopics[0]);
+        for(x=0;x<nrtopics;x++) {
+          char cpy[MAX_TOPIC_LEN];
+          memcpy_P(&cpy, xtopics[x], MAX_TOPIC_LEN);
           size_t len = strlen(cpy);
           if(size-1 == len && strnicmp(&text[(*pos)+1], cpy, len) == 0) {
             i = len+1;
@@ -227,27 +239,43 @@ static int is_event(char *text, unsigned int *pos, unsigned int size) {
       }
     }
 
-    int nroptcommands = sizeof(optionalCommands)/sizeof(optionalCommands[0]);
-    for(x=0;x<nroptcommands;x++) {
-      optCmdStruct cmd;
-      memcpy_P(&cmd, &optionalCommands[x], sizeof(cmd));
-      size_t len = strlen(cmd.name);
-      if(size-1 == len && strnicmp(&text[(*pos)+1], cmd.name, len) == 0) {
-        i = len+1;
-        match = 1;
-        break;
+    if(match == 0) {
+      int nroptcommands = sizeof(optionalCommands)/sizeof(optionalCommands[0]);
+      for(x=0;x<nroptcommands;x++) {
+        optCmdStruct cmd;
+        memcpy_P(&cmd, &optionalCommands[x], sizeof(cmd));
+        size_t len = strlen(cmd.name);
+        if(size-1 == len && strnicmp(&text[(*pos)+1], cmd.name, len) == 0) {
+          i = len+1;
+          match = 1;
+          break;
+        }
       }
     }
-
-    int nrtopics = sizeof(topics)/sizeof(topics[0]);
-    for(x=0;x<nrtopics;x++) {
-      size_t len = strlen_P(topics[x]);
-      char cpy[len];
-      memcpy_P(&cpy, &topics[x], len);
-      if(size-1 == len && strnicmp(&text[(*pos)+1], cpy, len) == 0) {
-        i = len+1;
-        match = 1;
-        break;
+    if(match == 0) {
+      int nrtopics = sizeof(topics)/sizeof(topics[0]);
+      for(x=0;x<nrtopics;x++) {
+        size_t len = strlen_P(topics[x]);
+        char cpy[len];
+        memcpy_P(&cpy, &topics[x], len);
+        if(size-1 == len && strnicmp(&text[(*pos)+1], cpy, len) == 0) {
+          i = len+1;
+          match = 1;
+          break;
+        }
+      }
+    }
+    if(match == 0) {
+      int nrtopics = sizeof(xtopics)/sizeof(xtopics[0]);
+      for(x=0;x<nrtopics;x++) {
+        size_t len = strlen_P(xtopics[x]);
+        char cpy[len];
+        memcpy_P(&cpy, &xtopics[x], len);
+        if(size-1 == len && strnicmp(&text[(*pos)+1], cpy, len) == 0) {
+          i = len+1;
+          match = 1;
+          break;
+        }
       }
     }
     if(match == 0) {
@@ -548,11 +576,9 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
         }
       }
     }
-  }
-  if(node->token[0] == '~') {
     for(i=0;i<NUMBER_OF_TOPICS_EXTRA;i++) {
       char cpy[MAX_TOPIC_LEN];
-      memcpy_P(&cpy, topics[i], MAX_TOPIC_LEN);
+      memcpy_P(&cpy, xtopics[i], MAX_TOPIC_LEN);
       if(stricmp(cpy, (char *)&node->token[1]) == 0) {
         String dataValue = actDataExtra[0] == '\0' ? "" : getDataValueExtra(actDataExtra, i);
         char *str = (char *)dataValue.c_str();
@@ -583,7 +609,7 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
         }
       }
     }
-  }  
+  }
   if(node->token[0] == '%') {
     if(stricmp((char *)&node->token[1], "hour") == 0) {
       time_t now = time(NULL);

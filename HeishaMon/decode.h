@@ -136,12 +136,12 @@ static const char optTopics[][20] PROGMEM = {
 };
 
 static const char xtopics[][MAX_TOPIC_LEN] PROGMEM = {
-  "Heat_Power_Consumption", //XTOP0
-  "Cool_Power_Consumption", //XTOP1
-  "DHW_Power_Consumption", //XTOP2
-  "Heat_Power_Production",  //XTOP3
-  "Cool_Power_Production",  //XTOP4
-  "DHW_Power_Production",  //XTOP5
+  "Heat_Power_Consumption_Extra", //XTOP0
+  "Cool_Power_Consumption_Extra", //XTOP1
+  "DHW_Power_Consumption_Extra", //XTOP2
+  "Heat_Power_Production_Extra",  //XTOP3
+  "Cool_Power_Production_Extra",  //XTOP4
+  "DHW_Power_Production_Extra",  //XTOP5
 };
 
 static const byte xtopicBytes[] PROGMEM = { //can store the index as byte (8-bit unsigned humber) as there aren't more then 255 bytes (actually only 203 bytes) to decode
