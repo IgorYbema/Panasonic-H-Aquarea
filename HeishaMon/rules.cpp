@@ -27,6 +27,7 @@
 #include "commands.h"
 
 #define MAXCOMMANDSINBUFFER 10
+#define OPTDATASIZE 20
 
 bool send_command(byte* command, int length);
 
@@ -34,6 +35,7 @@ extern int dallasDevicecount;
 extern dallasDataStruct *actDallasData;
 extern settingsStruct heishamonSettings;
 extern char actData[DATASIZE];
+extern char actOptData[OPTDATASIZE];
 extern char actDataExtra[DATASIZE];
 extern String openTherm[2];
 static uint8_t parsing = 0;
