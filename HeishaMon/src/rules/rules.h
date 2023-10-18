@@ -306,7 +306,8 @@ typedef struct vm_teof_t {
   uint8_t type;
 } __attribute__((aligned(4))) vm_teof_t;
 
-int8_t rule_token(struct rule_stack_t *obj, uint16_t pos, unsigned char *out, uint16_t *bufsize);
+int8_t rule_token(struct rule_stack_t *obj, uint16_t pos, unsigned char **out);
+char *rule_by_nr(struct rules_t **rules, uint8_t nrrules, uint8_t nr);
 int8_t rule_by_name(struct rules_t **rules, uint8_t nrrules, char *name);
 int8_t rule_initialize(struct pbuf *input, struct rules_t ***rules, uint8_t *nrrules, struct pbuf *mempool, void *userdata);
 int8_t rule_max_var_bytes(void);

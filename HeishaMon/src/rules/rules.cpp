@@ -82,12 +82,66 @@ int8_t rule_max_var_bytes(void) {
   return MAX(sizeof(struct vm_vinteger_t), MAX(sizeof(struct vm_vfloat_t), sizeof(struct vm_vnull_t)));
 }
 
+char *rule_by_nr(struct rules_t **rules, uint8_t nrrules, uint8_t nr) {
+  uint8_t a = 0;
+  uint16_t go = 0, type = 0;
+  if(nr > nrrules) {
+    return NULL;
+  }
+  struct rules_t *obj = rules[nr];
+  struct vm_tstart_t *start = (struct vm_tstart_t *)&obj->ast.buffer[0];
+  if(start == NULL) {
+    return NULL;
+  }
+  if(is_mmu == 1) {
+    go = mmu_get_uint16(&start->go);
+    type = mmu_get_uint8(&obj->ast.buffer[go]);
+  } else {
+    go = start->go;
+    type = obj->ast.buffer[go];
+  }
+  if(type != TEVENT) {
+    return NULL;
+  } else {
+    char *cpy = NULL;
+    uint16_t len = 0, x = 0;
+    struct vm_tevent_t *ev = (struct vm_tevent_t *)&obj->ast.buffer[go];
+
+    if(is_mmu == 1) {
+      while(mmu_get_uint8(&ev->token[++len]) != 0);
+      if((cpy = (char *)MALLOC(len+1)) == NULL) {
+        return NULL;
+      }
+      memset(cpy, 0, len+1);
+      for(x=0;x<len;x++) {
+        cpy[x] = mmu_get_uint8(&ev->token[x]);
+      }
+      return cpy;
+    } else {
+      while(ev->token[++len] != 0);
+      if((cpy = (char *)MALLOC(len+1)) == NULL) {
+        return NULL;
+      }
+      memset(cpy, 0, len+1);
+      for(x=0;x<len;x++) {
+        cpy[x] = ev->token[x];
+      }
+
+      return cpy;
+    }
+  }
+  return NULL;
+}
+
 int8_t rule_by_name(struct rules_t **rules, uint8_t nrrules, char *name) {
   uint8_t a = 0;
   uint16_t go = 0, type = 0;
   for(a=0;a<nrrules;a++) {
     struct rules_t *obj = rules[a];
     struct vm_tstart_t *start = (struct vm_tstart_t *)&obj->ast.buffer[0];
+    if(start == NULL) {
+      return -1;
+    }
     if(is_mmu == 1) {
       go = mmu_get_uint16(&start->go);
       type = mmu_get_uint8(&obj->ast.buffer[go]);
@@ -7088,8 +7142,10 @@ void print_bytecode(struct rules_t *obj) {
 #endif
 /*LCOV_EXCL_STOP*/
 
-int8_t rule_token(struct rule_stack_t *obj, uint16_t pos, unsigned char *out, uint16_t *bufsize) {
-  if(out == NULL || out[0] == 0) {
+
+int8_t rule_token(struct rule_stack_t *obj, uint16_t pos, unsigned char **out) {
+  uint16_t bufsize = 0;
+  if(out == NULL || *out == NULL) {
     uint8_t out_type = 0;
     if(is_mmu == 1) {
       out_type = mmu_get_uint8(&obj->buffer[pos]);
@@ -7100,20 +7156,20 @@ int8_t rule_token(struct rule_stack_t *obj, uint16_t pos, unsigned char *out, ui
     switch(out_type) {
       case TVALUE: {
         struct vm_tvalue_t *nodeA = (struct vm_tvalue_t *)&obj->buffer[pos];
-        struct vm_tvalue_t *nodeB = NULL;
-        if(out != NULL) {
-          nodeB = (struct vm_tvalue_t *)out;
-        }
+
         if(is_mmu == 1) {
           uint16_t x = 0, len = 0;
           while(mmu_get_uint8(&nodeA->token[++x]) != 0);
           len = x;
           x = 0;
 
-          if(out == NULL || sizeof(struct vm_tvalue_t)+len+1 > *bufsize) {
-            *bufsize = sizeof(struct vm_tvalue_t)+len+1;
-            return -2;
+          bufsize = sizeof(struct vm_tvalue_t)+len+1;
+          if((*out = (unsigned char *)MALLOC(bufsize)) == NULL) {
+            return -1;
           }
+          memset(*out, 0, bufsize);
+
+          struct vm_tvalue_t *nodeB = (struct vm_tvalue_t *)*out;
 
           while(x < len) {
             nodeB->token[x] = mmu_get_uint8(&nodeA->token[x]);
@@ -7123,10 +7179,13 @@ int8_t rule_token(struct rule_stack_t *obj, uint16_t pos, unsigned char *out, ui
           nodeB->type = mmu_get_uint8(&nodeA->type);
           nodeB->go = mmu_get_uint16(&nodeA->go);
         } else {
-          if(out == NULL || sizeof(struct vm_tvalue_t)+strlen((char *)nodeA->token)+1 > *bufsize) {
-            *bufsize = sizeof(struct vm_tvalue_t)+strlen((char *)nodeA->token)+1;
-            return -2;
+          bufsize = sizeof(struct vm_tvalue_t)+strlen((char *)nodeA->token)+1;
+          if((*out = (unsigned char *)MALLOC(bufsize)) == NULL) {
+            return -1;
           }
+          memset(*out, 0, bufsize);
+
+          struct vm_tvalue_t *nodeB = (struct vm_tvalue_t *)*out;
 
           nodeB->type = nodeA->type;
           nodeB->go = nodeA->go;
@@ -7136,15 +7195,14 @@ int8_t rule_token(struct rule_stack_t *obj, uint16_t pos, unsigned char *out, ui
       } break;
       case VINTEGER: {
         struct vm_vinteger_t *nodeA = (struct vm_vinteger_t *)&obj->buffer[pos];
-        struct vm_vinteger_t *nodeB = NULL;
-        if(out != NULL) {
-          nodeB = (struct vm_vinteger_t *)out;
-        }
 
-        if(out == NULL || sizeof(struct vm_vinteger_t) > *bufsize) {
-          *bufsize = sizeof(struct vm_vinteger_t);
-          return -2;
+        bufsize = sizeof(struct vm_vinteger_t);
+        if((*out = (unsigned char *)MALLOC(bufsize)) == NULL) {
+          return -1;
         }
+        memset(*out, 0, bufsize);
+
+        struct vm_vinteger_t *nodeB = (struct vm_vinteger_t *)*out;
 
         if(is_mmu == 1) {
           nodeB->type = mmu_get_uint8(&nodeA->type);
@@ -7158,15 +7216,14 @@ int8_t rule_token(struct rule_stack_t *obj, uint16_t pos, unsigned char *out, ui
       } break;
       case VFLOAT: {
         struct vm_vfloat_t *nodeA = (struct vm_vfloat_t *)&obj->buffer[pos];
-        struct vm_vfloat_t *nodeB = NULL;
-        if(out != NULL) {
-          nodeB = (struct vm_vfloat_t *)out;
-        }
 
-        if(out == NULL || sizeof(struct vm_vfloat_t) > *bufsize) {
-          *bufsize = sizeof(struct vm_vfloat_t);
-          return -2;
+        bufsize = sizeof(struct vm_vfloat_t);
+        if((*out = (unsigned char *)MALLOC(bufsize)) == NULL) {
+          return -1;
         }
+        memset(*out, 0, bufsize);
+
+        struct vm_vfloat_t *nodeB = (struct vm_vfloat_t *)*out;
 
         if(is_mmu == 1) {
           nodeB->type = mmu_get_uint8(&nodeA->type);
@@ -7180,15 +7237,14 @@ int8_t rule_token(struct rule_stack_t *obj, uint16_t pos, unsigned char *out, ui
       } break;
       case VNULL: {
         struct vm_vnull_t *nodeA = (struct vm_vnull_t *)&obj->buffer[pos];
-        struct vm_vnull_t *nodeB = NULL;
-        if(out != NULL) {
-          nodeB = (struct vm_vnull_t *)out;
-        }
 
-        if(out == NULL || sizeof(struct vm_vnull_t) > *bufsize) {
-          *bufsize = sizeof(struct vm_vnull_t);
-          return -2;
+        bufsize = sizeof(struct vm_vnull_t);
+        if((*out = (unsigned char *)MALLOC(bufsize)) == NULL) {
+          return -1;
         }
+        memset(*out, 0, bufsize);
+
+        struct vm_vnull_t *nodeB = (struct vm_vnull_t *)*out;
 
         if(is_mmu == 1) {
           nodeB->type = mmu_get_uint8(&nodeA->type);
@@ -7199,21 +7255,17 @@ int8_t rule_token(struct rule_stack_t *obj, uint16_t pos, unsigned char *out, ui
         }
       } break;
       default: {
+        logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
         return -1;
       } break;
     }
   } else {
-    switch(out[0]) {
+    switch((*out)[0]) {
       case TVALUE: {
-        struct vm_tvalue_t *nodeA = (struct vm_tvalue_t *)out;
+        struct vm_tvalue_t *nodeA = (struct vm_tvalue_t *)*out;
         struct vm_tvalue_t *nodeB = (struct vm_tvalue_t *)&obj->buffer[pos];
         if(is_mmu == 1) {
           uint16_t x = 0, len = strlen((char *)nodeA->token);
-
-          if(sizeof(struct vm_tvalue_t)+len+1 > *bufsize) {
-            *bufsize = sizeof(struct vm_tvalue_t)+len+1;
-            return -2;
-          }
 
           mmu_set_uint8(&nodeB->type, nodeA->type);
           mmu_set_uint16(&nodeB->go, nodeA->go);
@@ -7223,11 +7275,6 @@ int8_t rule_token(struct rule_stack_t *obj, uint16_t pos, unsigned char *out, ui
             x++;
           }
         } else {
-          if(sizeof(struct vm_tvalue_t)+strlen((char *)nodeA->token)+1 > *bufsize) {
-            *bufsize = sizeof(struct vm_tvalue_t)+strlen((char *)nodeA->token)+1;
-            return -2;
-          }
-
           nodeB->type = nodeA->type;
           nodeB->go = nodeA->go;
 
@@ -7235,13 +7282,8 @@ int8_t rule_token(struct rule_stack_t *obj, uint16_t pos, unsigned char *out, ui
         }
       } break;
       case VINTEGER: {
-        struct vm_vinteger_t *nodeA = (struct vm_vinteger_t *)out;
+        struct vm_vinteger_t *nodeA = (struct vm_vinteger_t *)*out;
         struct vm_vinteger_t *nodeB = (struct vm_vinteger_t *)&obj->buffer[pos];
-
-        if(sizeof(struct vm_vinteger_t) > *bufsize) {
-          *bufsize = sizeof(struct vm_vinteger_t);
-          return -2;
-        }
 
         if(is_mmu == 1) {
           mmu_set_uint8(&nodeB->type, nodeA->type);
@@ -7254,13 +7296,8 @@ int8_t rule_token(struct rule_stack_t *obj, uint16_t pos, unsigned char *out, ui
         }
       } break;
       case VFLOAT: {
-        struct vm_vfloat_t *nodeA = (struct vm_vfloat_t *)out;
+        struct vm_vfloat_t *nodeA = (struct vm_vfloat_t *)*out;
         struct vm_vfloat_t *nodeB = (struct vm_vfloat_t *)&obj->buffer[pos];
-
-        if(sizeof(struct vm_vfloat_t) > *bufsize) {
-          *bufsize = sizeof(struct vm_vfloat_t);
-          return -2;
-        }
 
         if(is_mmu == 1) {
           mmu_set_uint8(&nodeB->type, nodeA->type);
@@ -7273,13 +7310,8 @@ int8_t rule_token(struct rule_stack_t *obj, uint16_t pos, unsigned char *out, ui
         }
       } break;
       case VNULL: {
-        struct vm_vnull_t *nodeA = (struct vm_vnull_t *)out;
+        struct vm_vnull_t *nodeA = (struct vm_vnull_t *)*out;
         struct vm_vnull_t *nodeB = (struct vm_vnull_t *)&obj->buffer[pos];
-
-        if(sizeof(struct vm_vnull_t) > *bufsize) {
-          *bufsize = sizeof(struct vm_vnull_t);
-          return -2;
-        }
 
         if(is_mmu == 1) {
           mmu_set_uint8(&nodeB->type, nodeA->type);
@@ -7290,6 +7322,7 @@ int8_t rule_token(struct rule_stack_t *obj, uint16_t pos, unsigned char *out, ui
         }
       } break;
       default: {
+        logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
         return -1;
       } break;
     }
