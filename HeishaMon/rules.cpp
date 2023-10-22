@@ -1100,9 +1100,14 @@ static int8_t vm_value_set(struct rules_t *obj, uint16_t token, uint16_t val) {
     char *payload = NULL;
     unsigned int len = 0;
 
-    switch(obj->varstack->buffer[val]) {
+    if(rule_token(obj->varstack, val, &outB) < 0) {
+      FREE(outA);
+      return -1;
+    }
+
+    switch(outB[0]) {
       case VINTEGER: {
-        struct vm_vinteger_t *na = (struct vm_vinteger_t *)&obj->varstack->buffer[val];
+        struct vm_vinteger_t *na = (struct vm_vinteger_t *)outB;
 
         len = snprintf_P(NULL, 0, PSTR("%d"), (int)na->value);
         if((payload = (char *)MALLOC(len+1)) == NULL) {
@@ -1112,7 +1117,7 @@ static int8_t vm_value_set(struct rules_t *obj, uint16_t token, uint16_t val) {
 
       } break;
       case VFLOAT: {
-        struct vm_vfloat_t *na = (struct vm_vfloat_t *)&obj->varstack->buffer[val];
+        struct vm_vfloat_t *na = (struct vm_vfloat_t *)outB;
 
         len = snprintf_P(NULL, 0, PSTR("%g"), (float)na->value);
         if((payload = (char *)MALLOC(len+1)) == NULL) {
@@ -1121,7 +1126,7 @@ static int8_t vm_value_set(struct rules_t *obj, uint16_t token, uint16_t val) {
         snprintf_P(payload, len+1, PSTR("%g"), (float)na->value);
       } break;
       case VCHAR: {
-        struct vm_vchar_t *na = (struct vm_vchar_t *)&obj->varstack->buffer[val];
+        struct vm_vchar_t *na = (struct vm_vchar_t *)outB;
 
         len = snprintf_P(NULL, 0, PSTR("%s"), na->value);
         if((payload = (char *)MALLOC(len+1)) == NULL) {
@@ -1130,6 +1135,7 @@ static int8_t vm_value_set(struct rules_t *obj, uint16_t token, uint16_t val) {
         snprintf_P(payload, len+1, PSTR("%s"), na->value);
       } break;
     }
+    FREE(outB);
 
     if(parsing == 0 && !heishamonSettings.listenonly) {
       unsigned char cmd[256] = { 0 };

@@ -1,4 +1,4 @@
-#include "OpenTherm.h"
+#include "src/opentherm/opentherm.h"
 #include "HeishaOT.h"
 #include "decode.h"
 #include "rules.h"
