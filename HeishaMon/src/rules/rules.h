@@ -227,7 +227,7 @@ typedef struct vm_tvalue_t {
 
 typedef struct vm_vinteger_t {
   VM_GENERIC_FIELDS
-  uint32_t value;
+  int32_t value;
 } __attribute__((aligned(4))) vm_vinteger_t;
 
 typedef struct vm_vfloat_t {

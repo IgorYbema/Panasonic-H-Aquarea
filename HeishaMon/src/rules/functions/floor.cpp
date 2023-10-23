@@ -15,6 +15,7 @@
 #include <string.h>
 #include <math.h>
 
+#include "../../common/uint32float.h"
 #include "../function.h"
 #include "../rules.h"
 
@@ -43,7 +44,9 @@ int8_t rule_function_floor_callback(struct rules_t *obj, uint16_t argc, uint16_t
     } break;
     case VFLOAT: {
       struct vm_vfloat_t *val = (struct vm_vfloat_t *)nodeA;
-      out.value = (int)floor(val->value);
+      float v = 0.0;
+      uint322float(val->value, &v);
+      out.value = (int)floor(v);
     } break;
   }
 
