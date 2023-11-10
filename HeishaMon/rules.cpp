@@ -176,7 +176,7 @@ static int8_t is_variable(char *text, uint16_t size) {
           char cpy[MAX_TOPIC_LEN];
           memcpy_P(&cpy, optTopics[x], MAX_TOPIC_LEN);
           size_t len = strlen(cpy);
-          if(size-1 == len && strnicmp(&text[(*pos)+1], cpy, len) == 0) {
+          if(size-1 == len && strnicmp(&text[1], cpy, len) == 0) {
             i = len+1;
             match = 1;
             break;
@@ -189,7 +189,7 @@ static int8_t is_variable(char *text, uint16_t size) {
           char cpy[MAX_TOPIC_LEN];
           memcpy_P(&cpy, xtopics[x], MAX_TOPIC_LEN);
           size_t len = strlen(cpy);
-          if(size-1 == len && strnicmp(&text[(*pos)+1], cpy, len) == 0) {
+          if(size-1 == len && strnicmp(&text[1], cpy, len) == 0) {
             i = len+1;
             match = 1;
             break;
@@ -243,7 +243,7 @@ static int8_t is_event(char *text, uint16_t size) {
         optCmdStruct cmd;
         memcpy_P(&cmd, &optionalCommands[x], sizeof(cmd));
         size_t len = strlen(cmd.name);
-        if(size-1 == len && strnicmp(&text[(*pos)+1], cmd.name, len) == 0) {
+        if(size-1 == len && strnicmp(&text[1], cmd.name, len) == 0) {
           i = len+1;
           match = 1;
           break;
@@ -256,7 +256,7 @@ static int8_t is_event(char *text, uint16_t size) {
         size_t len = strlen_P(topics[x]);
         char cpy[len];
         memcpy_P(&cpy, &topics[x], len);
-        if(size-1 == len && strnicmp(&text[(*pos)+1], cpy, len) == 0) {
+        if(size-1 == len && strnicmp(&text[1], cpy, len) == 0) {
           i = len+1;
           match = 1;
           break;
@@ -269,7 +269,7 @@ static int8_t is_event(char *text, uint16_t size) {
         size_t len = strlen_P(optTopics[x]);
         char cpy[len];
         memcpy_P(&cpy, &optTopics[x], len);
-        if(size-1 == len && strnicmp(&text[(*pos)+1], cpy, len) == 0) {
+        if(size-1 == len && strnicmp(&text[1], cpy, len) == 0) {
           i = len+1;
           match = 1;
           break;
@@ -282,7 +282,7 @@ static int8_t is_event(char *text, uint16_t size) {
         size_t len = strlen_P(xtopics[x]);
         char cpy[len];
         memcpy_P(&cpy, &xtopics[x], len);
-        if(size-1 == len && strnicmp(&text[(*pos)+1], cpy, len) == 0) {
+        if(size-1 == len && strnicmp(&text[1], cpy, len) == 0) {
           i = len+1;
           match = 1;
           break;
@@ -587,7 +587,7 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
     for(i=0;i<NUMBER_OF_OPT_TOPICS;i++) {
       char cpy[MAX_TOPIC_LEN];
       memcpy_P(&cpy, topics[i], MAX_TOPIC_LEN);
-      if(stricmp(cpy, (char *)&node->token[1]) == 0) {
+      if(stricmp(cpy, (char *)&var->token[1]) == 0) {
         String dataValue = actOptData[0] == '\0' ? "" : getOptDataValue(actOptData, i);
         char *str = (char *)dataValue.c_str();
         if(strlen(str) == 0) {
@@ -620,7 +620,7 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
     for(i=0;i<NUMBER_OF_TOPICS_EXTRA;i++) {
       char cpy[MAX_TOPIC_LEN];
       memcpy_P(&cpy, xtopics[i], MAX_TOPIC_LEN);
-      if(stricmp(cpy, (char *)&node->token[1]) == 0) {
+      if(stricmp(cpy, (char *)&var->token[1]) == 0) {
         String dataValue = actDataExtra[0] == '\0' ? "" : getDataValueExtra(actDataExtra, i);
         char *str = (char *)dataValue.c_str();
         if(strlen(str) == 0) {
@@ -651,8 +651,8 @@ static unsigned char *vm_value_get(struct rules_t *obj, uint16_t token) {
       }
     }
   }
-  if(node->token[0] == '%') {
-    if(stricmp((char *)&node->token[1], "hour") == 0) {
+  if(var->token[0] == '%') {
+    if(stricmp((char *)&var->token[1], "hour") == 0) {
       time_t now = time(NULL);
       struct tm *tm_struct = localtime(&now);
 
