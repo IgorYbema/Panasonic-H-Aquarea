@@ -886,23 +886,19 @@ int handleWifiScan(struct webserver_t *client) {
 }
 
 int handleDebug(struct webserver_t *client, char *hex, byte hex_len) {
-  if (client->content == 0) {
-    webserver_send(client, 200, (char *)"text/plain", 0);
-    char log_msg[254];
-
-
+  {
 #define LOGHEXBYTESPERLINE 32
+    char log_msg[254];
     for (int i = 0; i < hex_len; i += LOGHEXBYTESPERLINE) {
       char buffer [(LOGHEXBYTESPERLINE * 3) + 1];
       buffer[LOGHEXBYTESPERLINE * 3] = '\0';
       for (int j = 0; ((j < LOGHEXBYTESPERLINE) && ((i + j) < hex_len)); j++) {
         sprintf(&buffer[3 * j], PSTR("%02X "), hex[i + j]);
       }
-      uint8_t len = sprintf_P(log_msg, PSTR("data: %s\n"), buffer);
+      uint8_t len = sprintf_P(log_msg, PSTR("[%03d]: %s\n"), i, buffer);
       webserver_send_content(client, log_msg, len);
     }
   }
-
   return 0;
 }
 
@@ -1159,7 +1155,7 @@ int handleJsonOutput(struct webserver_t *client, char* actData, char* actDataExt
     client->content--; // The webserver also increases by 1
   } else if ((client->content - NUMBER_OF_TOPICS - 1) < extraTopics) {
     if (client->content == NUMBER_OF_TOPICS + 1) {
-     webserver_send_content_P(client, PSTR("],\"heatpump extra\":["), 20);
+      webserver_send_content_P(client, PSTR("],\"heatpump extra\":["), 20);
     }
     for (uint8_t topic = (client->content - NUMBER_OF_TOPICS - 1); topic < extraTopics && topic < (client->content - NUMBER_OF_TOPICS + 4) ; topic++) {
 
@@ -1260,11 +1256,11 @@ int showRules(struct webserver_t *client) {
 
       if (len1 > 0) {
         webserver_send_content(client, content, len1);
-        if (len1 < BUFFER_SIZE) {
+        if (len1 < BUFFER_SIZE || client->content * BUFFER_SIZE == len) {
           if (f) {
             if (*f) {
               f->close();
-            }
+            } 
             delete f;
           }
           client->userdata = NULL;

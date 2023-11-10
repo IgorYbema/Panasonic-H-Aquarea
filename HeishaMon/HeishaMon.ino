@@ -1,3 +1,4 @@
+
 #define LWIP_INTERNAL
 
 #include <ESP8266WiFi.h>
@@ -47,7 +48,6 @@ bool sending = false; // mutex for sending data
 bool mqttcallbackinprogress = false; // mutex for processing mqtt callback
 
 bool extraDataBlockAvailable = false; // this will be set to true if, during boot, heishamon detects this heatpump has extra data block (like K and L series do)
-bool extraDataBlockChecked = false; // this will be true if we already checked for the extra data block
 
 #define MQTTRECONNECTTIMER 30000 //it takes 30 secs for each mqtt server reconnect attempt
 unsigned long lastMqttReconnectAttempt = 0;
@@ -741,7 +741,16 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
               return handleReboot(client);
             } break;
           case 40: {
-              return handleDebug(client, (char *)data, 203);
+              if (client->content == 0) {
+                webserver_send(client, 200, (char *)"text/plain", 0);
+              } else if (client->content == 1) {
+                webserver_send_content_P(client, PSTR("-- heatpump data --\n"), 20);
+                handleDebug(client, (char *)actData, 203);
+              } else if ((client->content == 2) && extraDataBlockAvailable) {
+                webserver_send_content_P(client, PSTR("-- extra data --\n"), 17);
+                handleDebug(client, (char *)actDataExtra, 203);
+              }
+              return 0;
             } break;
           case 50: {
               return handleWifiScan(client);
@@ -1013,6 +1022,9 @@ void timer_cb(int nr) {
       case -1: {
           LittleFS.begin();
           LittleFS.format();
+          //create first boot file
+          File startupFile = LittleFS.open("/heishamon", "w");
+          startupFile.close(); 
           WiFi.disconnect(true);
           timerqueue_insert(1, 0, -2);
         } break;
@@ -1141,12 +1153,11 @@ void send_panasonic_query() {
     panasonicQuery[3] = 0x21; //setting 4th byte to 0x21 is a request for extra block
     send_command(panasonicQuery, PANASONICQUERYSIZE);
     panasonicQuery[3] = 0x10; //setting 4th back to 0x10 for normal data request next time
-  } else if (!extraDataBlockChecked) {
-    extraDataBlockChecked = true;
-    log_message(_F("Checking if connected heatpump has extra data"));
-    panasonicQuery[3] = 0x21;
-    send_command(panasonicQuery, PANASONICQUERYSIZE);
-    panasonicQuery[3] = 0x10;
+  } else  {
+    if ((actData[0] == 0x71) && (actData[1] == 0xc8) && (actData[2] == 0x01) && (actData[193] == 0)  && (actData[195] == 0)  && (actData[197] == 0) ) { //do we have valid data but 0 value in heat consumptiom power, then assume K or L series
+      log_message(_F("Assuming K or L heatpump type due to missing heat/cool/dhw power data"));
+      extraDataBlockAvailable = true; //request for extra data next run
+    }
   }
 }
 
@@ -1277,7 +1288,9 @@ void loop() {
     stats += toolongread;
     stats += F(",\"timeout reads\":");
     stats += timeoutread;
-    stats += F("}");
+    stats += F(",\"version\":\"");
+    stats += heishamon_version;
+    stats += F("\"}");
     sprintf_P(mqtt_topic, PSTR("%s/stats"), heishamonSettings.mqtt_topic_base);
     mqtt_client.publish(mqtt_topic, stats.c_str(), MQTT_RETAIN_VALUES);
 
