@@ -1566,7 +1566,7 @@ int rules_parse(char *file) {
 
     logprintf_P(F("rules memory used: %d / %d"), mem.len, mem.tot_len);
 
-    if(nrrules > 1) {
+    if(ret >= 0 && nrrules > 1) {
       FREE(varstack);
     }
 
@@ -1655,7 +1655,9 @@ void rules_setup(void) {
   rule_options.event_cb = event_cb;
 
   if(LittleFS.exists("/rules.txt")) {
-    rules_parse("/rules.txt");
+    if(rules_parse("/rules.txt") == -1) {
+      return;
+    }
   }
 
   rules_boot();
