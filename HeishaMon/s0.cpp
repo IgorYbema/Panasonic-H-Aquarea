@@ -14,42 +14,17 @@ volatile s0SettingsStruct actS0Settings[NUM_S0_COUNTERS];
 
 
 //These are the interrupt routines. Make them as short as possible so we don't block main code
-volatile unsigned long lastEdgeS0[NUM_S0_COUNTERS] = {0, 0};
-volatile bool badEdge[NUM_S0_COUNTERS] = {0, 0}; //two edges is a pulse, so store as bool
-
-//for debug
-/*
-  volatile unsigned long allLastEdgeS0[2][20];
-  volatile int allLastEdgeS0Index[2] = {0, 0};
-*/
-
 IRAM_ATTR void countPulse(int i) {
   volatile unsigned long newEdgeS0 = millis();
-  volatile unsigned long pulseInterval = newEdgeS0 - actS0Data[i].lastPulse; //calculate the interval between last valid pulse edge and this edge
-  // debug
-  /*
-    if (allLastEdgeS0Index[i] < 20) {
-    allLastEdgeS0[i][allLastEdgeS0Index[i]] = curPulseWidth;
-    allLastEdgeS0Index[i]++;
+  if (actS0Data[i].lastPulse > 0) { //Do not calculate watt for the first pulse since reboot because we will always report a too high watt. Better to show 0 watt at first pulse.
+    actS0Data[i].watt = (3600000000.0 / (newEdgeS0 - actS0Data[i].lastPulse)) / actS0Settings[i].ppkwh;
+    if ((unsigned long)(actS0Data[i].nextReport - newEdgeS0) > MINREPORTEDS0TIME) { //pulse seen in standby interval so report directly
+      actS0Data[i].nextReport = 0; // report now
     }
-  */
-  // end debug
-  if (pulseInterval > actS0Settings[i].maximalPulseWidth)  {
-    if (actS0Data[i].lastPulse > 0) { //Do not calculate watt for the first pulse since reboot because we will always report a too high watt. Better to show 0 watt at first pulse.
-      actS0Data[i].watt = (3600000000.0 / pulseInterval) / actS0Settings[i].ppkwh;
-      if ((unsigned long)(actS0Data[i].nextReport - newEdgeS0) > MINREPORTEDS0TIME) { //pulse seen in standby interval so report directly
-        actS0Data[i].nextReport = 0; // report now
-      }
-    }
-    actS0Data[i].lastPulse = newEdgeS0; // store this edge to compare in next pulses for valid pulse and calculate watt
-    actS0Data[i].pulses++;
-    actS0Data[i].pulsesTotal++;
-    actS0Data[i].goodPulses++;
-    actS0Data[i].avgPulseWidth = pulseInterval; //temporary fix
-  } else {
-    actS0Data[i].badPulses++; //there was already an edge before so count this one as a bad pulse
   }
-  lastEdgeS0[i] = newEdgeS0; //store this edge time for next use
+  actS0Data[i].lastPulse = newEdgeS0; // store this edge to compare in next pulses for valid pulse and calculate watt
+  actS0Data[i].pulses++;
+  actS0Data[i].pulsesTotal++;
 }
 
 IRAM_ATTR void onS0Pulse1Falling() {
@@ -68,8 +43,6 @@ void initS0Sensors(s0SettingsStruct s0Settings[]) {
   actS0Settings[0].gpiopin = s0Settings[0].gpiopin;
   actS0Settings[0].ppkwh = s0Settings[0].ppkwh;
   actS0Settings[0].lowerPowerInterval = s0Settings[0].lowerPowerInterval;
-  actS0Settings[0].minimalPulseWidth = s0Settings[0].minimalPulseWidth;
-  actS0Settings[0].maximalPulseWidth = s0Settings[0].maximalPulseWidth;
 
   pinMode(actS0Settings[0].gpiopin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(actS0Settings[0].gpiopin), onS0Pulse1Falling, FALLING);
@@ -81,8 +54,6 @@ void initS0Sensors(s0SettingsStruct s0Settings[]) {
   actS0Settings[1].gpiopin = s0Settings[1].gpiopin;
   actS0Settings[1].ppkwh = s0Settings[1].ppkwh;
   actS0Settings[1].lowerPowerInterval = s0Settings[1].lowerPowerInterval;
-  actS0Settings[1].minimalPulseWidth = s0Settings[1].minimalPulseWidth;
-  actS0Settings[1].maximalPulseWidth = s0Settings[1].maximalPulseWidth;
 
   pinMode(actS0Settings[1].gpiopin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(actS0Settings[1].gpiopin), onS0Pulse2Falling, FALLING);
@@ -140,24 +111,6 @@ void s0Loop(PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_to
       char mqtt_topic[256];
       char valueStr[20];
 
-      //debug
-      /*
-        noInterrupts();
-        int j = 0;
-        while (allLastEdgeS0Index[i] > 0) {
-        allLastEdgeS0Index[i]--;
-        sprintf_P(log_msg, PSTR("Pulse widths seen on S0 port %d: Width: %lu"), (i + 1),  allLastEdgeS0[i][j] );
-        //log_message(log_msg);
-        Serial1.println(log_msg);
-        j++;
-        }
-        interrupts();
-      */
-      //end debug
-
-      sprintf_P(log_msg, PSTR("Pulses seen on S0 port %d: Good: %lu Bad: %lu Average good pulse width: %i"), (i + 1),  actS0Data[i].goodPulses, actS0Data[i].badPulses, actS0Data[i].avgPulseWidth);
-      log_message(log_msg);
-
       sprintf_P(log_msg, PSTR("Measured Watthour on S0 port %d: %.2f"), (i + 1),  Watthour );
       log_message(log_msg);
       sprintf(valueStr, "%.2f", Watthour);
@@ -205,17 +158,7 @@ void s0TableOutput(struct webserver_t *client) {
     itoa((actS0Data[i].pulsesTotal * (1000.0 / actS0Settings[i].ppkwh)), str, 10);
     webserver_send_content(client, str, strlen(str));
 
-    webserver_send_content_P(client, PSTR("</td><td>"), 9);
-
-    itoa((100 * (actS0Data[i].goodPulses + 1) / (actS0Data[i].goodPulses + actS0Data[i].badPulses + 1)), str, 10);
-    webserver_send_content(client, str, strlen(str));
-
-    webserver_send_content_P(client, PSTR("%</td><td>"), 10);
-
-    itoa(actS0Data[i].avgPulseWidth, str, 10);
-    webserver_send_content(client, str, strlen(str));
-
-    webserver_send_content_P(client, PSTR(" ms</td></tr>"), 13);
+    webserver_send_content_P(client, PSTR(" Wh</td></tr>"), 13);
   }
 }
 
@@ -245,16 +188,6 @@ void s0JsonOutput(struct webserver_t *client) {
     webserver_send_content_P(client, PSTR("\",\"WatthourTotal\":\""), 19);
 
     itoa((actS0Data[i].pulsesTotal * (1000.0 / actS0Settings[i].ppkwh)), str, 10);
-    webserver_send_content(client, str, strlen(str));
-
-    webserver_send_content_P(client, PSTR("\",\"PulseQuality\":\""), 18);
-
-    itoa((100 * (actS0Data[i].goodPulses + 1) / (actS0Data[i].goodPulses + actS0Data[i].badPulses + 1)), str, 10);
-    webserver_send_content(client, str, strlen(str));
-
-    webserver_send_content_P(client, PSTR("\",\"AvgPulseWidth\":\""), 19);
-
-    itoa(actS0Data[i].avgPulseWidth, str, 10);
     webserver_send_content(client, str, strlen(str));
 
     if (i < NUM_S0_COUNTERS - 1) {

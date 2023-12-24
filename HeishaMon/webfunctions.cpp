@@ -223,13 +223,9 @@ void loadSettings(settingsStruct *heishamonSettings) {
           if (jsonDoc["s0_1_gpio"]) heishamonSettings->s0Settings[0].gpiopin = jsonDoc["s0_1_gpio"];
           if (jsonDoc["s0_1_ppkwh"]) heishamonSettings->s0Settings[0].ppkwh = jsonDoc["s0_1_ppkwh"];
           if (jsonDoc["s0_1_interval"]) heishamonSettings->s0Settings[0].lowerPowerInterval = jsonDoc["s0_1_interval"];
-          if (jsonDoc["s0_1_minpulsewidth"]) heishamonSettings->s0Settings[0].minimalPulseWidth = jsonDoc["s0_1_minpulsewidth"];
-          if (jsonDoc["s0_1_maxpulsewidth"]) heishamonSettings->s0Settings[0].maximalPulseWidth = jsonDoc["s0_1_maxpulsewidth"];
           if (jsonDoc["s0_2_gpio"]) heishamonSettings->s0Settings[1].gpiopin = jsonDoc["s0_2_gpio"];
           if (jsonDoc["s0_2_ppkwh"]) heishamonSettings->s0Settings[1].ppkwh = jsonDoc["s0_2_ppkwh"];
           if (jsonDoc["s0_2_interval"] ) heishamonSettings->s0Settings[1].lowerPowerInterval = jsonDoc["s0_2_interval"];
-          if (jsonDoc["s0_2_minpulsewidth"]) heishamonSettings->s0Settings[1].minimalPulseWidth = jsonDoc["s0_2_minpulsewidth"];
-          if (jsonDoc["s0_2_maxpulsewidth"]) heishamonSettings->s0Settings[1].maximalPulseWidth = jsonDoc["s0_2_maxpulsewidth"];
           ntpReload(heishamonSettings);
         } else {
           log_message(_F("Failed to load json config, forcing config reset."));
@@ -497,10 +493,6 @@ int saveSettings(struct webserver_t *client, settingsStruct *heishamonSettings) 
       jsonDoc["s0_1_ppkwh"] = tmp->value;
     } else if (use_s0 != NULL && strcmp(tmp->name.c_str(), "s0_1_interval") == 0) {
       jsonDoc["s0_1_interval"] = tmp->value;
-    } else if (use_s0 != NULL && strcmp(tmp->name.c_str(), "s0_1_minpulsewidth") == 0) {
-      jsonDoc["s0_1_minpulsewidth"] = tmp->value;
-    } else if (use_s0 != NULL && strcmp(tmp->name.c_str(), "s0_1_maxpulsewidth") == 0) {
-      jsonDoc["s0_1_maxpulsewidth"] = tmp->value;
     } else if (use_s0 != NULL && strcmp(tmp->name.c_str(), "s0_2_gpio") == 0) {
       jsonDoc["s0_2_gpio"] = tmp->value;
     } else if (use_s0 != NULL && strcmp(tmp->name.c_str(), "s0_2_ppkwh") == 0) {
@@ -509,10 +501,6 @@ int saveSettings(struct webserver_t *client, settingsStruct *heishamonSettings) 
       jsonDoc["s0_2_ppkwh"] = tmp->value;
     } else if (use_s0 != NULL && strcmp(tmp->name.c_str(), "s0_2_interval") == 0) {
       jsonDoc["s0_2_interval"] = tmp->value;
-    } else if (use_s0 != NULL && strcmp(tmp->name.c_str(), "s0_2_minpulsewidth") == 0) {
-      jsonDoc["s0_2_minpulsewidth"] = tmp->value;
-    } else if (use_s0 != NULL && strcmp(tmp->name.c_str(), "s0_2_maxpulsewidth") == 0) {
-      jsonDoc["s0_2_maxpulsewidth"] = tmp->value;
     }
     tmp = tmp->next;
   }
@@ -794,16 +782,6 @@ int getSettings(struct webserver_t *client, settingsStruct *heishamonSettings) {
         itoa(heishamonSettings->s0Settings[i].lowerPowerInterval, str, 10);
         webserver_send_content(client, str, strlen(str));
 
-        webserver_send_content_P(client, PSTR(",\"s0_1_minpulsewidth\":"), 22);
-
-        itoa(heishamonSettings->s0Settings[i].minimalPulseWidth, str, 10);
-        webserver_send_content(client, str, strlen(str));
-
-        webserver_send_content_P(client, PSTR(",\"s0_1_maxpulsewidth\":"), 22);
-
-        itoa(heishamonSettings->s0Settings[i].maximalPulseWidth, str, 10);
-        webserver_send_content(client, str, strlen(str));
-
         webserver_send_content_P(client, PSTR(",\"s0_1_minwatt\":"), 16);
 
         itoa((int) round((3600 * 1000 / heishamonSettings->s0Settings[i].ppkwh) / heishamonSettings->s0Settings[i].lowerPowerInterval), str, 10);
@@ -827,16 +805,6 @@ int getSettings(struct webserver_t *client, settingsStruct *heishamonSettings) {
         webserver_send_content_P(client, PSTR(",\"s0_2_interval\":"), 17);
 
         itoa(heishamonSettings->s0Settings[i].lowerPowerInterval, str, 10);
-        webserver_send_content(client, str, strlen(str));
-
-        webserver_send_content_P(client, PSTR(",\"s0_2_minpulsewidth\":"), 22);
-
-        itoa(heishamonSettings->s0Settings[i].minimalPulseWidth, str, 10);
-        webserver_send_content(client, str, strlen(str));
-
-        webserver_send_content_P(client, PSTR(",\"s0_2_maxpulsewidth\":"), 22);
-
-        itoa(heishamonSettings->s0Settings[i].maximalPulseWidth, str, 10);
         webserver_send_content(client, str, strlen(str));
 
         webserver_send_content_P(client, PSTR(",\"s0_2_minwatt\":"), 16);
