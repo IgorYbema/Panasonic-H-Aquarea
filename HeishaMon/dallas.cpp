@@ -43,6 +43,7 @@ void initDallasSensors(void (*log_message)(char*), unsigned int updateAllDallasT
   }
 
   //init array
+  delete actDallasData;
   actDallasData = new dallasDataStruct [dallasDevicecount];
   for (int j = 0 ; j < dallasDevicecount; j++) {
     DS18B20.getAddress(actDallasData[j].sensor, j);
@@ -69,7 +70,7 @@ void resetlastalldatatime_dallas() {
 void readNewDallasTemp(PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base) {
   char log_msg[256];
   char mqtt_topic[256];
-  char valueStr[20];
+  char valueStr[80];
   bool updatenow = false;
 
   if ((lastalldatatime_dallas == 0) || ((unsigned long)(millis() - lastalldatatime_dallas) >  (1000 * updateAllDallasTime))) {
@@ -92,7 +93,7 @@ void readNewDallasTemp(PubSubClient &mqtt_client, void (*log_message)(char*), ch
           actDallasData[i].temperature = temp;
           sprintf(log_msg, PSTR("Received 1wire sensor temperature (%s): %.2f"), actDallasData[i].address, actDallasData[i].temperature);
           log_message(log_msg);
-          sprintf_P(valueStr, PSTR("%.2f"), actDallasData[i].temperature);
+          sprintf_P(valueStr, PSTR("{\"Temperature\":%.2f,\"Alias\":\"%s\"}"), actDallasData[i].temperature, actDallasData[i].alias);
           sprintf_P(mqtt_topic, PSTR("%s/%s/%s"), mqtt_topic_base, mqtt_topic_1wire, actDallasData[i].address); mqtt_client.publish(mqtt_topic, valueStr, MQTT_RETAIN_VALUES);
           rules_event_cb(_F("ds18b20#"), actDallasData[i].address);
         }
@@ -118,11 +119,11 @@ void dallasJsonOutput(struct webserver_t *client) {
   for (int i = 0; i < dallasDevicecount; i++) {
     webserver_send_content_P(client, PSTR("{\"Sensor\":\""), 11);
     webserver_send_content(client, actDallasData[i].address, strlen(actDallasData[i].address));
-    webserver_send_content_P(client, PSTR("\",\"Temperature\":\""), 17);
+    webserver_send_content_P(client, PSTR("\",\"Temperature\":"), 16);
     char str[64];
     dtostrf(actDallasData[i].temperature, 0, 2, str);
     webserver_send_content(client, str, strlen(str));
-    webserver_send_content_P(client, PSTR("\",\"Alias\":\""), 11);
+    webserver_send_content_P(client, PSTR(",\"Alias\":\""), 10);
     webserver_send_content(client, actDallasData[i].alias, strlen(actDallasData[i].alias));
     if (i < dallasDevicecount - 1) {
       webserver_send_content_P(client, PSTR("\"},"), 3);

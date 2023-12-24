@@ -608,6 +608,8 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
           client->route = 140;
         } else if (strcmp_P((char *)dat, PSTR("/rules")) == 0) {
           client->route = 160;
+        } else if (strcmp_P((char *)dat, PSTR("/scandallas")) == 0) {
+          client->route = 180;          
         } else {
           client->route = 0;
         }
@@ -840,6 +842,9 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
               timerqueue_insert(0, 1, -4);
               webserver_send(client, 301, (char *)"text/plain", 0);
             } break;
+          case 180: {
+              if (heishamonSettings.use_1wire) initDallasSensors(log_message, heishamonSettings.updataAllDallasTime, heishamonSettings.waitDallasTime, heishamonSettings.dallasResolution);
+            } break;            
           default: {
               webserver_send(client, 301, (char *)"text/plain", 0);
             } break;
