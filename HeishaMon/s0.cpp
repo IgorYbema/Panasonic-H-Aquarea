@@ -25,7 +25,7 @@ volatile bool badEdge[NUM_S0_COUNTERS] = {0, 0}; //two edges is a pulse, so stor
 
 IRAM_ATTR void countPulse(int i) {
   volatile unsigned long newEdgeS0 = millis();
-  volatile unsigned long curPulseWidth = newEdgeS0 - lastEdgeS0[i];
+  volatile unsigned long pulseInterval = newEdgeS0 - actS0Data[i].lastPulse; //calculate the interval between last valid pulse edge and this edge
   // debug
   /*
     if (allLastEdgeS0Index[i] < 20) {
@@ -34,9 +34,8 @@ IRAM_ATTR void countPulse(int i) {
     }
   */
   // end debug
-  if ((curPulseWidth >=  actS0Settings[i].minimalPulseWidth) && (curPulseWidth <= actS0Settings[i].maximalPulseWidth) ) {
+  if (pulseInterval > actS0Settings[i].maximalPulseWidth)  {
     if (actS0Data[i].lastPulse > 0) { //Do not calculate watt for the first pulse since reboot because we will always report a too high watt. Better to show 0 watt at first pulse.
-      volatile unsigned long pulseInterval = newEdgeS0 - actS0Data[i].lastPulse; //calculate the interval between last valid pulse edge and this edge
       actS0Data[i].watt = (3600000000.0 / pulseInterval) / actS0Settings[i].ppkwh;
       if ((unsigned long)(actS0Data[i].nextReport - newEdgeS0) > MINREPORTEDS0TIME) { //pulse seen in standby interval so report directly
         actS0Data[i].nextReport = 0; // report now
@@ -46,20 +45,18 @@ IRAM_ATTR void countPulse(int i) {
     actS0Data[i].pulses++;
     actS0Data[i].pulsesTotal++;
     actS0Data[i].goodPulses++;
-    actS0Data[i].avgPulseWidth = ((actS0Data[i].avgPulseWidth * (actS0Data[i].goodPulses - 1)) + curPulseWidth ) / actS0Data[i].goodPulses;
-    badEdge[i] = false; //set it to false again to allow to count two bad edges as a new bad pulse because we know we had a good pulse now
+    actS0Data[i].avgPulseWidth = pulseInterval; //temporary fix
   } else {
-    if (badEdge[i]) actS0Data[i].badPulses++; //there was already an edge before so count this one as a bad pulse
-    badEdge[i] = !badEdge[i]; //for now count it as a bad edge (if it is a edge for a good pulse, this will reset to false a few lines above). The bool is for not counting each edge as a bad pulse, but only two bad edges.
+    actS0Data[i].badPulses++; //there was already an edge before so count this one as a bad pulse
   }
   lastEdgeS0[i] = newEdgeS0; //store this edge time for next use
 }
 
-IRAM_ATTR void onS0Pulse1Change() {
+IRAM_ATTR void onS0Pulse1Falling() {
   countPulse(0); //port 1, index 0 of array
 }
 
-IRAM_ATTR void onS0Pulse2Change() {
+IRAM_ATTR void onS0Pulse2Falling() {
   countPulse(1); //port 2, index 1 of array
 }
 
@@ -75,7 +72,7 @@ void initS0Sensors(s0SettingsStruct s0Settings[]) {
   actS0Settings[0].maximalPulseWidth = s0Settings[0].maximalPulseWidth;
 
   pinMode(actS0Settings[0].gpiopin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(actS0Settings[0].gpiopin), onS0Pulse1Change, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(actS0Settings[0].gpiopin), onS0Pulse1Falling, FALLING);
   actS0Data[0].nextReport = millis() + MINREPORTEDS0TIME; //initial report after interval, not directly at boot
 
   //setup s0 port 2
@@ -88,7 +85,7 @@ void initS0Sensors(s0SettingsStruct s0Settings[]) {
   actS0Settings[1].maximalPulseWidth = s0Settings[1].maximalPulseWidth;
 
   pinMode(actS0Settings[1].gpiopin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(actS0Settings[1].gpiopin), onS0Pulse2Change, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(actS0Settings[1].gpiopin), onS0Pulse2Falling, FALLING);
   actS0Data[1].nextReport = millis() + MINREPORTEDS0TIME; //initial report after interval, not directly at boot
 }
 
@@ -218,7 +215,7 @@ void s0TableOutput(struct webserver_t *client) {
     itoa(actS0Data[i].avgPulseWidth, str, 10);
     webserver_send_content(client, str, strlen(str));
 
-    webserver_send_content_P(client, PSTR("</td></tr>"), 10);
+    webserver_send_content_P(client, PSTR(" ms</td></tr>"), 13);
   }
 }
 
