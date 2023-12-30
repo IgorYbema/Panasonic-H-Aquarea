@@ -25,10 +25,11 @@ struct heishaOTDataStruct_t heishaOTDataStruct[] = {
   { "dhwSetpoint", TFLOAT, { .f = 65 }, 2 }, //what is DHW setpoint by thermostat
   { "maxTSet", TFLOAT, { .f = 65 }, 2 }, //max ch setpoint
   //READ values
-  { "outsideTemp", TFLOAT, { .f = 0 }, 1 }, //provides measured outside temp to thermostat
-  { "inletTemp", TFLOAT, { .f = 0 }, 1 }, //provides measured Treturn temp to thermostat
-  { "outletTemp", TFLOAT, { .f = 0 }, 1 }, //provides measured Tout (boiler) temp to thermostat
-  { "dhwTemp", TFLOAT, { .f = 0 }, 1 }, //provides measured dhw water temp to to thermostat
+  { "chPressure", TFLOAT, { .f = -99 }, 1 }, //provides measured water pressure of central heating
+  { "outsideTemp", TFLOAT, { .f = -99 }, 1 }, //provides measured outside temp to thermostat
+  { "inletTemp", TFLOAT, { .f = -99 }, 1 }, //provides measured Treturn temp to thermostat
+  { "outletTemp", TFLOAT, { .f = -99 }, 1 }, //provides measured Tout (boiler) temp to thermostat
+  { "dhwTemp", TFLOAT, { .f = -99 }, 1 }, //provides measured dhw water temp to to thermostat
   { "flameState", TBOOL, { .b = false }, 1 }, //provides current flame state to thermostat
   { "chState", TBOOL, { .b = false }, 1 }, //provides if boiler is in centrale heating state
   { "dhwState", TBOOL, { .b = false }, 1 }, //provides if boiler is in dhw heating state
@@ -59,7 +60,7 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
     //only for debugging OT messages
     char str[200];
     sprintf_P(str, PSTR("%#010x"), request);
-    mqttPublish((char*)mqtt_topic_opentherm_read, _F("raw"), str, false);
+    mqttPublish((char*)mqtt_topic_opentherm_write, _F("raw"), str, false);
   }
   switch (ot.getDataID(request)) {
     case OpenThermMessageID::Status: { //mandatory
@@ -73,7 +74,10 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
         unsigned int DHWBlock = ((data >> 8) & (1 << 6)) >> 6;
 
         getOTStructMember(_F("chEnable"))->value.b = (bool)CHEnable;
+        CHEnable ? mqttPublish((char*)mqtt_topic_opentherm_write, _F("chEnable"), _F("true")) : mqttPublish((char*)mqtt_topic_opentherm_write, _F("chEnable"), _F("false")) ;
         getOTStructMember(_F("dhwEnable"))->value.b = (bool)DHWEnable;
+        DHWEnable ? mqttPublish((char*)mqtt_topic_opentherm_write, _F("dhwEnable"), _F("true")) : mqttPublish((char*)mqtt_topic_opentherm_write, _F("dhwEnable"), _F("false")) ;
+
 
         sprintf_P(log_msg, PSTR(
                 "OpenTherm: Received status check: %d, CH: %d, DHW: %d, Cooling, %d, OTC: %d, CH2: %d, SWMode: %d, DHWBlock: %d"),
@@ -106,7 +110,7 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
         sprintf_P((char *)&str, PSTR("%.*f"), 4, getOTStructMember(_F("chSetpoint"))->value.f);
         sprintf_P(log_msg, PSTR("OpenTherm: control setpoint TSet: %s"), str);
         log_message(log_msg);
-        mqttPublish((char*)mqtt_topic_opentherm_read, _F("chSetpoint"), str);
+        mqttPublish((char*)mqtt_topic_opentherm_write, _F("chSetpoint"), str);
         otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::TSet, request & 0xffff);
         rules_event_cb(_F("?"), _F("chsetpoint"));
       } break;
@@ -125,8 +129,8 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
     case OpenThermMessageID::SConfigSMemberIDcode: { //mandatory
         log_message(_F("OpenTherm: Received read slave config"));
         unsigned int DHW = true;
-        unsigned int Modulation = false;
-        unsigned int Cool = false;
+        unsigned int Modulation = true;
+        unsigned int Cool = true;
         unsigned int DHWConf = false;
         unsigned int Pump = false;
         unsigned int CH2 = false; // no 2nd zone yet
@@ -190,7 +194,7 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
         sprintf_P((char *)&str, PSTR("%.*f"), 4, getOTStructMember(_F("roomTemp"))->value.f);
         sprintf_P(log_msg, PSTR("OpenTherm: Room temp: %s"), str);
         log_message(log_msg);
-        mqttPublish((char*)mqtt_topic_opentherm_read, _F("roomTemp"), str);
+        mqttPublish((char*)mqtt_topic_opentherm_write, _F("roomTemp"), str);
         otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::Tr, request & 0xffff);
         rules_event_cb(_F("?"), _F("roomtemp"));
       } break;
@@ -200,7 +204,7 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
         sprintf_P((char *)&str, PSTR("%.*f"), 4, getOTStructMember(_F("roomTempSet"))->value.f);
         sprintf_P(log_msg, PSTR("OpenTherm: Room setpoint: %s"), str);
         log_message(log_msg);
-        mqttPublish((char*)mqtt_topic_opentherm_read, _F("roomTempSet"), str);
+        mqttPublish((char*)mqtt_topic_opentherm_write, _F("roomTempSet"), str);
         otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::TrSet, request & 0xffff);
         rules_event_cb(_F("?"), _F("roomtempset"));
       } break;
@@ -211,7 +215,7 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
           sprintf_P((char *)&str, PSTR("%.*f"), 4, getOTStructMember(_F("dhwSetpoint"))->value.f);
           sprintf_P(log_msg, PSTR("OpenTherm: Write request DHW setpoint: %s"), str);
           log_message(log_msg);
-          mqttPublish((char*)mqtt_topic_opentherm_read, _F("dhwSetpoint"), str);
+          mqttPublish((char*)mqtt_topic_opentherm_write, _F("dhwSetpoint"), str);
           otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::TdhwSet, ot.temperatureToData(getOTStructMember(_F("dhwSetpoint"))->value.f));
         } else { //READ_DATA
           sprintf_P(log_msg, PSTR("OpenTherm: Read request DHW setpoint"));
@@ -227,7 +231,7 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
           sprintf_P((char *)&str, PSTR("%.*f"), 4, getOTStructMember(_F("maxTSet"))->value.f);
           sprintf_P(log_msg, PSTR("OpenTherm: Write request Max Ta-set setpoint: %s"), str);
           log_message(log_msg);
-          mqttPublish((char*)mqtt_topic_opentherm_read, _F("maxTSet"), str);
+          mqttPublish((char*)mqtt_topic_opentherm_write, _F("maxTSet"), str);
           otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::MaxTSet, ot.temperatureToData(getOTStructMember(_F("maxTSet"))->value.f));
         } else { //READ_DATA
           sprintf_P(log_msg, PSTR("OpenTherm: Read request Max Ta-set setpoint"));
@@ -237,7 +241,7 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
         }
       } break;
     case OpenThermMessageID::Tret: {
-        log_message(_F("OpenTherm: Received read Tret"));
+        log_message(_F("OpenTherm: Received read boiler flow temp (inlet)"));
         if (getOTStructMember(_F("inletTemp"))->value.f > -99) {
           unsigned long data = ot.temperatureToData(getOTStructMember(_F("inletTemp"))->value.f);
           otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::Tret, data);
@@ -254,6 +258,16 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
           otResponse = ot.buildResponse(OpenThermMessageType::DATA_INVALID, OpenThermMessageID::Tdhw, request & 0xffff);
         }
       } break;
+    case OpenThermMessageID::CHPressure: {
+        log_message(_F("OpenTherm: Received read water pressure"));
+        if (getOTStructMember(_F("outsideTemp"))->value.f > -99) {
+          unsigned long data = ot.temperatureToData(getOTStructMember(_F("chPressure"))->value.f);
+          otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::CHPressure, data);
+
+        } else {
+          otResponse = ot.buildResponse(OpenThermMessageType::DATA_INVALID, OpenThermMessageID::CHPressure, request & 0xffff);
+        }
+      } break;      
     case OpenThermMessageID::Toutside: {
         log_message(_F("OpenTherm: Received read outside temp"));
         if (getOTStructMember(_F("outsideTemp"))->value.f > -99) {
@@ -274,8 +288,43 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
           otResponse = ot.buildResponse(OpenThermMessageType::DATA_INVALID, OpenThermMessageID::TrOverride, request & 0xffff);
         }
       } break;
+    //for date/time requests we don't store anything, just answer the time we know from heishamon  
+    case OpenThermMessageID::DayTime: {
+        log_message(_F("OpenTherm: Received time request"));
+        if (ot.getMessageType(request) == OpenThermMessageType::READ_DATA) {
+          time_t rawtime;
+          rawtime = time(NULL);
+          struct tm *timeinfo = localtime(&rawtime);
+          uint16_t result = 0;
+          result |= (((timeinfo->tm_wday + 1) & 0x07) << 13);  // Set weekday in the leftmost 3 bits (16 - 3 = 13). Weekday + 1 for opentherm
+          result |= ((timeinfo->tm_hour & 0x1F) << 8);     // Set hours in the next 5 bits (13 - 5 = 8)
+          result |= (timeinfo->tm_min & 0xFF);          // Set minutes in the rightmost 8 bits
+          otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::DayTime, result);
+        }
+      } break;    
+    case OpenThermMessageID::Date: {
+        log_message(_F("OpenTherm: Received date request"));
+        if (ot.getMessageType(request) == OpenThermMessageType::READ_DATA) {
+          time_t rawtime;
+          rawtime = time(NULL);
+          struct tm *timeinfo = localtime(&rawtime);
+          uint16_t result = 0;
+          result |= ((timeinfo->tm_mon & 0xFF) << 8);  // Set month in the leftmost 8 bits
+          result |= (timeinfo->tm_mday & 0xFF);        // Set day of month in the rightmost 8 bits
+          otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::Date, result);
+        }
+      } break;
+    case OpenThermMessageID::Year: {
+        log_message(_F("OpenTherm: Received year request"));
+        if (ot.getMessageType(request) == OpenThermMessageType::READ_DATA) {
+          time_t rawtime;
+          rawtime = time(NULL);
+          struct tm *timeinfo = localtime(&rawtime);
+          uint16_t result = timeinfo->tm_year;
+          otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::Year, result);
+        }
+      } break;    
 
-      
     /*
       case OpenThermMessageID::ASFflags: {
         log_message(_F("OpenTherm: Received read ASF flags"));
@@ -395,7 +444,12 @@ void HeishaOTLoop(char * actData, PubSubClient &mqtt_client, char* mqtt_topic_ba
 }
 
 void mqttOTCallback(char* topic, char* value) {
-  if (strcmp_P(topic,PSTR("outsideTemp")) == 0) {
+  if (strcmp_P(topic,PSTR("chPressure")) == 0) {
+    log_message(_F("OpenTherm: MQTT message received 'chPressure'"));
+    getOTStructMember(_F("chPressure"))->value.f = String(value).toFloat();
+    rules_event_cb(_F("?"), topic);
+  }
+  else if (strcmp_P(topic,PSTR("outsideTemp")) == 0) {
     log_message(_F("OpenTherm: MQTT message received 'outsideTemp'"));
     getOTStructMember(_F("outsideTemp"))->value.f = String(value).toFloat();
     rules_event_cb(_F("?"), topic);
@@ -444,18 +498,26 @@ void mqttOTCallback(char* topic, char* value) {
 
 void openthermTableOutput(struct webserver_t *client) {
   char str[64];
+  //chEnable
+  webserver_send_content_P(client, PSTR("<tr><td>chEnable</td><td>W</td><td>"), 35);
+  getOTStructMember(_F("chEnable"))->value.b ? webserver_send_content_P(client, PSTR("enabled"), 7) : webserver_send_content_P(client, PSTR("disabled"), 8);
+  webserver_send_content_P(client, PSTR("</td></tr>"), 10);
+  //dhwEnable
+  webserver_send_content_P(client, PSTR("<tr><td>dhwEnable</td><td>W</td><td>"), 36);
+  getOTStructMember(_F("dhwEnable"))->value.b ? webserver_send_content_P(client, PSTR("enabled"), 7) : webserver_send_content_P(client, PSTR("disabled"), 8);
+  webserver_send_content_P(client, PSTR("</td></tr>"), 10);  
   //roomtemp
-  webserver_send_content_P(client, PSTR("<tr><td>roomTemp</td><td>R</td><td>"), 35);
+  webserver_send_content_P(client, PSTR("<tr><td>roomTemp</td><td>W</td><td>"), 35);
   dtostrf( getOTStructMember(_F("roomTemp"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("</td></tr>"), 10);
   //roomtempset
-  webserver_send_content_P(client, PSTR("<tr><td>roomTempSet</td><td>R</td><td>"), 38);
+  webserver_send_content_P(client, PSTR("<tr><td>roomTempSet</td><td>W</td><td>"), 38);
   dtostrf( getOTStructMember(_F("roomTempSet"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("</td></tr>"), 10);
   //chSetpoint
-  webserver_send_content_P(client, PSTR("<tr><td>chSetpoint</td><td>R</td><td>"), 37);
+  webserver_send_content_P(client, PSTR("<tr><td>chSetpoint</td><td>W</td><td>"), 37);
   dtostrf( getOTStructMember(_F("chSetpoint"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("</td></tr>"), 10);
@@ -469,36 +531,41 @@ void openthermTableOutput(struct webserver_t *client) {
   dtostrf( getOTStructMember(_F("maxTSet"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("</td></tr>"), 10);
+  //chPressure
+  webserver_send_content_P(client, PSTR("<tr><td>chPressure</td><td>R</td><td>"), 37);
+  dtostrf( getOTStructMember(_F("chPressure"))->value.f, 0, 2, str);
+  webserver_send_content(client, str, strlen(str));
+  webserver_send_content_P(client, PSTR("</td></tr>"), 10);  
   //outsideTemp
-  webserver_send_content_P(client, PSTR("<tr><td>outsideTemp</td><td>W</td><td>"), 38);
+  webserver_send_content_P(client, PSTR("<tr><td>outsideTemp</td><td>R</td><td>"), 38);
   dtostrf( getOTStructMember(_F("outsideTemp"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("</td></tr>"), 10);
   //inletTemp
-  webserver_send_content_P(client, PSTR("<tr><td>inletTemp</td><td>W</td><td>"), 36);
+  webserver_send_content_P(client, PSTR("<tr><td>inletTemp</td><td>R</td><td>"), 36);
   dtostrf( getOTStructMember(_F("inletTemp"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("</td></tr>"), 10);
   //outletTemp
-  webserver_send_content_P(client, PSTR("<tr><td>outletTemp</td><td>W</td><td>"), 37);
+  webserver_send_content_P(client, PSTR("<tr><td>outletTemp</td><td>R</td><td>"), 37);
   dtostrf( getOTStructMember(_F("outletTemp"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("</td></tr>"), 10);
   //dhwTemp
-  webserver_send_content_P(client, PSTR("<tr><td>dhwTemp</td><td>W</td><td>"), 34);
+  webserver_send_content_P(client, PSTR("<tr><td>dhwTemp</td><td>R</td><td>"), 34);
   dtostrf( getOTStructMember(_F("dhwTemp"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("</td></tr>"), 10);
   //flameState
-  webserver_send_content_P(client, PSTR("<tr><td>flameState</td><td>W</td><td>"), 37);
+  webserver_send_content_P(client, PSTR("<tr><td>flameState</td><td>R</td><td>"), 37);
   getOTStructMember(_F("flameState"))->value.b ? webserver_send_content_P(client, PSTR("on"), 2) : webserver_send_content_P(client, PSTR("off"), 3);
   webserver_send_content_P(client, PSTR("</td></tr>"), 10);
   //chState
-  webserver_send_content_P(client, PSTR("<tr><td>chState</td><td>W</td><td>"), 34);
+  webserver_send_content_P(client, PSTR("<tr><td>chState</td><td>R</td><td>"), 34);
   getOTStructMember(_F("chState"))->value.b ? webserver_send_content_P(client, PSTR("on"), 2) : webserver_send_content_P(client, PSTR("off"), 3);
   webserver_send_content_P(client, PSTR("</td></tr>"), 10);
   //dhwState
-  webserver_send_content_P(client, PSTR("<tr><td>dhwState</td><td>W</td><td>"), 35);
+  webserver_send_content_P(client, PSTR("<tr><td>dhwState</td><td>R</td><td>"), 35);
   getOTStructMember(_F("dhwState"))->value.b ? webserver_send_content_P(client, PSTR("on"), 2) : webserver_send_content_P(client, PSTR("off"), 3);
   webserver_send_content_P(client, PSTR("</td></tr>"), 10);
 }
@@ -508,18 +575,26 @@ void openthermJsonOutput(struct webserver_t *client) {
 
   char str[64];
 
+  //chEnable
+  webserver_send_content_P(client, PSTR("\"chEnable\":{\"type\": \"W\",\"value\":"), 32);
+  getOTStructMember(_F("chEnable"))->value.b ? webserver_send_content_P(client, PSTR("true"), 4) : webserver_send_content_P(client, PSTR("false"), 5);
+  webserver_send_content_P(client, PSTR("},"), 2);
+  //dhwEnable
+  webserver_send_content_P(client, PSTR("\"dhwEnable\":{\"type\": \"W\",\"value\":"), 33);
+  getOTStructMember(_F("dhwEnable"))->value.b ? webserver_send_content_P(client, PSTR("true"), 4) : webserver_send_content_P(client, PSTR("false"), 5);
+  webserver_send_content_P(client, PSTR("},"), 2);  
   //roomtemp
-  webserver_send_content_P(client, PSTR("\"roomTemp\":{\"type\": \"R\",\"value\":"), 32);
+  webserver_send_content_P(client, PSTR("\"roomTemp\":{\"type\": \"W\",\"value\":"), 32);
   dtostrf( getOTStructMember(_F("roomTemp"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("},"), 2);
   //roomtempset
-  webserver_send_content_P(client, PSTR("\"roomTempSet\":{\"type\": \"R\",\"value\":"), 35);
+  webserver_send_content_P(client, PSTR("\"roomTempSet\":{\"type\": \"W\",\"value\":"), 35);
   dtostrf( getOTStructMember(_F("roomTempSet"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("},"), 2);
   //chSetpoint
-  webserver_send_content_P(client, PSTR("\"chSetpoint\":{\"type\": \"R\",\"value\":"), 34);
+  webserver_send_content_P(client, PSTR("\"chSetpoint\":{\"type\": \"W\",\"value\":"), 34);
   dtostrf( getOTStructMember(_F("chSetpoint"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("},"), 2);
@@ -533,36 +608,41 @@ void openthermJsonOutput(struct webserver_t *client) {
   dtostrf( getOTStructMember(_F("maxTSet"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("},"), 2);
+  //chPressure
+  webserver_send_content_P(client, PSTR("\"chPressure\":{\"type\": \"W\",\"value\":"), 34);
+  dtostrf( getOTStructMember(_F("chPressure"))->value.f, 0, 2, str);
+  webserver_send_content(client, str, strlen(str));
+  webserver_send_content_P(client, PSTR("},"), 2);  
   //outsideTemp
   webserver_send_content_P(client, PSTR("\"outsideTemp\":{\"type\": \"W\",\"value\":"), 35);
   dtostrf( getOTStructMember(_F("outsideTemp"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("},"), 2);
   //inletTemp
-  webserver_send_content_P(client, PSTR("\"inletTemp\":{\"type\": \"W\",\"value\":"), 33);
+  webserver_send_content_P(client, PSTR("\"inletTemp\":{\"type\": \"R\",\"value\":"), 33);
   dtostrf( getOTStructMember(_F("inletTemp"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("},"), 2);
   //outletTemp
-  webserver_send_content_P(client, PSTR("\"outletTemp\":{\"type\": \"W\",\"value\":"), 34);
+  webserver_send_content_P(client, PSTR("\"outletTemp\":{\"type\": \"R\",\"value\":"), 34);
   dtostrf( getOTStructMember(_F("outletTemp"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("},"), 2);
   //dhwTemp
-  webserver_send_content_P(client, PSTR("\"dhwTemp\":{\"type\": \"W\",\"value\":"), 31);
+  webserver_send_content_P(client, PSTR("\"dhwTemp\":{\"type\": \"R\",\"value\":"), 31);
   dtostrf( getOTStructMember(_F("dhwTemp"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("},"), 2);
   //flameState
-  webserver_send_content_P(client, PSTR("\"flameState\":{\"type\": \"W\",\"value\":"), 34);
+  webserver_send_content_P(client, PSTR("\"flameState\":{\"type\": \"R\",\"value\":"), 34);
   getOTStructMember(_F("flameState"))->value.b ? webserver_send_content_P(client, PSTR("true"), 4) : webserver_send_content_P(client, PSTR("false"), 5);
   webserver_send_content_P(client, PSTR("},"), 2);
   //chState
-  webserver_send_content_P(client, PSTR("\"chState\":{\"type\": \"W\",\"value\":"), 31);
+  webserver_send_content_P(client, PSTR("\"chState\":{\"type\": \"R\",\"value\":"), 31);
   getOTStructMember(_F("chState"))->value.b ? webserver_send_content_P(client, PSTR("true"), 4) : webserver_send_content_P(client, PSTR("false"), 5);
   webserver_send_content_P(client, PSTR("},"), 2);
   //dhwState
-  webserver_send_content_P(client, PSTR("\"dhwState\":{\"type\": \"W\",\"value\":"), 32);
+  webserver_send_content_P(client, PSTR("\"dhwState\":{\"type\": \"R\",\"value\":"), 32);
   getOTStructMember(_F("dhwState"))->value.b ? webserver_send_content_P(client, PSTR("true"), 4) : webserver_send_content_P(client, PSTR("false"), 5);
   webserver_send_content_P(client, PSTR("}"), 1);
 
