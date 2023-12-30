@@ -9,7 +9,9 @@ const int inOTPin = 3; //RX pin from ESP8266
 const int outOTPin = 1; //TX pin from ESP8266
 
 // mqtt
-extern const char* mqtt_topic_opentherm;
+extern const char* mqtt_topic_opentherm_read;
+extern const char* mqtt_topic_opentherm_write;
+
 
 #define TBOOL 1
 #define TFLOAT 2

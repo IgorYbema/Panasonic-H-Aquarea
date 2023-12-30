@@ -212,7 +212,7 @@ void mqtt_reconnect()
     {
       mqttReconnects++;
       if (heishamonSettings.opentherm) {
-        sprintf(topic, "%s/%s/#", heishamonSettings.mqtt_topic_base, mqtt_topic_opentherm);
+        sprintf(topic, "%s/%s/#", heishamonSettings.mqtt_topic_base, mqtt_topic_opentherm_write);
         mqtt_client.subscribe(topic);
       }
       sprintf(topic, "%s/%s/#", heishamonSettings.mqtt_topic_base, mqtt_topic_commands);
@@ -291,9 +291,13 @@ void logHex(char *hex, byte hex_len) {
 }
 
 void mqttPublish(char* topic, char* subtopic, char* value) {
+  mqttPublish(topic, subtopic, value, MQTT_RETAIN_VALUES);
+}
+
+void mqttPublish(char* topic, char* subtopic, char* value, bool retain) {
   char mqtt_topic[256];
   sprintf_P(mqtt_topic, PSTR("%s/%s/%s"), heishamonSettings.mqtt_topic_base, topic, subtopic);
-  mqtt_client.publish(mqtt_topic, value, MQTT_RETAIN_VALUES);
+  mqtt_client.publish(mqtt_topic, value, retain);
 }
 
 
@@ -492,8 +496,8 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
       decode_heatpump_data(msg, actData, mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
       memcpy(actData, msg, DATASIZE);
 #endif
-    } else if (strncmp(topic_command, mqtt_topic_opentherm, strlen(mqtt_topic_opentherm)) == 0)  {
-      char* topic_otcommand = topic_command + strlen(mqtt_topic_opentherm) + 1; //strip the opentherm subtopic from the topic
+    } else if (strncmp(topic_command, mqtt_topic_opentherm_write, strlen(mqtt_topic_opentherm_write)) == 0)  {
+      char* topic_otcommand = topic_command + strlen(mqtt_topic_opentherm_write) + 1; //strip the opentherm subtopic from the topic
       mqttOTCallback(topic_otcommand, msg);
     }
     mqttcallbackinprogress = false;
