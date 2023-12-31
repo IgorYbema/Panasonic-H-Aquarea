@@ -58,9 +58,9 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
   char log_msg[512];
   {
     //only for debugging OT messages
-    char str[200];
-    sprintf_P(str, PSTR("%#010x"), request);
-    mqttPublish((char*)mqtt_topic_opentherm_write, _F("raw"), str, false);
+    //char str[200];
+    //sprintf_P(str, PSTR("%#010x"), request);
+    //mqttPublish((char*)mqtt_topic_opentherm_write, _F("raw"), str, false);
   }
   switch (ot.getDataID(request)) {
     case OpenThermMessageID::Status: { //mandatory
