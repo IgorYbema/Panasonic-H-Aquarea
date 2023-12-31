@@ -7400,6 +7400,10 @@ int8_t rule_initialize(struct pbuf *input, struct rules_t ***rules, uint8_t *nrr
   (*rules)[*nrrules] = (struct rules_t *)&((unsigned char *)mempool->payload)[mempool->len];
   memset((*rules)[*nrrules], 0, sizeof(struct rules_t));
   mempool->len += sizeof(struct rules_t);
+  if(mempool->len >= mempool->tot_len) {
+    logprintf_P(F("FATAL: ruleset too large, out of memory"));
+    return -1;
+  }
 
   (*rules)[*nrrules]->userdata = userdata;
   struct rules_t *obj = (*rules)[*nrrules];
@@ -7472,9 +7476,17 @@ int8_t rule_initialize(struct pbuf *input, struct rules_t ***rules, uint8_t *nrr
     } else {
       mempool->len += obj->ast.bufsize;
     }
+    if(mempool->len >= mempool->tot_len) {
+      logprintf_P(F("FATAL: ruleset too large, out of memory"));
+      return -1;
+    }
 
     suggested_varstack_size = align((input->len-mempool->len-sizeof(struct rule_stack_t))-5, 4);
 
+    if((mempool->len+suggested_varstack_size) >= mempool->tot_len) {
+      logprintf_P(F("FATAL: ruleset too large, out of memory"));
+      return -1;
+    }
     /*
      * The memoffset will be increased below
      * as soon as we know how many bytes
