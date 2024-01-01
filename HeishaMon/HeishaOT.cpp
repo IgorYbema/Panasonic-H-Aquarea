@@ -18,15 +18,17 @@ struct heishaOTDataStruct_t heishaOTDataStruct[] = {
   //WRITE values
   { "chEnable", TBOOL, { .b = false }, 3 }, //is central heating enabled by thermostat
   { "dhwEnable", TBOOL, { .b = false }, 3 }, //is dhw heating enabled by thermostat
-  { "roomTemp", TFLOAT, { .f = 0 }, 3 }, //what is measured room temp by thermostat
-  { "roomTempSet", TFLOAT, { .f = 0 }, 3 }, //what is request room temp setpoint by thermostat
-  { "chSetpoint", TFLOAT, { .f = 0 }, 3 }, //what is calculated Ta setpoint by thermostat
-  { "coolingControl", TFLOAT, { .f = 0 }, 3 }, //what is requested cooling amount (0-100%)
+  { "roomTemp", TFLOAT, { .f = -99 }, 3 }, //what is measured room temp by thermostat
+  { "roomTempSet", TFLOAT, { .f = -99 }, 3 }, //what is request room temp setpoint by thermostat
+  { "chSetpoint", TFLOAT, { .f = -99 }, 3 }, //what is calculated Ta setpoint by thermostat
+  { "maxRelativeModulation", TFLOAT, { .f = -99 }, 3 }, //what is requested max relative modulation (0-100%)
+  { "coolingControl", TFLOAT, { .f = -99 }, 3 }, //what is requested cooling amount (0-100%)
   //READ AND WRITE values
   { "dhwSetpoint", TFLOAT, { .f = 65 }, 2 }, //what is DHW setpoint by thermostat
   { "maxTSet", TFLOAT, { .f = 65 }, 2 }, //max ch setpoint
   //READ values
   { "chPressure", TFLOAT, { .f = -99 }, 1 }, //provides measured water pressure of central heating
+  { "relativeModulation", TFLOAT, { .f = -99 }, 1 }, //provides the current level of relative modulation (0-100%)
   { "outsideTemp", TFLOAT, { .f = -99 }, 1 }, //provides measured outside temp to thermostat
   { "inletTemp", TFLOAT, { .f = -99 }, 1 }, //provides measured Treturn temp to thermostat
   { "outletTemp", TFLOAT, { .f = -99 }, 1 }, //provides measured Tout (boiler) temp to thermostat
@@ -145,15 +147,26 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
 
       } break;
     case OpenThermMessageID::MaxRelModLevelSetting: { //mandatory
-        float data = ot.getFloat(request);
-        sprintf_P(log_msg, PSTR("OpenTherm: Max relative modulation level: %f"), data);
+        getOTStructMember(_F("maxRelativeModulation"))->value.f = ot.getFloat(request);
+        if ( getOTStructMember(_F("relativeModulation"))->value.f > getOTStructMember(_F("maxRelativeModulation"))->value.f) { //need to change the relative modulation on the fly to comply with max requested
+          getOTStructMember(_F("relativeModulation"))->value.f = getOTStructMember(_F("maxRelativeModulation"))->value.f;
+        }
+        char str[200];
+        sprintf_P((char *)&str, PSTR("%.*f"), 4, getOTStructMember(_F("maxRelativeModulation"))->value.f);
+        sprintf_P(log_msg, PSTR("OpenTherm: Max relative modulation  requested: %s"), str);
         log_message(log_msg);
         otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::MaxRelModLevelSetting, request & 0xffff); //ACK for mandatory fields
 
       } break;
     case OpenThermMessageID::RelModLevel: { //mandatory
         log_message(_F("OpenTherm: Received read relative modulation level"));
-        otResponse = ot.buildResponse(OpenThermMessageType::DATA_INVALID, OpenThermMessageID::RelModLevel, request & 0xffff); //invalid for now to fill mandatory fields
+        if ((getOTStructMember(_F("relativeModulation"))->value.f >= 0) && (getOTStructMember(_F("relativeModulation"))->value.f <= 100) ) {
+          unsigned long data = ot.temperatureToData(getOTStructMember(_F("relativeModulation"))->value.f);
+          otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::RelModLevel, data);
+
+        } else {
+          otResponse = ot.buildResponse(OpenThermMessageType::DATA_INVALID, OpenThermMessageID::RelModLevel, request & 0xffff);
+        }        
       } break;
     case OpenThermMessageID::Tboiler: { //mandatory
         log_message(_F("OpenTherm: Received read boiler flow temp (outlet)"));
@@ -204,7 +217,7 @@ s    case OpenThermMessageID::TdhwSetUBTdhwSetLB : { //DHW boundaries
         log_message(_F("OpenTherm: Received CH set boundaries request"));
         uint16_t result = 0;
         result |= ((getOTStructMember(_F("chSetUppBound"))->value.s8 & 0xFF) << 8); 
-        result |= (getOTStructMember(_F("chSetLowBound"))->value.s8 & 0xFF);        
+        result |= (getOTStructMember(_F("chSetLowBound"))->value.s8 & 0xFF);     
         otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::MaxTSetUBMaxTSetLB, result);
       } break;
     case OpenThermMessageID::Tr: {
@@ -480,6 +493,14 @@ void mqttOTCallback(char* topic, char* value) {
     getOTStructMember(_F("dhwSetpoint"))->value.f = String(value).toFloat();
     rules_event_cb(_F("?"), topic);
   }
+  else if (strcmp_P(topic, PSTR("relativeModulation")) == 0) {
+    log_message(_F("OpenTherm: MQTT message received 'relativeModulation'"));
+    getOTStructMember(_F("relativeModulation"))->value.f = String(value).toFloat();
+    if ((getOTStructMember(_F("relativeModulation"))->value.f > getOTStructMember(_F("maxRelativeModulation"))->value.f) && ( getOTStructMember(_F("maxRelativeModulation"))->value.f > -99)) { //need to change the relative modulation on the fly to comply with max requested
+        getOTStructMember(_F("relativeModulation"))->value.f = getOTStructMember(_F("maxRelativeModulation"))->value.f;
+    }
+    rules_event_cb(_F("?"), topic);
+  }  
   else if (strcmp_P(topic, PSTR("maxTSet")) == 0) {
     log_message(_F("OpenTherm: MQTT message received 'maxTSet'"));
     getOTStructMember(_F("maxTSet"))->value.f = String(value).toFloat();
@@ -487,17 +508,17 @@ void mqttOTCallback(char* topic, char* value) {
   }
   else if (strcmp_P(topic, PSTR("flameState")) == 0) {
     log_message(_F("OpenTherm: MQTT message received 'flameState'"));
-    getOTStructMember(_F("flameState"))->value.b = ((stricmp((char*)"true", value) == 0) || (String(value).toInt() == 1 ));
+    getOTStructMember(_F("flameState"))->value.b = ((stricmp((char*)"true", value) == 0) || (stricmp((char*)"on", value) == 0) || (String(value).toInt() == 1 ));
     rules_event_cb(_F("?"), topic);
   }
   else if (strcmp_P(topic, PSTR("chState")) == 0) {
     log_message(_F("OpenTherm: MQTT message received 'chState'"));
-    getOTStructMember(_F("chState"))->value.b = ((stricmp((char*)"true", value) == 0) || (String(value).toInt() == 1 ));
+    getOTStructMember(_F("chState"))->value.b = ((stricmp((char*)"true", value) == 0) || (stricmp((char*)"on", value) == 0) || (String(value).toInt() == 1 ));
     rules_event_cb(_F("?"), topic);
   }
   else if (strcmp_P(topic, PSTR("dhwState")) == 0) {
     log_message(_F("OpenTherm: MQTT message received 'dhwState'"));
-    getOTStructMember(_F("dhwState"))->value.b = ((stricmp((char*)"true", value) == 0) || (String(value).toInt() == 1 ));
+    getOTStructMember(_F("dhwState"))->value.b = ((stricmp((char*)"true", value) == 0) || (stricmp((char*)"on", value) == 0) || (String(value).toInt() == 1 ));
     rules_event_cb(_F("?"), topic);
   }
   else if (strcmp_P(topic, PSTR("dhwSetUppBound")) == 0) {
@@ -547,6 +568,11 @@ void openthermTableOutput(struct webserver_t *client) {
   dtostrf( getOTStructMember(_F("chSetpoint"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("</td></tr>"), 10);
+  //maxRelativeModulation
+  webserver_send_content_P(client, PSTR("<tr><td>maxRelativeModulation</td><td>W</td><td>"), 48);
+  dtostrf( getOTStructMember(_F("maxRelativeModulation"))->value.f, 0, 2, str);
+  webserver_send_content(client, str, strlen(str));
+  webserver_send_content_P(client, PSTR("</td></tr>"), 10);  
   //chSetpoint
   webserver_send_content_P(client, PSTR("<tr><td>coolingControl</td><td>W</td><td>"), 41);
   dtostrf( getOTStructMember(_F("coolingControl"))->value.f, 0, 2, str);
@@ -585,6 +611,11 @@ void openthermTableOutput(struct webserver_t *client) {
   //dhwTemp
   webserver_send_content_P(client, PSTR("<tr><td>dhwTemp</td><td>R</td><td>"), 34);
   dtostrf( getOTStructMember(_F("dhwTemp"))->value.f, 0, 2, str);
+  webserver_send_content(client, str, strlen(str));
+  webserver_send_content_P(client, PSTR("</td></tr>"), 10);
+  //relativeModulation
+  webserver_send_content_P(client, PSTR("<tr><td>relativeModulation</td><td>R</td><td>"), 45);
+  dtostrf( getOTStructMember(_F("relativeModulation"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("</td></tr>"), 10);
   //flameState
@@ -649,6 +680,11 @@ void openthermJsonOutput(struct webserver_t *client) {
   dtostrf( getOTStructMember(_F("chSetpoint"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("},"), 2);
+  //maxRelativeModulation
+  webserver_send_content_P(client, PSTR("\"maxRelativeModulation\":{\"type\": \"W\",\"value\":"), 45);
+  dtostrf( getOTStructMember(_F("maxRelativeModulation"))->value.f, 0, 2, str);
+  webserver_send_content(client, str, strlen(str));
+  webserver_send_content_P(client, PSTR("},"), 2);  
   //coolingControl
   webserver_send_content_P(client, PSTR("\"coolingControl\":{\"type\": \"W\",\"value\":"), 38);
   dtostrf( getOTStructMember(_F("coolingControl"))->value.f, 0, 2, str);
@@ -689,6 +725,11 @@ void openthermJsonOutput(struct webserver_t *client) {
   dtostrf( getOTStructMember(_F("dhwTemp"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("},"), 2);
+  //relativeModulation
+  webserver_send_content_P(client, PSTR("\"relativeModulation\":{\"type\": \"R\",\"value\":"), 42);
+  dtostrf( getOTStructMember(_F("relativeModulation"))->value.f, 0, 2, str);
+  webserver_send_content(client, str, strlen(str));
+  webserver_send_content_P(client, PSTR("},"), 2);  
   //flameState
   webserver_send_content_P(client, PSTR("\"flameState\":{\"type\": \"R\",\"value\":"), 34);
   getOTStructMember(_F("flameState"))->value.b ? webserver_send_content_P(client, PSTR("true"), 4) : webserver_send_content_P(client, PSTR("false"), 5);
