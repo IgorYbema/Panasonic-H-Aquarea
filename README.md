@@ -329,9 +329,9 @@ The available opentherm variables are:
 - inletTemp is the floating point value which defines measured water inlet temperature of central heating provided by heishamon
 - outletTemp is the floating point value which defines measured water outlet temperature of central heating provided by heishamon
 - dhwTemp is the floating point value which defines measured dhw temperature of central heating provided by heishamon
-- flameState is a boolean value which defines if the central heating is providing heat central
-- chState is a boolean value which defines if the heatpump is on room/central heating mode (for example 3-way valve on room)
-- dhwState is a boolean value which defines if the heatpump is on DHW mode (for example 3-way valve on dhw)
+- flameState is a boolean value (send 'true', 'on' or '1' to enable) which defines if the central heating is providing heat central
+- chState is a boolean value (send 'true', 'on' or '1' to enable) which defines if the heatpump is on room/central heating mode (for example 3-way valve on room)
+- dhwState is a boolean value (send 'true', 'on' or '1' to enable) which defines if the heatpump is on DHW mode (for example 3-way valve on dhw)
 - dhwSetUppBound is a integer value from 0 to 127 which sets the max DHW temperature supported so the thermostat can not request a dhwSetpoint higher than this. Default is set to 75. To override, send a MQTT message to this topic and make it retained so heishamon receives it again after reboot.
 - dhwSetLowBound is a integer value from 0 to 127 which sets the min DHW temperature supported so the thermostat can not request a dhwSetpoint lower than this. Default is set to 40. To override, send a MQTT message to this topic and make it retained so heishamon receives it again after reboot.
 - chSetUppBound is a integer value from 0 to 127 which sets the max CH (heating water) temperature supported so the thermostat can not request a chSetpoint higher than this. Default is set to 65. To override, send a MQTT message to this topic and make it retained so heishamon receives it again after reboot.
