@@ -7337,17 +7337,10 @@ int8_t rule_initialize(struct pbuf *input, struct rules_t ***rules, uint8_t *nrr
 
   uint16_t nrbytes = 0, newlen = input->tot_len;
   uint16_t suggested_varstack_size = 0, max_varstack_size = 0;
-  if(mempool->len < 1000) {
-    mempool->len = 1000;
+  if(mempool->len < 64) {
+    mempool->len = 64;
   }
 
-  if(*nrrules >= 64) {
-#ifdef ESP8266
-    Serial.println(PSTR("more than the maximum of 25 rule blocks defined"));
-#else
-    printf("more than the maximum of 25 rule blocks defined\n");
-#endif
-  }
   if(input->len < mempool->len) {
 #ifdef ESP8266
     Serial.println(PSTR("not enough free space in rules mempool"));
