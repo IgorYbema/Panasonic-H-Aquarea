@@ -15,6 +15,7 @@ extern const char* mqtt_topic_opentherm_write;
 
 #define TBOOL 1
 #define TFLOAT 2
+#define TINT8 3
 
 typedef struct heishaOTDataStruct_t {
   const char *name;
@@ -22,6 +23,7 @@ typedef struct heishaOTDataStruct_t {
   union {
     bool b;
     float f;
+    int8_t s8;
   } value;
   uint8_t rw;
 } heishaOTDataStruct_t;

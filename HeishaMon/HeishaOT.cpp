@@ -21,6 +21,7 @@ struct heishaOTDataStruct_t heishaOTDataStruct[] = {
   { "roomTemp", TFLOAT, { .f = 0 }, 3 }, //what is measured room temp by thermostat
   { "roomTempSet", TFLOAT, { .f = 0 }, 3 }, //what is request room temp setpoint by thermostat
   { "chSetpoint", TFLOAT, { .f = 0 }, 3 }, //what is calculated Ta setpoint by thermostat
+  { "coolingControl", TFLOAT, { .f = 0 }, 3 }, //what is requested cooling amount (0-100%)
   //READ AND WRITE values
   { "dhwSetpoint", TFLOAT, { .f = 65 }, 2 }, //what is DHW setpoint by thermostat
   { "maxTSet", TFLOAT, { .f = 65 }, 2 }, //max ch setpoint
@@ -34,6 +35,10 @@ struct heishaOTDataStruct_t heishaOTDataStruct[] = {
   { "chState", TBOOL, { .b = false }, 1 }, //provides if boiler is in centrale heating state
   { "dhwState", TBOOL, { .b = false }, 1 }, //provides if boiler is in dhw heating state
   { "roomSetOverride", TFLOAT, { .f = 0 }, 1 }, //provides a room setpoint override ID9 (not implemented completly in heishamon)
+  { "dhwSetUppBound", TINT8, { .s8 = 75 }, 1 }, //provides DHW upper boundary, default to 75 degrees celcius
+  { "dhwSetLowBound", TINT8, { .s8 = 40 }, 1 }, //provides DHW lower boundary, default to 40 degrees celcius
+  { "chSetUppBound", TINT8, { .s8 = 65 }, 1 }, //provides CH upper boundary, default to 65 degrees celcius
+  { "chSetLowBound", TINT8, { .s8 = 20 }, 1 }, //provides CH lower boundary, default to 20 degrees celcius    
   { NULL, 0, 0, 0 }
 };
 
@@ -123,7 +128,6 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
              );
       log_message(log_msg);
       otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::MConfigMMemberIDcode, data);
-
       //ot.setSmartPower((bool)SmartPower); not working correctly yet
       } break;      
     case OpenThermMessageID::SConfigSMemberIDcode: { //mandatory
@@ -172,13 +176,15 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
         const unsigned int responsedata = DHWsetReadWrite | (maxCHsetReadWrite << 1) | (DHWsetTransfer << 8) | (maxCHsetTransfer << 9);
         otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::RBPflags, responsedata);
       } break;
-    case OpenThermMessageID::TdhwSetUBTdhwSetLB : { //DHW boundaries
-        log_message(_F("OpenTherm: Received DHW set boundaries remote parameters request"));
-        //fixed settings for now
-        const unsigned int DHWsetUppBound = 75;
-        const unsigned int DHWsetLowBound = 40;
-        const unsigned int responsedata = DHWsetLowBound | (DHWsetUppBound << 8);
-        otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::TdhwSetUBTdhwSetLB, responsedata);
+    case OpenThermMessageID::CoolingControl: { //mandatory
+        getOTStructMember(_F("coolingControl"))->value.f = ot.getFloat(request);
+        char str[200];
+        sprintf_P((char *)&str, PSTR("%.*f"), 4, getOTStructMember(_F("coolingControl"))->value.f);
+        sprintf_P(log_msg, PSTR("OpenTherm: cooling control amount requested: %s"), str);
+        log_message(log_msg);
+        mqttPublish((char*)mqtt_topic_opentherm_write, _F("coolingControl"), str);
+        otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::CoolingControl, request & 0xffff);
+        rules_event_cb(_F("?"), _F("coolingControl"));
       } break;
     case OpenThermMessageID::MaxTSetUBMaxTSetLB  : { //CHset boundaries
         log_message(_F("OpenTherm: Received CH set boundaries remote parameters request"));
@@ -187,6 +193,19 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
         const unsigned int CHsetLowBound = 20;
         const unsigned int responsedata = CHsetLowBound | (CHsetUppBound << 8);
         otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::MaxTSetUBMaxTSetLB, responsedata);
+s    case OpenThermMessageID::TdhwSetUBTdhwSetLB : { //DHW boundaries
+        log_message(_F("OpenTherm: Received DHW set boundaries request"));
+        uint16_t result = 0;
+        result |= ((getOTStructMember(_F("dhwSetUppBound"))->value.s8 & 0xFF) << 8); 
+        result |= (getOTStructMember(_F("dhwSetLowBound"))->value.s8 & 0xFF);
+        otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::TdhwSetUBTdhwSetLB, result);
+      } break;
+    case OpenThermMessageID::MaxTSetUBMaxTSetLB  : { //CHset boundaries
+        log_message(_F("OpenTherm: Received CH set boundaries request"));
+        uint16_t result = 0;
+        result |= ((getOTStructMember(_F("chSetUppBound"))->value.s8 & 0xFF) << 8); 
+        result |= (getOTStructMember(_F("chSetLowBound"))->value.s8 & 0xFF);        
+        otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::MaxTSetUBMaxTSetLB, result);
       } break;
     case OpenThermMessageID::Tr: {
         getOTStructMember(_F("roomTemp"))->value.f = ot.getFloat(request);
@@ -289,6 +308,7 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
         }
       } break;
     //for date/time requests we don't store anything, just answer the time we know from heishamon  
+    //still need to confirm this works correctly. Haven't seen a thermostat which does ask for the time and use it
     case OpenThermMessageID::DayTime: {
         log_message(_F("OpenTherm: Received time request"));
         if (ot.getMessageType(request) == OpenThermMessageType::READ_DATA) {
@@ -331,11 +351,7 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
         otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::ASFflags, 0);
 
       } break;
-      case OpenThermMessageID::MaxTSetUBMaxTSetLB: {
-      log_message(_F("OpenTherm: Received read Ta-set bounds"));
-      otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::MaxTSetUBMaxTSetLB, 0x5028);
 
-      } break;
       case OpenThermMessageID::TdhwSetUBTdhwSetLB: {
       log_message(_F("OpenTherm: Received read DHW-set bounds"));
       otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::TdhwSetUBTdhwSetLB, 0x5028);
@@ -351,17 +367,7 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
       otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::RemoteParameterSettingsVH, 0);
 
       } break;
-      
-      case OpenThermMessageID::TrOverride: {
-      log_message(_F("OpenTherm: Received read remote override setpoint"));
-      otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::TrOverride, 0);
 
-      } break;
-      case OpenThermMessageID::CHPressure: {
-      log_message(_F("OpenTherm: Received read CH pressure"));
-      otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::CHPressure, 0);
-
-      } break;
       case OpenThermMessageID::OpenThermVersionMaster: {
       float data = ot.getFloat(request);
       char str[200];
@@ -494,6 +500,26 @@ void mqttOTCallback(char* topic, char* value) {
     getOTStructMember(_F("dhwState"))->value.b = ((stricmp((char*)"true", value) == 0) || (String(value).toInt() == 1 ));
     rules_event_cb(_F("?"), topic);
   }
+  else if (strcmp_P(topic, PSTR("dhwSetUppBound")) == 0) {
+    log_message(_F("OpenTherm: MQTT message received 'dhwSetUppBound'"));
+    getOTStructMember(_F("dhwSetUppBound"))->value.s8 = String(value).toInt();
+    rules_event_cb(_F("?"), topic);
+  }
+  else if (strcmp_P(topic, PSTR("dhwSetLowBound")) == 0) {
+    log_message(_F("OpenTherm: MQTT message received 'dhwSetLowBound'"));
+    getOTStructMember(_F("dhwSetLowBound"))->value.s8 = String(value).toInt();
+    rules_event_cb(_F("?"), topic);
+  }    
+  else if (strcmp_P(topic, PSTR("chSetUppBound")) == 0) {
+    log_message(_F("OpenTherm: MQTT message received 'chSetUppBound'"));
+    getOTStructMember(_F("chSetUppBound"))->value.s8 = String(value).toInt();
+    rules_event_cb(_F("?"), topic);
+  }
+  else if (strcmp_P(topic, PSTR("chSetLowBound")) == 0) {
+    log_message(_F("OpenTherm: MQTT message received 'chSetLowBound'"));
+    getOTStructMember(_F("chSetLowBound"))->value.s8 = String(value).toInt();
+    rules_event_cb(_F("?"), topic);
+  }      
 }
 
 void openthermTableOutput(struct webserver_t *client) {
@@ -521,6 +547,11 @@ void openthermTableOutput(struct webserver_t *client) {
   dtostrf( getOTStructMember(_F("chSetpoint"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("</td></tr>"), 10);
+  //chSetpoint
+  webserver_send_content_P(client, PSTR("<tr><td>coolingControl</td><td>W</td><td>"), 41);
+  dtostrf( getOTStructMember(_F("coolingControl"))->value.f, 0, 2, str);
+  webserver_send_content(client, str, strlen(str));
+  webserver_send_content_P(client, PSTR("</td></tr>"), 10);  
   //dhwSetpoint
   webserver_send_content_P(client, PSTR("<tr><td>dhwSetpoint</td><td>RW</td><td>"), 39);
   dtostrf( getOTStructMember(_F("dhwSetpoint"))->value.f, 0, 2, str);
@@ -568,6 +599,26 @@ void openthermTableOutput(struct webserver_t *client) {
   webserver_send_content_P(client, PSTR("<tr><td>dhwState</td><td>R</td><td>"), 35);
   getOTStructMember(_F("dhwState"))->value.b ? webserver_send_content_P(client, PSTR("on"), 2) : webserver_send_content_P(client, PSTR("off"), 3);
   webserver_send_content_P(client, PSTR("</td></tr>"), 10);
+  //dhwSetUppBound
+  webserver_send_content_P(client, PSTR("<tr><td>dhwSetUppBound</td><td>R</td><td>"), 41);
+  itoa( getOTStructMember(_F("dhwSetUppBound"))->value.s8, str, 10);
+  webserver_send_content(client, str, strlen(str));
+  webserver_send_content_P(client, PSTR("</td></tr>"), 10);
+  //dhwSetLowBound
+  webserver_send_content_P(client, PSTR("<tr><td>dhwSetLowBound</td><td>R</td><td>"), 41);
+  itoa( getOTStructMember(_F("dhwSetLowBound"))->value.s8, str, 10);
+  webserver_send_content(client, str, strlen(str));
+  webserver_send_content_P(client, PSTR("</td></tr>"), 10);
+  //chSetUppBound
+  webserver_send_content_P(client, PSTR("<tr><td>chSetUppBound</td><td>R</td><td>"), 40);
+  itoa( getOTStructMember(_F("chSetUppBound"))->value.s8, str, 10);
+  webserver_send_content(client, str, strlen(str));
+  webserver_send_content_P(client, PSTR("</td></tr>"), 10);
+  //chSetLowBound
+  webserver_send_content_P(client, PSTR("<tr><td>chSetLowBound</td><td>R</td><td>"), 40);
+  itoa( getOTStructMember(_F("chSetLowBound"))->value.s8, str, 10);
+  webserver_send_content(client, str, strlen(str));
+  webserver_send_content_P(client, PSTR("</td></tr>"), 10);        
 }
 
 void openthermJsonOutput(struct webserver_t *client) {
@@ -598,6 +649,11 @@ void openthermJsonOutput(struct webserver_t *client) {
   dtostrf( getOTStructMember(_F("chSetpoint"))->value.f, 0, 2, str);
   webserver_send_content(client, str, strlen(str));
   webserver_send_content_P(client, PSTR("},"), 2);
+  //coolingControl
+  webserver_send_content_P(client, PSTR("\"coolingControl\":{\"type\": \"W\",\"value\":"), 38);
+  dtostrf( getOTStructMember(_F("coolingControl"))->value.f, 0, 2, str);
+  webserver_send_content(client, str, strlen(str));
+  webserver_send_content_P(client, PSTR("},"), 2);  
   //dhwSetpoint
   webserver_send_content_P(client, PSTR("\"dhwSetpoint\":{\"type\": \"RW\",\"value\":"), 36);
   dtostrf( getOTStructMember(_F("dhwSetpoint"))->value.f, 0, 2, str);
@@ -644,7 +700,25 @@ void openthermJsonOutput(struct webserver_t *client) {
   //dhwState
   webserver_send_content_P(client, PSTR("\"dhwState\":{\"type\": \"R\",\"value\":"), 32);
   getOTStructMember(_F("dhwState"))->value.b ? webserver_send_content_P(client, PSTR("true"), 4) : webserver_send_content_P(client, PSTR("false"), 5);
-  webserver_send_content_P(client, PSTR("}"), 1);
-
-  webserver_send_content_P(client, PSTR("}"), 1);
+  webserver_send_content_P(client, PSTR("},"), 2);
+  //dhwSetUppBound
+  webserver_send_content_P(client, PSTR("\"dhwSetUppBound\":{\"type\": \"R\",\"value\":"), 38);
+  itoa( getOTStructMember(_F("dhwSetUppBound"))->value.f, str, 10);
+  webserver_send_content(client, str, strlen(str));
+  webserver_send_content_P(client, PSTR("},"), 2);
+  //dhwSetLowBound
+  webserver_send_content_P(client, PSTR("\"dhwSetLowBound\":{\"type\": \"R\",\"value\":"), 38);
+  itoa( getOTStructMember(_F("dhwSetLowBound"))->value.f, str, 10);
+  webserver_send_content(client, str, strlen(str));
+  webserver_send_content_P(client, PSTR("},"), 2);
+  //chSetUppBound
+  webserver_send_content_P(client, PSTR("\"chSetUppBound\":{\"type\": \"R\",\"value\":"), 37);
+  itoa( getOTStructMember(_F("chSetUppBound"))->value.f, str, 10);
+  webserver_send_content(client, str, strlen(str));
+  webserver_send_content_P(client, PSTR("},"), 2);
+  //chSetLowBound
+  webserver_send_content_P(client, PSTR("\"chSetLowBound\":{\"type\": \"R\",\"value\":"), 37);
+  itoa( getOTStructMember(_F("chSetLowBound"))->value.f, str, 10);
+  webserver_send_content(client, str, strlen(str));
+  webserver_send_content_P(client, PSTR("}}"), 2);       //this is the last line in JSON, keep this at the end 
 }
