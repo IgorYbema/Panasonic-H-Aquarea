@@ -18,6 +18,7 @@ struct heishaOTDataStruct_t heishaOTDataStruct[] = {
   //WRITE values
   { "chEnable", TBOOL, { .b = false }, 3 }, //is central heating enabled by thermostat
   { "dhwEnable", TBOOL, { .b = false }, 3 }, //is dhw heating enabled by thermostat
+  { "coolingEnable", TBOOL, { .b = false }, 3 }, //is cooling mode enabled by thermostat
   { "roomTemp", TFLOAT, { .f = -99 }, 3 }, //what is measured room temp by thermostat
   { "roomTempSet", TFLOAT, { .f = -99 }, 3 }, //what is request room temp setpoint by thermostat
   { "chSetpoint", TFLOAT, { .f = -99 }, 3 }, //what is calculated Ta setpoint by thermostat
@@ -34,8 +35,9 @@ struct heishaOTDataStruct_t heishaOTDataStruct[] = {
   { "outletTemp", TFLOAT, { .f = -99 }, 1 }, //provides measured Tout (boiler) temp to thermostat
   { "dhwTemp", TFLOAT, { .f = -99 }, 1 }, //provides measured dhw water temp to to thermostat
   { "flameState", TBOOL, { .b = false }, 1 }, //provides current flame state to thermostat
-  { "chState", TBOOL, { .b = false }, 1 }, //provides if boiler is in centrale heating state
-  { "dhwState", TBOOL, { .b = false }, 1 }, //provides if boiler is in dhw heating state
+  { "chState", TBOOL, { .b = false }, 1 }, //provides if heatpump is in centrale heating state
+  { "dhwState", TBOOL, { .b = false }, 1 }, //provides if heatpump is in dhw heating state
+  { "coolingState", TBOOL, { .b = false }, 1 }, //provides if heatpump is in cooling state
   { "roomSetOverride", TFLOAT, { .f = 0 }, 1 }, //provides a room setpoint override ID9 (not implemented completly in heishamon)
   { "dhwSetUppBound", TINT8, { .s8 = 75 }, 1 }, //provides DHW upper boundary, default to 75 degrees celcius
   { "dhwSetLowBound", TINT8, { .s8 = 40 }, 1 }, //provides DHW lower boundary, default to 40 degrees celcius
@@ -80,11 +82,18 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
         unsigned int SWMode = ((data >> 8) & (1 << 5)) >> 5;
         unsigned int DHWBlock = ((data >> 8) & (1 << 6)) >> 6;
 
-        getOTStructMember(_F("chEnable"))->value.b = (bool)CHEnable;
-        CHEnable ? mqttPublish((char*)mqtt_topic_opentherm_write, _F("chEnable"), _F("true")) : mqttPublish((char*)mqtt_topic_opentherm_write, _F("chEnable"), _F("false")) ;
-        getOTStructMember(_F("dhwEnable"))->value.b = (bool)DHWEnable;
-        DHWEnable ? mqttPublish((char*)mqtt_topic_opentherm_write, _F("dhwEnable"), _F("true")) : mqttPublish((char*)mqtt_topic_opentherm_write, _F("dhwEnable"), _F("false")) ;
-
+        if ((bool)CHEnable != getOTStructMember(_F("chEnable"))->value.b) { //only publish if changed
+          getOTStructMember(_F("chEnable"))->value.b = (bool)CHEnable;
+          CHEnable ? mqttPublish((char*)mqtt_topic_opentherm_write, _F("chEnable"), _F("true")) : mqttPublish((char*)mqtt_topic_opentherm_write, _F("chEnable"), _F("false")) ;
+        }
+        if ((bool)DHWEnable != getOTStructMember(_F("dhwEnable"))->value.b) { //only publish if changed
+          getOTStructMember(_F("dhwEnable"))->value.b = (bool)DHWEnable;
+          DHWEnable ? mqttPublish((char*)mqtt_topic_opentherm_write, _F("dhwEnable"), _F("true")) : mqttPublish((char*)mqtt_topic_opentherm_write, _F("dhwEnable"), _F("false")) ;
+        }
+        if ((bool)Cooling != getOTStructMember(_F("coolingEnable"))->value.b) { //only publish if changed
+          getOTStructMember(_F("coolingEnable"))->value.b = (bool)Cooling;
+          Cooling ? mqttPublish((char*)mqtt_topic_opentherm_write, _F("coolingEnable"), _F("true")) : mqttPublish((char*)mqtt_topic_opentherm_write, _F("coolingEnable"), _F("false")) ;
+        }
 
         sprintf_P(log_msg, PSTR(
                 "OpenTherm: Received status check: %d, CH: %d, DHW: %d, Cooling, %d, OTC: %d, CH2: %d, SWMode: %d, DHWBlock: %d"),
@@ -98,7 +107,7 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
         unsigned int CHMode = (unsigned int)getOTStructMember(_F("chState"))->value.b;
         unsigned int FlameStatus = (unsigned int)getOTStructMember(_F("flameState"))->value.b;
         unsigned int DHWMode = (unsigned int)getOTStructMember(_F("dhwState"))->value.b;
-        unsigned int CoolingStatus = false;
+        unsigned int CoolingStatus = (unsigned int)getOTStructMember(_F("coolingState"))->value.b;;
         unsigned int CH2 = false;
         unsigned int DiagInd = false;
         sprintf_P(log_msg,
@@ -110,20 +119,24 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
         otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::Status, (data |= responsedata));
         rules_event_cb(_F("?"), _F("chEnable"));
         rules_event_cb(_F("?"), _F("dhwEnable"));
+        rules_event_cb(_F("?"), _F("coolingEnable"));
       } break;
     case OpenThermMessageID::TSet: { //mandatory
-        getOTStructMember(_F("chSetpoint"))->value.f = ot.getFloat(request);
         char str[200];
-        sprintf_P((char *)&str, PSTR("%.*f"), 4, getOTStructMember(_F("chSetpoint"))->value.f);
+        sprintf_P((char *)&str, PSTR("%.*f"), 4, ot.getFloat(request));
         sprintf_P(log_msg, PSTR("OpenTherm: control setpoint TSet: %s"), str);
         log_message(log_msg);
-        mqttPublish((char*)mqtt_topic_opentherm_write, _F("chSetpoint"), str);
+        if (getOTStructMember(_F("chSetpoint"))->value.f != ot.getFloat(request)) { //only publish if changed
+          getOTStructMember(_F("chSetpoint"))->value.f = ot.getFloat(request);
+          mqttPublish((char*)mqtt_topic_opentherm_write, _F("chSetpoint"), str);
+        }
         otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::TSet, request & 0xffff);
         rules_event_cb(_F("?"), _F("chsetpoint"));
       } break;
-    case OpenThermMessageID::MConfigMMemberIDcode: {
+      case OpenThermMessageID::MConfigMMemberIDcode: {
       unsigned long data = ot.getUInt(request);
       unsigned int SmartPower = (data >> 8) & (1 << 0);
+      data &= ~(1 << 8); //disable smartpower for now, we don't support it yet
       sprintf_P(log_msg,
 			  PSTR("OpenTherm: Received master config: %d, Smartpower: %d"),
               data >> 8, SmartPower
@@ -131,32 +144,34 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
       log_message(log_msg);
       otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::MConfigMMemberIDcode, data);
       //ot.setSmartPower((bool)SmartPower); not working correctly yet
-      } break;      
+      } break;
     case OpenThermMessageID::SConfigSMemberIDcode: { //mandatory
         log_message(_F("OpenTherm: Received read slave config"));
         unsigned int DHW = true;
-        unsigned int Modulation = true;
+        unsigned int ModulationOrOnOff = false; //false means modulation according to specification v2.2
         unsigned int Cool = true;
         unsigned int DHWConf = false;
         unsigned int Pump = false;
         unsigned int CH2 = false; // no 2nd zone yet
 
-        unsigned int data = DHW | (Modulation << 1) | (Cool << 2) | (DHWConf << 3) | (Pump << 4) | (CH2 << 5);
+        unsigned int data = DHW | (ModulationOrOnOff << 1) | (Cool << 2) | (DHWConf << 3) | (Pump << 4) | (CH2 << 5);
         data <<= 8;
         otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::SConfigSMemberIDcode, data);
 
       } break;
     case OpenThermMessageID::MaxRelModLevelSetting: { //mandatory
-        getOTStructMember(_F("maxRelativeModulation"))->value.f = ot.getFloat(request);
-        if ( getOTStructMember(_F("relativeModulation"))->value.f > getOTStructMember(_F("maxRelativeModulation"))->value.f) { //need to change the relative modulation on the fly to comply with max requested
-          getOTStructMember(_F("relativeModulation"))->value.f = getOTStructMember(_F("maxRelativeModulation"))->value.f;
-        }
         char str[200];
-        sprintf_P((char *)&str, PSTR("%.*f"), 4, getOTStructMember(_F("maxRelativeModulation"))->value.f);
+        sprintf_P((char *)&str, PSTR("%.*f"), 4, ot.getFloat(request));
         sprintf_P(log_msg, PSTR("OpenTherm: Max relative modulation  requested: %s"), str);
         log_message(log_msg);
+        if (getOTStructMember(_F("maxRelativeModulation"))->value.f != ot.getFloat(request)) {
+          getOTStructMember(_F("maxRelativeModulation"))->value.f = ot.getFloat(request);
+          if ( getOTStructMember(_F("relativeModulation"))->value.f > getOTStructMember(_F("maxRelativeModulation"))->value.f) { //need to change the relative modulation on the fly to comply with max requested
+            getOTStructMember(_F("relativeModulation"))->value.f = getOTStructMember(_F("maxRelativeModulation"))->value.f;
+          }
+          mqttPublish((char*)mqtt_topic_opentherm_write, _F("maxRelativeModulation"), str);
+        }
         otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::MaxRelModLevelSetting, request & 0xffff); //ACK for mandatory fields
-
       } break;
     case OpenThermMessageID::RelModLevel: { //mandatory
         log_message(_F("OpenTherm: Received read relative modulation level"));
@@ -181,7 +196,7 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
     // now adding some more useful, not mandatory, types
     case OpenThermMessageID::RBPflags: { //Pre-Defined Remote Boiler Parameters
         log_message(_F("OpenTherm: Received Remote Boiler parameters request"));
-        //fixed settings for now - allow read and write DHWset and maxTset remote params
+        //fixed settings for now
         const unsigned int DHWsetTransfer = true;
         const unsigned int maxCHsetTransfer = true;
         const unsigned int DHWsetReadWrite = true;
@@ -190,23 +205,18 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
         otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::RBPflags, responsedata);
       } break;
     case OpenThermMessageID::CoolingControl: { //mandatory
-        getOTStructMember(_F("coolingControl"))->value.f = ot.getFloat(request);
         char str[200];
-        sprintf_P((char *)&str, PSTR("%.*f"), 4, getOTStructMember(_F("coolingControl"))->value.f);
+        sprintf_P((char *)&str, PSTR("%.*f"), 4, ot.getFloat(request));
         sprintf_P(log_msg, PSTR("OpenTherm: cooling control amount requested: %s"), str);
         log_message(log_msg);
-        mqttPublish((char*)mqtt_topic_opentherm_write, _F("coolingControl"), str);
+        if (getOTStructMember(_F("coolingControl"))->value.f != ot.getFloat(request)) {
+          getOTStructMember(_F("coolingControl"))->value.f = ot.getFloat(request);  
+          mqttPublish((char*)mqtt_topic_opentherm_write, _F("coolingControl"), str);
+        }
         otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::CoolingControl, request & 0xffff);
         rules_event_cb(_F("?"), _F("coolingControl"));
       } break;
-    case OpenThermMessageID::MaxTSetUBMaxTSetLB  : { //CHset boundaries
-        log_message(_F("OpenTherm: Received CH set boundaries remote parameters request"));
-        //fixed settings for now, seems valid for most heatpump types
-        const unsigned int CHsetUppBound = 65;
-        const unsigned int CHsetLowBound = 20;
-        const unsigned int responsedata = CHsetLowBound | (CHsetUppBound << 8);
-        otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::MaxTSetUBMaxTSetLB, responsedata);
-s    case OpenThermMessageID::TdhwSetUBTdhwSetLB : { //DHW boundaries
+    case OpenThermMessageID::TdhwSetUBTdhwSetLB : { //DHW boundaries
         log_message(_F("OpenTherm: Received DHW set boundaries request"));
         uint16_t result = 0;
         result |= ((getOTStructMember(_F("dhwSetUppBound"))->value.s8 & 0xFF) << 8); 
@@ -221,33 +231,39 @@ s    case OpenThermMessageID::TdhwSetUBTdhwSetLB : { //DHW boundaries
         otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::MaxTSetUBMaxTSetLB, result);
       } break;
     case OpenThermMessageID::Tr: {
-        getOTStructMember(_F("roomTemp"))->value.f = ot.getFloat(request);
         char str[200];
-        sprintf_P((char *)&str, PSTR("%.*f"), 4, getOTStructMember(_F("roomTemp"))->value.f);
+        sprintf_P((char *)&str, PSTR("%.*f"), 4, ot.getFloat(request));
         sprintf_P(log_msg, PSTR("OpenTherm: Room temp: %s"), str);
         log_message(log_msg);
-        mqttPublish((char*)mqtt_topic_opentherm_write, _F("roomTemp"), str);
+        if (getOTStructMember(_F("roomTemp"))->value.f != ot.getFloat(request)) {
+          mqttPublish((char*)mqtt_topic_opentherm_write, _F("roomTemp"), str);
+          getOTStructMember(_F("roomTemp"))->value.f = ot.getFloat(request);
+        }
         otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::Tr, request & 0xffff);
         rules_event_cb(_F("?"), _F("roomtemp"));
       } break;
     case OpenThermMessageID::TrSet: {
-        getOTStructMember(_F("roomTempSet"))->value.f = ot.getFloat(request);
         char str[200];
-        sprintf_P((char *)&str, PSTR("%.*f"), 4, getOTStructMember(_F("roomTempSet"))->value.f);
+        sprintf_P((char *)&str, PSTR("%.*f"), 4, ot.getFloat(request));
         sprintf_P(log_msg, PSTR("OpenTherm: Room setpoint: %s"), str);
         log_message(log_msg);
-        mqttPublish((char*)mqtt_topic_opentherm_write, _F("roomTempSet"), str);
+        if (getOTStructMember(_F("roomTempSet"))->value.f != ot.getFloat(request)) {
+          getOTStructMember(_F("roomTempSet"))->value.f = ot.getFloat(request);
+          mqttPublish((char*)mqtt_topic_opentherm_write, _F("roomTempSet"), str);
+        }
         otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::TrSet, request & 0xffff);
         rules_event_cb(_F("?"), _F("roomtempset"));
       } break;
     case OpenThermMessageID::TdhwSet: {
         if (ot.getMessageType(request) == OpenThermMessageType::WRITE_DATA) {
-          getOTStructMember(_F("dhwSetpoint"))->value.f = ot.getFloat(request);
           char str[200];
-          sprintf_P((char *)&str, PSTR("%.*f"), 4, getOTStructMember(_F("dhwSetpoint"))->value.f);
+          sprintf_P((char *)&str, PSTR("%.*f"), 4, ot.getFloat(request));
           sprintf_P(log_msg, PSTR("OpenTherm: Write request DHW setpoint: %s"), str);
           log_message(log_msg);
-          mqttPublish((char*)mqtt_topic_opentherm_write, _F("dhwSetpoint"), str);
+          if (getOTStructMember(_F("dhwSetpoint"))->value.f != ot.getFloat(request)) {
+            getOTStructMember(_F("dhwSetpoint"))->value.f = ot.getFloat(request);
+            mqttPublish((char*)mqtt_topic_opentherm_write, _F("dhwSetpoint"), str);          
+          }
           otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::TdhwSet, ot.temperatureToData(getOTStructMember(_F("dhwSetpoint"))->value.f));
         } else { //READ_DATA
           sprintf_P(log_msg, PSTR("OpenTherm: Read request DHW setpoint"));
@@ -258,12 +274,14 @@ s    case OpenThermMessageID::TdhwSetUBTdhwSetLB : { //DHW boundaries
       } break;
     case OpenThermMessageID::MaxTSet: {
         if (ot.getMessageType(request) == OpenThermMessageType::WRITE_DATA) {
-          getOTStructMember(_F("maxTSet"))->value.f = ot.getFloat(request);
           char str[200];
-          sprintf_P((char *)&str, PSTR("%.*f"), 4, getOTStructMember(_F("maxTSet"))->value.f);
+          sprintf_P((char *)&str, PSTR("%.*f"), 4, ot.getFloat(request));
           sprintf_P(log_msg, PSTR("OpenTherm: Write request Max Ta-set setpoint: %s"), str);
           log_message(log_msg);
-          mqttPublish((char*)mqtt_topic_opentherm_write, _F("maxTSet"), str);
+          if (getOTStructMember(_F("maxTSet"))->value.f != ot.getFloat(request)) {
+            getOTStructMember(_F("maxTSet"))->value.f = ot.getFloat(request);
+            mqttPublish((char*)mqtt_topic_opentherm_write, _F("maxTSet"), str);
+          }
           otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::MaxTSet, ot.temperatureToData(getOTStructMember(_F("maxTSet"))->value.f));
         } else { //READ_DATA
           sprintf_P(log_msg, PSTR("OpenTherm: Read request Max Ta-set setpoint"));
@@ -323,38 +341,47 @@ s    case OpenThermMessageID::TdhwSetUBTdhwSetLB : { //DHW boundaries
     //for date/time requests we don't store anything, just answer the time we know from heishamon  
     //still need to confirm this works correctly. Haven't seen a thermostat which does ask for the time and use it
     case OpenThermMessageID::DayTime: {
-        log_message(_F("OpenTherm: Received time request"));
         if (ot.getMessageType(request) == OpenThermMessageType::READ_DATA) {
+          log_message(_F("OpenTherm: Received time request"));
           time_t rawtime;
           rawtime = time(NULL);
           struct tm *timeinfo = localtime(&rawtime);
           uint16_t result = 0;
-          result |= (((timeinfo->tm_wday + 1) & 0x07) << 13);  // Set weekday in the leftmost 3 bits (16 - 3 = 13). Weekday + 1 for opentherm
+          result |= ((((timeinfo->tm_wday + 6) % 7 + 1) & 0x07) << 13);  // Set weekday in the leftmost 3 bits (16 - 3 = 13).  Opentherm counting monday=1, sunday=7
           result |= ((timeinfo->tm_hour & 0x1F) << 8);     // Set hours in the next 5 bits (13 - 5 = 8)
           result |= (timeinfo->tm_min & 0xFF);          // Set minutes in the rightmost 8 bits
           otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::DayTime, result);
+        } else {
+          log_message(_F("OpenTherm: Ignore time information set"));
+          otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, ot.getDataID(request), 0);
         }
       } break;    
     case OpenThermMessageID::Date: {
-        log_message(_F("OpenTherm: Received date request"));
         if (ot.getMessageType(request) == OpenThermMessageType::READ_DATA) {
+          log_message(_F("OpenTherm: Received date request"));
           time_t rawtime;
           rawtime = time(NULL);
           struct tm *timeinfo = localtime(&rawtime);
           uint16_t result = 0;
-          result |= ((timeinfo->tm_mon & 0xFF) << 8);  // Set month in the leftmost 8 bits
+          result |= (((timeinfo->tm_mon + 1) & 0xFF) << 8);  // Set month in the leftmost 8 bits. Month + 1 for opentherm counting from 1=january
           result |= (timeinfo->tm_mday & 0xFF);        // Set day of month in the rightmost 8 bits
           otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::Date, result);
+        } else {
+          log_message(_F("OpenTherm: Ignore date information set"));
+          otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, ot.getDataID(request), 0);
         }
       } break;
     case OpenThermMessageID::Year: {
-        log_message(_F("OpenTherm: Received year request"));
         if (ot.getMessageType(request) == OpenThermMessageType::READ_DATA) {
+          log_message(_F("OpenTherm: Received year request"));
           time_t rawtime;
           rawtime = time(NULL);
           struct tm *timeinfo = localtime(&rawtime);
-          uint16_t result = timeinfo->tm_year;
+          uint16_t result = timeinfo->tm_year + 1900; //plus 1900 makes it the real year
           otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::Year, result);
+        } else {
+          log_message(_F("OpenTherm: Ignore year information set"));
+          otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, ot.getDataID(request), 0);
         }
       } break;    
 
@@ -447,13 +474,6 @@ void HeishaOTSetup() {
 }
 
 void HeishaOTLoop(char * actData, PubSubClient &mqtt_client, char* mqtt_topic_base) {
-  // getOTStructMember(_F("outsideTemp"))->value.f = actData[0] == '\0' ? 0 : getDataValue(actData, 14).toFloat();
-  // getOTStructMember(_F("inletTemp"))->value.f =  actData[0] == '\0' ? 0 : getDataValue(actData, 5).toFloat();
-  // getOTStructMember(_F("outletTemp"))->value.f =  actData[0] == '\0' ? 0 : getDataValue(actData, 6).toFloat();
-  // getOTStructMember(_F("flameState"))->value.b = actData[0] == '\0' ? 0 : ((getDataValue(actData, 8).toInt() > 0 ) ? true : false); //compressor freq as flame on state
-  // getOTStructMember(_F("chState"))->value.b = actData[0] == '\0' ? 0 : (((getDataValue(actData, 8).toInt() > 0 ) && (getDataValue(actData, 20).toInt() == 0 )) ? true : false); // 3-way valve on room
-  // getOTStructMember(_F("dhwState"))->value.b =  actData[0] == '\0' ? 0 : (((getDataValue(actData, 8).toInt() > 0 ) && (getDataValue(actData, 20).toInt() == 1 )) ? true : false); /// 3-way valve on dhw
-
   // opentherm loop
   if (otResponse && ot.isReady()) {
     ot.sendResponse(otResponse);
@@ -504,6 +524,11 @@ void mqttOTCallback(char* topic, char* value) {
   else if (strcmp_P(topic, PSTR("maxTSet")) == 0) {
     log_message(_F("OpenTherm: MQTT message received 'maxTSet'"));
     getOTStructMember(_F("maxTSet"))->value.f = String(value).toFloat();
+    if ((getOTStructMember(_F("maxTSet"))->value.f > getOTStructMember(_F("chSetUppBound"))->value.f)) { 
+        getOTStructMember(_F("maxTSet"))->value.f = getOTStructMember(_F("chSetUppBound"))->value.f;
+    } else if ((getOTStructMember(_F("maxTSet"))->value.f < getOTStructMember(_F("chSetLowBound"))->value.f)) { 
+        getOTStructMember(_F("maxTSet"))->value.f = getOTStructMember(_F("chSetLowBound"))->value.f;
+    }           
     rules_event_cb(_F("?"), topic);
   }
   else if (strcmp_P(topic, PSTR("flameState")) == 0) {
@@ -521,24 +546,41 @@ void mqttOTCallback(char* topic, char* value) {
     getOTStructMember(_F("dhwState"))->value.b = ((stricmp((char*)"true", value) == 0) || (stricmp((char*)"on", value) == 0) || (String(value).toInt() == 1 ));
     rules_event_cb(_F("?"), topic);
   }
+  else if (strcmp_P(topic, PSTR("coolingState")) == 0) {
+    log_message(_F("OpenTherm: MQTT message received 'coolingState'"));
+    getOTStructMember(_F("coolingState"))->value.b = ((stricmp((char*)"true", value) == 0) || (stricmp((char*)"on", value) == 0) || (String(value).toInt() == 1 ));
+    rules_event_cb(_F("?"), topic);
+  }  
   else if (strcmp_P(topic, PSTR("dhwSetUppBound")) == 0) {
     log_message(_F("OpenTherm: MQTT message received 'dhwSetUppBound'"));
     getOTStructMember(_F("dhwSetUppBound"))->value.s8 = String(value).toInt();
+    if ((getOTStructMember(_F("dhwSetUppBound"))->value.f < getOTStructMember(_F("dhwSetLowBound"))->value.f)) { 
+        getOTStructMember(_F("dhwSetUppBound"))->value.f = getOTStructMember(_F("dhwSetLowBound"))->value.f;
+    }        
     rules_event_cb(_F("?"), topic);
   }
   else if (strcmp_P(topic, PSTR("dhwSetLowBound")) == 0) {
     log_message(_F("OpenTherm: MQTT message received 'dhwSetLowBound'"));
     getOTStructMember(_F("dhwSetLowBound"))->value.s8 = String(value).toInt();
+    if ((getOTStructMember(_F("dhwSetLowBound"))->value.f > getOTStructMember(_F("dhwSetUppBound"))->value.f)) { 
+        getOTStructMember(_F("dhwSetLowBound"))->value.f = getOTStructMember(_F("dhwSetUppBound"))->value.f;
+    }       
     rules_event_cb(_F("?"), topic);
   }    
   else if (strcmp_P(topic, PSTR("chSetUppBound")) == 0) {
     log_message(_F("OpenTherm: MQTT message received 'chSetUppBound'"));
     getOTStructMember(_F("chSetUppBound"))->value.s8 = String(value).toInt();
+    if ((getOTStructMember(_F("chSetUppBound"))->value.f < getOTStructMember(_F("chSetLowBound"))->value.f)) { 
+        getOTStructMember(_F("chSetUppBound"))->value.f = getOTStructMember(_F("chSetLowBound"))->value.f;
+    }    
     rules_event_cb(_F("?"), topic);
   }
   else if (strcmp_P(topic, PSTR("chSetLowBound")) == 0) {
     log_message(_F("OpenTherm: MQTT message received 'chSetLowBound'"));
     getOTStructMember(_F("chSetLowBound"))->value.s8 = String(value).toInt();
+    if ((getOTStructMember(_F("chSetLowBound"))->value.f > getOTStructMember(_F("chSetUppBound"))->value.f)) { 
+        getOTStructMember(_F("chSetLowBound"))->value.f = getOTStructMember(_F("chSetUppBound"))->value.f;
+    }        
     rules_event_cb(_F("?"), topic);
   }      
 }
@@ -552,6 +594,10 @@ void openthermTableOutput(struct webserver_t *client) {
   //dhwEnable
   webserver_send_content_P(client, PSTR("<tr><td>dhwEnable</td><td>W</td><td>"), 36);
   getOTStructMember(_F("dhwEnable"))->value.b ? webserver_send_content_P(client, PSTR("enabled"), 7) : webserver_send_content_P(client, PSTR("disabled"), 8);
+  webserver_send_content_P(client, PSTR("</td></tr>"), 10);  
+  //dhwEnable
+  webserver_send_content_P(client, PSTR("<tr><td>coolingEnable</td><td>W</td><td>"), 40);
+  getOTStructMember(_F("coolingEnable"))->value.b ? webserver_send_content_P(client, PSTR("enabled"), 7) : webserver_send_content_P(client, PSTR("disabled"), 8);
   webserver_send_content_P(client, PSTR("</td></tr>"), 10);  
   //roomtemp
   webserver_send_content_P(client, PSTR("<tr><td>roomTemp</td><td>W</td><td>"), 35);
@@ -630,6 +676,10 @@ void openthermTableOutput(struct webserver_t *client) {
   webserver_send_content_P(client, PSTR("<tr><td>dhwState</td><td>R</td><td>"), 35);
   getOTStructMember(_F("dhwState"))->value.b ? webserver_send_content_P(client, PSTR("on"), 2) : webserver_send_content_P(client, PSTR("off"), 3);
   webserver_send_content_P(client, PSTR("</td></tr>"), 10);
+  //coolingState
+  webserver_send_content_P(client, PSTR("<tr><td>coolingState</td><td>R</td><td>"), 39);
+  getOTStructMember(_F("coolingState"))->value.b ? webserver_send_content_P(client, PSTR("on"), 2) : webserver_send_content_P(client, PSTR("off"), 3);
+  webserver_send_content_P(client, PSTR("</td></tr>"), 10);
   //dhwSetUppBound
   webserver_send_content_P(client, PSTR("<tr><td>dhwSetUppBound</td><td>R</td><td>"), 41);
   itoa( getOTStructMember(_F("dhwSetUppBound"))->value.s8, str, 10);
@@ -664,6 +714,10 @@ void openthermJsonOutput(struct webserver_t *client) {
   //dhwEnable
   webserver_send_content_P(client, PSTR("\"dhwEnable\":{\"type\": \"W\",\"value\":"), 33);
   getOTStructMember(_F("dhwEnable"))->value.b ? webserver_send_content_P(client, PSTR("true"), 4) : webserver_send_content_P(client, PSTR("false"), 5);
+  webserver_send_content_P(client, PSTR("},"), 2);  
+  //coolingEnable
+  webserver_send_content_P(client, PSTR("\"coolingEnable\":{\"type\": \"W\",\"value\":"), 37);
+  getOTStructMember(_F("coolingEnable"))->value.b ? webserver_send_content_P(client, PSTR("true"), 4) : webserver_send_content_P(client, PSTR("false"), 5);
   webserver_send_content_P(client, PSTR("},"), 2);  
   //roomtemp
   webserver_send_content_P(client, PSTR("\"roomTemp\":{\"type\": \"W\",\"value\":"), 32);
@@ -742,6 +796,10 @@ void openthermJsonOutput(struct webserver_t *client) {
   webserver_send_content_P(client, PSTR("\"dhwState\":{\"type\": \"R\",\"value\":"), 32);
   getOTStructMember(_F("dhwState"))->value.b ? webserver_send_content_P(client, PSTR("true"), 4) : webserver_send_content_P(client, PSTR("false"), 5);
   webserver_send_content_P(client, PSTR("},"), 2);
+  //coolingState
+  webserver_send_content_P(client, PSTR("\"coolingState\":{\"type\": \"R\",\"value\":"), 36);
+  getOTStructMember(_F("coolingState"))->value.b ? webserver_send_content_P(client, PSTR("true"), 4) : webserver_send_content_P(client, PSTR("false"), 5);
+  webserver_send_content_P(client, PSTR("},"), 2);  
   //dhwSetUppBound
   webserver_send_content_P(client, PSTR("\"dhwSetUppBound\":{\"type\": \"R\",\"value\":"), 38);
   itoa( getOTStructMember(_F("dhwSetUppBound"))->value.f, str, 10);
