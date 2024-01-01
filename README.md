@@ -319,6 +319,7 @@ The available opentherm variables are:
 - roomTemp is the floating point value of the measured room temp by thermostat
 - roomTempSet is the floating point value of the requested room temp setpoint on the thermostat
 - chSetpoint is the floating point value of the calculated water setpoint by thermostat. Opentherm thermostats try to set this chSetpoint to not overshoot the room setpoint. Could be used to set the water setpoint on the heatpump but most thermostats are too fast responding compared to how heatpumps work
+- coolingControl is the amount of cooling (0-100%) the thermostat requests from the heatpump. Requires an opentherm thermostat with cooling support.
 ### READ AND WRITE values
 - dhwSetpoint is the floating point value which is the current DHW setpoint by thermostat, but can also be set by heishamon to override it. Not all thermostat support this though.
 - maxTSet is the floating point value which defines the maximum water setpoin. The user can set this on the thermostat or can also set from heishamon.
@@ -331,6 +332,10 @@ The available opentherm variables are:
 - flameState is a boolean value which defines if the central heating is providing heat central
 - chState is a boolean value which defines if the heatpump is on room/central heating mode (for example 3-way valve on room)
 - dhwState is a boolean value which defines if the heatpump is on DHW mode (for example 3-way valve on dhw)
+- dhwSetUppBound is a integer value from 0 to 127 which sets the max DHW temperature supported so the thermostat can not request a dhwSetpoint higher than this. Default is set to 75. To override, send a MQTT message to this topic and make it retained so heishamon receives it again after reboot.
+- dhwSetLowBound is a integer value from 0 to 127 which sets the min DHW temperature supported so the thermostat can not request a dhwSetpoint lower than this. Default is set to 40. To override, send a MQTT message to this topic and make it retained so heishamon receives it again after reboot.
+- chSetUppBound is a integer value from 0 to 127 which sets the max CH (heating water) temperature supported so the thermostat can not request a chSetpoint higher than this. Default is set to 65. To override, send a MQTT message to this topic and make it retained so heishamon receives it again after reboot.
+- chSetLowBound is a integer value from 0 to 127 which sets the min CH (heating water) temperature supported so the thermostat can not request a chSetpoint lower than this. Default is set to 20. To override, send a MQTT message to this topic and make it retained so heishamon receives it again after reboot.
 
 ## Protocol byte decrypt info:
 [Current list of documented bytes decrypted can be found here](ProtocolByteDecrypt.md)
