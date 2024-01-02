@@ -1597,6 +1597,7 @@ int rules_parse(char *file) {
         nrrules = 0;
       }
       nrrules = 0;
+      FREE(rules);
       return -1;
     }
 

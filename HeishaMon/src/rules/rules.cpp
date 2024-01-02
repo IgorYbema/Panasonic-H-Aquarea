@@ -7337,9 +7337,6 @@ int8_t rule_initialize(struct pbuf *input, struct rules_t ***rules, uint8_t *nrr
 
   uint16_t nrbytes = 0, newlen = input->tot_len;
   uint16_t suggested_varstack_size = 0, max_varstack_size = 0;
-  if(mempool->len < 64) {
-    mempool->len = 64;
-  }
 
   if(input->len < mempool->len) {
 #ifdef ESP8266
@@ -7389,7 +7386,12 @@ int8_t rule_initialize(struct pbuf *input, struct rules_t ***rules, uint8_t *nrr
     }
   }
 
-  *rules = (struct rules_t **)&((unsigned char *)mempool->payload)[0];
+  if(*rules == NULL) {
+    if((*rules = (struct rules_t **)MALLOC(sizeof(struct rules_t **))) == NULL) {
+      OUT_OF_MEMORY
+    }
+  }
+
   (*rules)[*nrrules] = (struct rules_t *)&((unsigned char *)mempool->payload)[mempool->len];
   memset((*rules)[*nrrules], 0, sizeof(struct rules_t));
   mempool->len += sizeof(struct rules_t);
