@@ -1594,6 +1594,7 @@ int rules_parse(char *file) {
           FREE(node->buffer);
           FREE(node);
         }
+        FREE(rules[i]->timestamp);
         nrrules = 0;
       }
       nrrules = 0;
