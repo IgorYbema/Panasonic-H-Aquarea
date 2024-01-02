@@ -7386,10 +7386,8 @@ int8_t rule_initialize(struct pbuf *input, struct rules_t ***rules, uint8_t *nrr
     }
   }
 
-  if(*rules == NULL) {
-    if((*rules = (struct rules_t **)MALLOC(sizeof(struct rules_t **))) == NULL) {
-      OUT_OF_MEMORY
-    }
+  if((*rules = (struct rules_t **)REALLOC(*rules, sizeof(struct rules_t **)*((*nrrules)+1))) == NULL) {
+    OUT_OF_MEMORY
   }
 
   (*rules)[*nrrules] = (struct rules_t *)&((unsigned char *)mempool->payload)[mempool->len];
