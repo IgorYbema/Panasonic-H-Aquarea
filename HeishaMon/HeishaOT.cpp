@@ -384,83 +384,11 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
           otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, ot.getDataID(request), 0);
         }
       } break;    
-
-    /*
-      case OpenThermMessageID::ASFflags: {
-        log_message(_F("OpenTherm: Received read ASF flags"));
-        otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::ASFflags, 0);
-
-      } break;
-
-      case OpenThermMessageID::TdhwSetUBTdhwSetLB: {
-      log_message(_F("OpenTherm: Received read DHW-set bounds"));
-      otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::TdhwSetUBTdhwSetLB, 0x5028);
-
-      } break;
-      case OpenThermMessageID::NominalVentilationValue: {
-      log_message(_F("OpenTherm: Received read nominal ventilation value"));
-      otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::NominalVentilationValue, 0);
-
-      } break;
-      case OpenThermMessageID::RemoteParameterSettingsVH: {
-      log_message(_F("OpenTherm: Received read remote parameters settings"));
-      otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::RemoteParameterSettingsVH, 0);
-
-      } break;
-
-      case OpenThermMessageID::OpenThermVersionMaster: {
-      float data = ot.getFloat(request);
-      char str[200];
-      sprintf_P((char *)&str, PSTR("%.*f"), 4, data);
-      sprintf_P(log_msg, PSTR("OpenTherm: OT Master version: %s"), str);
-      log_message(log_msg);
-      otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::OpenThermVersionMaster, request & 0xffff);
-
-      } break;
-      case OpenThermMessageID::OpenThermVersionSlave: {
-      log_message(_F("OpenTherm: Received read OT slave version"));
-      otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::OpenThermVersionSlave, 0);
-
-      } break;
-      case OpenThermMessageID::MasterVersion: {
-      float data = ot.getFloat(request);
-      char str[200];
-      sprintf_P((char *)&str, PSTR("%.*f"), 4, data);
-      sprintf_P(log_msg, PSTR("OpenTherm: Master device version: %s"), str);
-      log_message(log_msg);
-      otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::MasterVersion, request & 0xffff);
-
-
-      } break;
-      case OpenThermMessageID::SlaveVersion: {
-      log_message(_F("OpenTherm: Received read slave device version"));
-      otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::SlaveVersion, 0);
-
-      } break;
-
-      case OpenThermMessageID::TSP: {
-      log_message(_F("OpenTherm: Received read TSP"));
-      otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::TSP, 0);
-
-      } break;
-      case OpenThermMessageID::FHBsize: {
-      log_message(_F("OpenTherm: Received read fault buffer size"));
-      otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::FHBsize, 0);
-
-      } break;
-
-      case OpenThermMessageID::RemoteOverrideFunction: {
-      log_message(_F("OpenTherm: Received read remote override function"));
-      otResponse = ot.buildResponse(OpenThermMessageType::READ_ACK, OpenThermMessageID::RemoteOverrideFunction, 0);
-
-      } break;
-    */
     default: {
         sprintf_P(log_msg, PSTR("OpenTherm: Unknown data ID: %d (%#010x)"), ot.getDataID(request), request);
         log_message(log_msg);
         otResponse = ot.buildResponse(OpenThermMessageType::UNKNOWN_DATA_ID, ot.getDataID(request), 0);
       } break;
-
   }
  }
 }
