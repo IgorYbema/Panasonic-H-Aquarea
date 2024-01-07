@@ -523,7 +523,7 @@ void openthermTableOutput(struct webserver_t *client) {
   webserver_send_content_P(client, PSTR("<tr><td>dhwEnable</td><td>W</td><td>"), 36);
   getOTStructMember(_F("dhwEnable"))->value.b ? webserver_send_content_P(client, PSTR("enabled"), 7) : webserver_send_content_P(client, PSTR("disabled"), 8);
   webserver_send_content_P(client, PSTR("</td></tr>"), 10);  
-  //dhwEnable
+  //coolingEnable
   webserver_send_content_P(client, PSTR("<tr><td>coolingEnable</td><td>W</td><td>"), 40);
   getOTStructMember(_F("coolingEnable"))->value.b ? webserver_send_content_P(client, PSTR("enabled"), 7) : webserver_send_content_P(client, PSTR("disabled"), 8);
   webserver_send_content_P(client, PSTR("</td></tr>"), 10);  
