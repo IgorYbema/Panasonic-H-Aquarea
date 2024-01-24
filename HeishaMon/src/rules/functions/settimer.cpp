@@ -18,6 +18,7 @@
 #include <unistd.h>
 
 #include "../function.h"
+#include "../../common/log.h"
 #include "../../common/mem.h"
 #include "../rules.h"
 #include "../../common/timerqueue.h"
