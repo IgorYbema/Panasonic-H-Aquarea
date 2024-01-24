@@ -52,7 +52,7 @@ int8_t rule_function_set_timer_callback(struct rules_t *obj, uint16_t argc, uint
 
     timerqueue_insert(val->value, 0, nr);
 
-    printf("\n\n%s set timer #%d to %d seconds\n\n", __FUNCTION__, nr, val->value);
+    logprintf_P(F("%s set timer #%d to %d seconds"), __FUNCTION__, nr, val->value);
   }
 
   if(argc == 1) {
