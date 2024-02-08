@@ -1265,9 +1265,6 @@ static int8_t vm_value_set(struct rules_t *obj, uint16_t token, uint16_t val) {
       for(uint8_t x = 0; x < sizeof(commands) / sizeof(commands[0]); x++) {
         cmdStruct tmp;
         memcpy_P(&tmp, &commands[x], sizeof(tmp));
-	char out[255] = { '\0' };
-	snprintf((char *)&out, 255, "%s %s %d", (char *)&var->token[1], tmp.name, stricmp((char *)&var->token[1], tmp.name));
-	log_message(out);
         if(stricmp((char *)&var->token[1], tmp.name) == 0) {
           uint16_t len = tmp.func(payload, cmd, log_msg);
           log_message(log_msg);
