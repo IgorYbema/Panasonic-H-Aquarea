@@ -5702,6 +5702,7 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
                 case VFLOAT:
                 case VNULL:
                 case LPAREN:
+                case TVAR:
                 case TOPERATOR: {
                   ret = go;
                   go = node_go_next;
