@@ -3,10 +3,16 @@
 #if defined(ESP8266)
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
+  #define heatpumpSerial Serial
+  #define loggingSerial Serial1
 #elif defined(ESP32)
+  #define heatpumpSerial Serial0
+  #define loggingSerial Serial
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #endif
+
+
 #include <DNSServer.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
@@ -169,14 +175,22 @@ void check_wifi()
         WiFi.disconnect(true);
       }
     }
-  } else { //WiFi connected
+  }
+#ifdef ESP8266
+  else { //WiFi connected
     if (WiFi.softAPSSID() != "") {
       log_message(_F("WiFi (re)connected, shutting down hotspot..."));
       WiFi.softAPdisconnect(true);
-#ifdef ESP8266
       MDNS.notifyAPChange();
+  }
+#else
+  else { //WiFi Status=WL_CONNECTED  and IP>0  check if active AP and disable if yes
+  if((WiFi.getMode() & WIFI_MODE_AP) != 0) {
+    log_message(_F("WiFi (re)connected, shutting down hotspot..."));
+    WiFi.softAPdisconnect(true);
+  }
 #endif
-    }
+
 
     if (firstConnectSinceBoot) { // this should start only when softap is down or else it will not work properly so run after the routine to disable softap
       firstConnectSinceBoot = false;
@@ -271,7 +285,7 @@ void log_message(char* string)
   snprintf(log_line, len, "%s (%lu): %s", timestring, millis(), string);
 
   if (heishamonSettings.logSerial1) {
-    Serial1.println(log_line);
+    loggingSerial.println(log_line);
   }
   if (heishamonSettings.logMqtt && mqtt_client.connected())
   {
@@ -280,9 +294,9 @@ void log_message(char* string)
 
     if (!mqtt_client.publish(log_topic, log_line)) {
       if (heishamonSettings.logSerial1) {
-        Serial1.print(millis());
-        Serial1.print(F(": "));
-        Serial1.println(F("MQTT publish log message failed!"));
+        loggingSerial.print(millis());
+        loggingSerial.print(F(": "));
+        loggingSerial.println(F("MQTT publish log message failed!"));
       }
       mqtt_client.disconnect();
     }
@@ -331,8 +345,8 @@ bool isValidReceiveChecksum() {
 bool readSerial()
 {
   int len = 0;
-  while ((Serial.available()) && ((data_length + len) < MAXDATASIZE)) {
-    data[data_length + len] = Serial.read(); //read available data and place it after the last received data
+  while ((heatpumpSerial.available()) && ((data_length + len) < MAXDATASIZE)) {
+    data[data_length + len] = heatpumpSerial.read(); //read available data and place it after the last received data
     len++;
     if (data[0] != 113) { //wrong header received!
       log_message(_F("Received bad header. Ignoring this data!"));
@@ -447,8 +461,8 @@ bool send_command(byte* command, int length) {
   sending = true; //simple semaphore to only allow one send command at a time, semaphore ends when answered data is received
 
   byte chk = calcChecksum(command, length);
-  int bytesSent = Serial.write(command, length); //first send command
-  bytesSent += Serial.write(chk); //then calculcated checksum byte afterwards
+  int bytesSent = heatpumpSerial.write(command, length); //first send command
+  bytesSent += heatpumpSerial.write(chk); //then calculcated checksum byte afterwards
   sprintf_P(log_msg, PSTR("sent bytes: %d including checksum value: %d "), bytesSent, int(chk));
   log_message(log_msg);
 
@@ -576,7 +590,7 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
           client->route = 90;
         } else if (strcmp_P((char *)dat, PSTR("/command")) == 0) {
           if ((client->userdata = malloc(1)) == NULL) {
-            Serial1.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
+            loggingSerial.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
             ESP.restart();
             exit(-1);
           }
@@ -599,13 +613,13 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
               Update.runAsync(true);
 #endif
               if (!Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000)) {
-                Update.printError(Serial1);
+                Update.printError(loggingSerial);
                 return -1;
               } else {
                 client->route = 150;
               }
             } else {
-              Serial1.println(PSTR("New firmware update client, while previous isn't finished yet! Assume broken connection, abort!"));
+              loggingSerial.println(PSTR("New firmware update client, while previous isn't finished yet! Assume broken connection, abort!"));
               Update.end();
               return -1;
             }
@@ -653,7 +667,7 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
                 if (strcmp((char *)args->name, tmp.name) == 0) {
                   len = tmp.func(cpy, cmd, log_msg);
                   if ((client->userdata = realloc(client->userdata, strlen((char *)client->userdata) + strlen(log_msg) + 2)) == NULL) {
-                    Serial1.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
+                    loggingSerial.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
                     ESP.restart();
                     exit(-1);
                   }
@@ -675,7 +689,7 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
                   if (strcmp((char *)args->name, tmp.name) == 0) {
                     len = tmp.func(cpy, log_msg);
                     if ((client->userdata = realloc(client->userdata, strlen((char *)client->userdata) + strlen(log_msg) + 2)) == NULL) {
-                      Serial1.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
+                      loggingSerial.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
                       ESP.restart();
                       exit(-1);
                     }
@@ -703,7 +717,7 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
                   }
                 } else if (strcmp((char *)args->name, "firmware") == 0) {
                   if (Update.write((uint8_t *)args->value, args->len) != args->len) {
-                    Update.printError(Serial1);
+                    Update.printError(loggingSerial);
                     Update.end(false);
                   } else {
                     if (uploadpercentage != (unsigned int)(((float)client->readlen / (float)client->totallen) * 20)) {
@@ -831,7 +845,7 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
                   timerqueue_insert(2, 0, -2); // Start reboot sequence
                   return showFirmwareSuccess(client);
                 } else {
-                  Update.printError(Serial1);
+                  Update.printError(loggingSerial);
                   return showFirmwareFail(client);
                 }
               }
@@ -927,7 +941,7 @@ void setupHttp() {
 void doubleResetDetect() {
   drd = new DoubleResetDetector(DRD_TIMEOUT, DRD_ADDRESS);
   if (drd->detectDoubleReset()) {
-    Serial.println("Double reset detected, clearing config."); //save to print on std serial because serial switch didn't happen yet
+    loggingSerial.println("Double reset detected, clearing config."); //save to print on std serial because serial switch didn't happen yet
     LittleFS.begin();
     LittleFS.format();
     //create first boot file
@@ -936,7 +950,7 @@ void doubleResetDetect() {
     WiFi.persistent(true);
     WiFi.disconnect();
     WiFi.persistent(false);
-    Serial.println("Config cleared. Please reset to configure this device...");
+    loggingSerial.println("Config cleared. Please reset to configure this device...");
 #if defined(ESP8266)
     //initiate debug led indication for factory reset
     pinMode(2, FUNCTION_0); //set it as gpio
@@ -955,16 +969,16 @@ void doubleResetDetect() {
 
 void setupSerial() {
   //boot issue's first on normal serial
-  Serial.begin(115200);
-  Serial.flush();
+  loggingSerial.begin(115200);
+  loggingSerial.flush();
 }
 
 void setupSerial1() {
   if (heishamonSettings.logSerial1) { //settings are not loaded yet, this is the startup default
     //debug line on serial1 (D4, GPIO2)
-    Serial1.begin(115200);
-    Serial1.print(F("Starting debugging, version: "));
-    Serial1.println(heishamon_version);
+    loggingSerial.begin(115200);
+    loggingSerial.print(F("Starting debugging, version: "));
+    loggingSerial.println(heishamon_version);
   }
   else {
 #if defined(ESP8266)
@@ -975,15 +989,15 @@ void setupSerial1() {
 }
 
 void switchSerial() {
-  Serial.println(F("Switching serial to connect to heatpump. Look for debug on serial1 (GPIO2) and mqtt log topic."));
+  loggingSerial.println(F("Switching serial to connect to heatpump. Look for debug on serial1 (GPIO2) and mqtt log topic."));
 #if defined(ESP8266)
   //serial to cn-cnt
-  Serial.flush();
-  Serial.end();
-  Serial.begin(9600, SERIAL_8E1);
-  Serial.flush();
+  heatpumpSerial.flush();
+  heatpumpSerial.end();
+  heatpumpSerial.begin(9600, SERIAL_8E1);
+  heatpumpSerial.flush();
   //swap to gpio13 (D7) and gpio15 (D8)
-  Serial.swap();
+  heatpumpSerial.swap();
   //turn on GPIO's on tx/rx for opentherm part
   pinMode(1, FUNCTION_3);
   pinMode(3, FUNCTION_3);
@@ -998,7 +1012,7 @@ void switchSerial() {
 
   //try to detect if cz-taw1 is connected in parallel
   if (!heishamonSettings.listenonly) {
-    if (Serial.available() > 0) {
+    if (heatpumpSerial.available() > 0) {
       log_message(_F("There is data on the line without asking for it. Switching to listen only mode."));
       heishamonSettings.listenonly = true;
     }
@@ -1093,7 +1107,8 @@ void setup() {
   Serial.println(F("starting..."));
 
   //first boot check, to visually confirm good flash
-  if (LittleFS.begin()) {
+  //this also formats the littlefs if necessary
+  if (LittleFS.begin(true)) {
     if (LittleFS.exists("/heishamon")) {
       //normal boot
     } else if (LittleFS.exists("/config.json")) {
@@ -1122,7 +1137,7 @@ void setup() {
   //double reset detect from start
   doubleResetDetect();
 
-  WiFi.printDiag(Serial);
+  WiFi.printDiag(loggingSerial);
   //initiate a wifi scan at boot to prefill the wifi scan json list
   byte numSsid = WiFi.scanNetworks();
   getWifiScanResults(numSsid);
@@ -1134,11 +1149,12 @@ void setup() {
   setupMqtt();
   setupHttp();
 
+  sntp_stop();
   sntp_setoperatingmode(SNTP_OPMODE_POLL);
   sntp_init();
 
   switchSerial(); //switch serial to gpio13/gpio15
-  WiFi.printDiag(Serial1);
+  WiFi.printDiag(loggingSerial);
 
   setupConditionals(); //setup for routines based on settings
 
@@ -1154,7 +1170,7 @@ void setup() {
 
 #if defined(ESP8266)
   rst_info *resetInfo = ESP.getResetInfoPtr();
-  Serial1.printf(PSTR("Reset reason: %d, exception cause: %d\n"), resetInfo->reason, resetInfo->exccause);
+  loggingSerial.printf(PSTR("Reset reason: %d, exception cause: %d\n"), resetInfo->reason, resetInfo->exccause);
 
   if (resetInfo->reason > 0 && resetInfo->reason < 4) {
     if (LittleFS.begin()) {
@@ -1170,7 +1186,7 @@ void setup() {
 #elif defined(ESP32)
 /*
   esp_reset_reason_t reset_reason = esp_reset_reason(); 
-  Serial1.printf(PSTR("Reset reason: %d\n"), reset_reason);
+  loggingSerial.printf(PSTR("Reset reason: %d\n"), reset_reason);
 
   if (reset_reason > 0 && reset_reason < 4) {  //is this correct for esp32?
     if (LittleFS.begin()) {

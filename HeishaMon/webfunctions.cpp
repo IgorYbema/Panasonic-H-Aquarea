@@ -288,21 +288,16 @@ void setupWifi(settingsStruct *heishamonSettings) {
   else {
     log_message(_F("Wifi hotspot mode..."));
     WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
-    WiFi.softAP(F("HeishaMon-Setup"));
+    WiFi.softAP(_F("HeishaMon-Setup"));
   }
 
   if (heishamonSettings->wifi_hostname[0] == '\0') {
     //Set hostname on wifi rather than ESP_xxxxx
-    WiFi.hostname(F("HeishaMon"));
+    WiFi.hostname(_F("HeishaMon"));
   } else {
     WiFi.hostname(heishamonSettings->wifi_hostname);
   }
 #elif defined(ESP32)
-#define D_SET_WIFI true
-  if(D_SET_WIFI){
-    log_e("START setupWiFi Status= %i Mode= %i  IP= ",WiFi.status(),WiFi.getMode());
-    Serial.println(WiFi.localIP());
-  }
   WiFi.setSleep(false);
   WiFi.softAPdisconnect(true); 
   delay(100);  // must delay to avoid error 
@@ -310,10 +305,6 @@ void setupWifi(settingsStruct *heishamonSettings) {
   // ESP32 wifi: Don't switch off if AP is closed. 
   // It is the reason why  WiFi.softAPdisconnect(true) must be before WiFi.disconnect(true)
   // https://github.com/Tinkerforge/esp32-brick/commit/7b2376ac30ff09286ce77c8dac11ffa68ee56952
-  if(D_SET_WIFI){
-    log_e("START setupWiFi Status= %i Mode= %i  IP= ",WiFi.status(),WiFi.getMode());
-    Serial.println(WiFi.localIP());
-  }
   if (heishamonSettings->wifi_ssid[0] != '\0') {
      log_message(_F("Wifi client mode..."));
     if (heishamonSettings->wifi_password[0] == '\0') {
@@ -321,45 +312,27 @@ void setupWifi(settingsStruct *heishamonSettings) {
       } else {
         WiFi.begin(heishamonSettings->wifi_ssid, heishamonSettings->wifi_password);
       }
-      Serial.print("\nConnecting");
       uint8_t  wifi_retry=0;   // COUNTER SOLVES ESP32-BUG WITH CERTAIN ROUTERS: CONNECTION ONLY ESTABLISHED EVERY SECOND TIME
       while(WiFi.status() != WL_CONNECTED && wifi_retry < 100){
-        Serial.print(".");
         delay(300);
         wifi_retry++;
       }     
       if(WiFi.status() == WL_CONNECTED) {
-        Serial.printf("\nESP connected to Network %s with LOCAL_IP = ",heishamonSettings->wifi_ssid);
         WiFi.setAutoReconnect(true);
         WiFi.persistent(true); //breaks stuff  https://forum.arduino.cc/t/esp8266-esp32-confusion-about-wifi-persistent/624959
       }
-      else{
-      Serial.println("\nWiFi not connected, Check Signal WiFi , SSID and password");
-      }
-      Serial.println(WiFi.localIP());
-      if(D_SET_WIFI) log_e("WiFi Status= %i",WiFi.status());
   }
   else {
     log_message(_F("Wifi hotspot mode..."));
-        if(D_SET_WIFI) log_e("GetMode = %i \n",WiFi.getMode());
     WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0)); 
-        if(D_SET_WIFI) log_e("GetMode = %i \n",WiFi.getMode());
-    WiFi.softAP(_F("HeishaMonBoth-Setup"));
-    if(D_SET_WIFI){
-      log_e("START setupWiFi Status= %i Mode= %i  IP= ",WiFi.status(),WiFi.getMode());
-      Serial.println(WiFi.softAPIP());
-    }
+    WiFi.softAP("HeishaMon-Setup");
   }
 
   if (heishamonSettings->wifi_hostname[0] == '\0') {
     //Set hostname on wifi rather than ESP_xxxxx
-    WiFi.hostname(_F("HeishaMonBoth"));
+    WiFi.hostname("HeishaMon");
   } else {
     WiFi.hostname(heishamonSettings->wifi_hostname);
-  }
-  if(D_SET_WIFI){
-    log_e("START setupWiFi Status= %i Mode= %i  IP= ",WiFi.status(),WiFi.getMode());
-    Serial.println(WiFi.localIP());
   }
 #endif
 }
