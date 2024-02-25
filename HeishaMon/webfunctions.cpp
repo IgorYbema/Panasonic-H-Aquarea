@@ -10,7 +10,6 @@
 #include "lwip/apps/sntp.h"
 #include "lwip/dns.h"
 
-#include <ESP8266WiFi.h>
 #include <ArduinoJson.h>          //https://github.com/bblanchon/ArduinoJson
 #include <time.h>
 

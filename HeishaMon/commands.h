@@ -1,6 +1,5 @@
 #define LWIP_INTERNAL
 
-#include <ESP8266WiFi.h>
 #include <ArduinoJson.h>
 
 #define DATASIZE 203
