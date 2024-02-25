@@ -5,8 +5,13 @@
 #include "src/common/webserver.h"
 
 // opentherm
-const int inOTPin = 3; //RX pin from ESP8266
-const int outOTPin = 1; //TX pin from ESP8266
+#if defined(ESP8266)
+#define inOTPin 3 //RX pin from ESP8266
+#define outOTPin 1 //TX pin from ESP8266
+#elif defined(ESP32)
+#define inOTPin 6
+#define outOTPin 7
+#endif
 
 // mqtt
 extern const char* mqtt_topic_opentherm;

@@ -1,17 +1,17 @@
 #ifndef _DALLAS_H_
 #define _DALLAS_H_
 
-#ifdef ESP32
-#include <soc/gpio_struct.h>
-#endif
-
 #include <PubSubClient.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include "src/common/webserver.h"
 
 #define MAX_DALLAS_SENSORS 15
-#define ONE_WIRE_BUS 4  // DS18B20 pin, for now a static config - should be in config menu later
+#if defined(ESP8266)
+#define ONE_WIRE_BUS 4
+#elif defined(ESP32)
+#define ONE_WIRE_BUS 3
+#endif
 
 struct dallasDataStruct {
   float temperature = -127.0;

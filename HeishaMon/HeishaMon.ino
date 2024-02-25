@@ -5,6 +5,8 @@
 #include <ESP8266mDNS.h>
   #define heatpumpSerial Serial
   #define loggingSerial Serial1
+  #define ENABLEPIN 5
+  #define LEDPIN 2
 #elif defined(ESP32)
   #define heatpumpSerial Serial0
   #define loggingSerial Serial
@@ -13,6 +15,8 @@
   #define HEATPUMPTX 21
   #define CZTAWRX 10
   #define CZTAWTX 4
+  #define ENABLEPIN 5
+  #define LEDPIN 2
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #endif
@@ -811,9 +815,9 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
               if ((!heishamonSettings.opentherm) && (heishamonSettings.listenonly)) {
                 //make sure we disable TX to heatpump-RX using the mosfet so this line is floating and will not disturb cz-taw1
                 //does not work for opentherm version currently
-                digitalWrite(5, LOW);
+                digitalWrite(ENABLEPIN, LOW);
               } else {
-                digitalWrite(5, HIGH);
+                digitalWrite(ENABLEPIN, HIGH);
               }
               switch (client->route) {
                 case 111: {
@@ -957,41 +961,40 @@ void doubleResetDetect() {
     WiFi.disconnect();
     WiFi.persistent(false);
     loggingSerial.println("Config cleared. Please reset to configure this device...");
-#if defined(ESP8266)
     //initiate debug led indication for factory reset
-    pinMode(2, FUNCTION_0); //set it as gpio
-    pinMode(2, OUTPUT);
+#if defined(ESP8266)
+    pinMode(LEDPIN, FUNCTION_0); //set it as gpio
+#endif
+    pinMode(LEDPIN, OUTPUT);
     while (true) {
-      digitalWrite(2, HIGH);
+      digitalWrite(LEDPIN, HIGH);
       delay(100);
-      digitalWrite(2, LOW);
+      digitalWrite(LEDPIN, LOW);
       delay(100);
     }
-#elif defined(ESP32)
-    // need to define new reset indication
-#endif
   }
 }
 
 void setupSerial() {
+#if defined(ESP8266)
   //boot issue's first on normal serial
-  loggingSerial.begin(115200);
-  loggingSerial.flush();
-}
-
-void setupSerial1() {
+  heatpumpSerial.begin(115200);
+  heatpumpSerial.flush();
+#endif
   if (heishamonSettings.logSerial1) { //settings are not loaded yet, this is the startup default
     //debug line on serial1 (D4, GPIO2)
     loggingSerial.begin(115200);
     loggingSerial.print(F("Starting debugging, version: "));
     loggingSerial.println(heishamon_version);
   }
-  else {
 #if defined(ESP8266)
-    pinMode(2, FUNCTION_0); //set it as gpio
-#elif defined(ESP32)
-#endif
+  else {
+    pinMode(LEDPIN, FUNCTION_0); //set it as gpio
   }
+#elif defined(ESP32)
+pinMode(LEDPIN, OUTPUT);
+digitalWrite(LEDPIN,HIGH); //is also power led
+#endif
 }
 
 void switchSerial() {
@@ -1000,7 +1003,7 @@ void switchSerial() {
   //serial to cn-cnt
   heatpumpSerial.flush();
   heatpumpSerial.end();
-  heatpumpSerial.begin(9600, SERIAL_8E1);
+  heatpumpSerial.begin(9600, SERIAL_8E1); //on normal tx/rx esp8266
   heatpumpSerial.flush();
   //swap to gpio13 (D7) and gpio15 (D8)
   heatpumpSerial.swap();
@@ -1022,7 +1025,7 @@ void switchSerial() {
   setupGPIO(heishamonSettings.gpioSettings); //switch extra GPIOs to configured mode
 
   //mosfet output enable
-  pinMode(5, OUTPUT);
+  pinMode(ENABLEPIN, OUTPUT);
 
   //try to detect if cz-taw1 is connected in parallel
   if (!heishamonSettings.listenonly) {
@@ -1033,7 +1036,7 @@ void switchSerial() {
     else {
       //enable gpio15 after boot using gpio5 (D1) which enables the level shifter for the tx to panasonic
       //do not enable if listen only to keep the line floating
-      digitalWrite(5, HIGH);
+      digitalWrite(ENABLEPIN, HIGH);
     }
   }
 }
@@ -1114,7 +1117,6 @@ void setup() {
   free(up);
 
   setupSerial();
-  setupSerial1();
 
   Serial.println();
   Serial.println(F("--- HEISHAMON ---"));
@@ -1134,17 +1136,15 @@ void setup() {
       File startupFile = LittleFS.open("/heishamon", "w");
       startupFile.close();    
 #if defined(ESP8266)
-      pinMode(2, FUNCTION_0); //set it as gpio
-      pinMode(2, OUTPUT);
+      pinMode(LEDPIN, FUNCTION_0); //set it as gpio
+#endif
+      pinMode(LEDPIN, OUTPUT);
       while (true) {
-        digitalWrite(2, HIGH);
+        digitalWrite(LEDPIN, HIGH);
         delay(50);
-        digitalWrite(2, LOW);
+        digitalWrite(LEDPIN, LOW);
         delay(50);
       }
-#elif defined(ESP32)
-    //create new first start indication
-#endif
     }
   }
 
@@ -1178,7 +1178,7 @@ void setup() {
   //OT begin must be after serial setup
   if (heishamonSettings.opentherm) {
     //always enable mosfets if opentherm is used
-    digitalWrite(5, HIGH);
+    digitalWrite(ENABLEPIN, HIGH);
     HeishaOTSetup();
   }
 
