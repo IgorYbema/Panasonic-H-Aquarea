@@ -11,7 +11,7 @@ unsigned int alignedbytes(int v) {
 }
 
 unsigned int alignedbuffer(int v) {
-#ifdef ESP8266
+#if defined(ESP8266) or defined(ESP32)
   return (v + 3) & ~0x3;
 #else
   return v;

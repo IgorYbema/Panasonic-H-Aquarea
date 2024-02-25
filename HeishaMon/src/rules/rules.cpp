@@ -6,11 +6,11 @@
   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32) 
   #pragma GCC diagnostic warning "-fpermissive"
 #endif
 
-#ifndef ESP8266
+#if !defined(ESP8266) && !defined(ESP32)
   #include <stdio.h>
   #include <stdlib.h>
   #include <stdarg.h>
@@ -54,7 +54,7 @@ static void print_bytecode(struct rules_t *obj);
 /*LCOV_EXCL_STOP*/
 
 unsigned int alignedvarstack(int v) {
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
   return (v + MAX_VARSTACK_NODE_SIZE) - ((v + MAX_VARSTACK_NODE_SIZE) % MAX_VARSTACK_NODE_SIZE);
 #else
   return v;
@@ -71,7 +71,7 @@ void rules_gc(struct rules_t ***rules, unsigned int nrrules) {
   // FREE((*rules));
   // (*rules) = NULL;
 
-#ifndef ESP8266
+#if !defined(ESP8266) && !defined(ESP32)
   /*
    * Should never happen
    */
@@ -1237,7 +1237,7 @@ static int rule_parse(char **text, int *length, struct rules_t *obj) {
   startnode = vm_parent(text, obj, TSTART, 0, 0, 0);
 
   while(loop) {
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
     delay(0);
 #endif
     if(go > -1) {
@@ -3621,8 +3621,8 @@ int rule_run(struct rules_t *obj, int validate) {
   go = start = 0;
 
   while(go != -1) {
-#ifdef ESP8266
-    ESP.wdtFeed();
+#if defined(ESP8266)
+    ESP.wdtFeed(); //only on ESP8266
 #endif
 
 /*LCOV_EXCL_START*/
@@ -4597,7 +4597,7 @@ int rule_initialize(struct pbuf *input, struct rules_t ***rules, int *nrrules, s
     mempool->len = 512;
   }
   if(*nrrules >= 64) {
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
     Serial1.println(PSTR("more than the maximum of 64 rule blocks defined"));
 #else
     printf("more than the maximum of 64 rule blocks defined\n");
@@ -4605,7 +4605,7 @@ int rule_initialize(struct pbuf *input, struct rules_t ***rules, int *nrrules, s
   }
 
   if(input->len < alignedbuffer(mempool->len)) {
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
     Serial1.println(PSTR("not enough free space in rules mempool"));
 #else
     printf("not enough free space in rules mempool\n");
@@ -4632,8 +4632,8 @@ int rule_initialize(struct pbuf *input, struct rules_t ***rules, int *nrrules, s
   obj->varstack.bufsize = 4;
 
 /*LCOV_EXCL_START*/
-#if defined(DEBUG) or defined(ESP8266)
-  #ifdef ESP8266
+#if defined(DEBUG) or defined(ESP8266) or defined(ESP32)
+  #if defined(ESP8266) || defined(ESP32)
     obj->timestamp.first = micros();
   #else
     clock_gettime(CLOCK_MONOTONIC, &obj->timestamp.first);
@@ -4646,8 +4646,8 @@ int rule_initialize(struct pbuf *input, struct rules_t ***rules, int *nrrules, s
   }
 
 /*LCOV_EXCL_START*/
-#if defined(DEBUG) or defined(ESP8266)
-  #ifdef ESP8266
+#if defined(DEBUG) or defined(ESP8266) or defined(ESP32)
+  #if defined(ESP8266) || defined(ESP32)
   obj->timestamp.second = micros();
 
   logprintf_P(F("rule #%d was prepared in %d microseconds"), obj->nr, obj->timestamp.second - obj->timestamp.first);
@@ -4663,8 +4663,8 @@ int rule_initialize(struct pbuf *input, struct rules_t ***rules, int *nrrules, s
 
 
 /*LCOV_EXCL_START*/
-#if defined(DEBUG) or defined(ESP8266)
-  #ifdef ESP8266
+#if defined(DEBUG) or defined(ESP8266) or defined(ESP32)
+  #if defined(ESP8266) || defined(ESP32)
   obj->timestamp.first = micros();
   #else
   clock_gettime(CLOCK_MONOTONIC, &obj->timestamp.first);
@@ -4701,8 +4701,8 @@ int rule_initialize(struct pbuf *input, struct rules_t ***rules, int *nrrules, s
   }
 
 /*LCOV_EXCL_START*/
-#if defined(DEBUG) or defined(ESP8266)
-  #ifdef ESP8266
+#if defined(DEBUG) or defined(ESP8266) or defined(ESP32)
+  #if defined(ESP8266) || defined(ESP32)
   obj->timestamp.second = micros();
 
   logprintf_P(F("rule #%d was parsed in %d microseconds"), obj->nr, obj->timestamp.second - obj->timestamp.first);
@@ -4721,7 +4721,7 @@ int rule_initialize(struct pbuf *input, struct rules_t ***rules, int *nrrules, s
 
 /*LCOV_EXCL_START*/
 #ifdef DEBUG
-  #ifndef ESP8266
+  #if !defined(ESP8266) && !defined(ESP32)
   print_bytecode(obj);
   printf("\n");
   print_tree(obj);
@@ -4730,8 +4730,8 @@ int rule_initialize(struct pbuf *input, struct rules_t ***rules, int *nrrules, s
 /*LCOV_EXCL_STOP*/
 
 /*LCOV_EXCL_START*/
-#if defined(DEBUG) or defined(ESP8266)
-  #ifdef ESP8266
+#if defined(DEBUG) or defined(ESP8266) or defined(ESP32)
+  #if defined(ESP8266) || defined(ESP32)
     obj->timestamp.first = micros();
   #else
     clock_gettime(CLOCK_MONOTONIC, &obj->timestamp.first);
@@ -4750,8 +4750,8 @@ int rule_initialize(struct pbuf *input, struct rules_t ***rules, int *nrrules, s
   mempool->len += alignedbuffer(obj->varstack.bufsize);
 
 /*LCOV_EXCL_START*/
-#if defined(DEBUG) or defined(ESP8266)
-  #ifdef ESP8266
+#if defined(DEBUG) or defined(ESP8266) or defined(ESP32)
+  #if defined(ESP8266) || defined(ESP32)
     obj->timestamp.second = micros();
 
     logprintf_P(F("rule #%d was executed in %d microseconds"), obj->nr, obj->timestamp.second - obj->timestamp.first);

@@ -120,11 +120,20 @@ char *getUptime(void) {
   return str;
 }
 
+#if defined(ESP8266)
 void ntp_dns_found(const char *name, const ip4_addr *addr, void *arg) {
   sntp_stop();
   sntp_setserver(ntpservers++, addr);
   sntp_init();
 }
+#elif defined(ESP32)
+void ntp_dns_found(const char *name, const ip_addr_t *addr, void *arg) {
+  sntp_stop();
+  sntp_setserver(ntpservers++, addr);
+  sntp_init();
+}
+#endif
+
 
 void ntpReload(settingsStruct *heishamonSettings) {
   ip_addr_t addr;
@@ -159,7 +168,12 @@ void ntpReload(settingsStruct *heishamonSettings) {
   sntp_stop();
   tzStruct tz;
   memcpy_P(&tz, &tzdata[heishamonSettings->timezone], sizeof(tz));
+#if defined(ESP8266)
   setTZ(tz.value);
+#elif defined(ESP32)
+  setenv("TZ",tz.value,1);
+  tzset();
+#endif
   sntp_init();
 }
 
@@ -254,6 +268,7 @@ void loadSettings(settingsStruct *heishamonSettings) {
 
 void setupWifi(settingsStruct *heishamonSettings) {
   log_message(_F("Wifi reconnecting with new configuration..."));
+#if defined(ESP8266)
   //no sleep wifi
   WiFi.setSleepMode(WIFI_NONE_SLEEP);
   WiFi.mode(WIFI_AP_STA);
@@ -282,6 +297,71 @@ void setupWifi(settingsStruct *heishamonSettings) {
   } else {
     WiFi.hostname(heishamonSettings->wifi_hostname);
   }
+#elif defined(ESP32)
+#define D_SET_WIFI true
+  if(D_SET_WIFI){
+    log_e("START setupWiFi Status= %i Mode= %i  IP= ",WiFi.status(),WiFi.getMode());
+    Serial.println(WiFi.localIP());
+  }
+  WiFi.setSleep(false);
+  WiFi.softAPdisconnect(true); 
+  delay(100);  // must delay to avoid error 
+  WiFi.disconnect(true); 
+  // ESP32 wifi: Don't switch off if AP is closed. 
+  // It is the reason why  WiFi.softAPdisconnect(true) must be before WiFi.disconnect(true)
+  // https://github.com/Tinkerforge/esp32-brick/commit/7b2376ac30ff09286ce77c8dac11ffa68ee56952
+  if(D_SET_WIFI){
+    log_e("START setupWiFi Status= %i Mode= %i  IP= ",WiFi.status(),WiFi.getMode());
+    Serial.println(WiFi.localIP());
+  }
+  if (heishamonSettings->wifi_ssid[0] != '\0') {
+     log_message(_F("Wifi client mode..."));
+    if (heishamonSettings->wifi_password[0] == '\0') {
+        WiFi.begin(heishamonSettings->wifi_ssid);
+      } else {
+        WiFi.begin(heishamonSettings->wifi_ssid, heishamonSettings->wifi_password);
+      }
+      Serial.print("\nConnecting");
+      uint8_t  wifi_retry=0;   // COUNTER SOLVES ESP32-BUG WITH CERTAIN ROUTERS: CONNECTION ONLY ESTABLISHED EVERY SECOND TIME
+      while(WiFi.status() != WL_CONNECTED && wifi_retry < 100){
+        Serial.print(".");
+        delay(300);
+        wifi_retry++;
+      }     
+      if(WiFi.status() == WL_CONNECTED) {
+        Serial.printf("\nESP connected to Network %s with LOCAL_IP = ",heishamonSettings->wifi_ssid);
+        WiFi.setAutoReconnect(true);
+        WiFi.persistent(true); //breaks stuff  https://forum.arduino.cc/t/esp8266-esp32-confusion-about-wifi-persistent/624959
+      }
+      else{
+      Serial.println("\nWiFi not connected, Check Signal WiFi , SSID and password");
+      }
+      Serial.println(WiFi.localIP());
+      if(D_SET_WIFI) log_e("WiFi Status= %i",WiFi.status());
+  }
+  else {
+    log_message(_F("Wifi hotspot mode..."));
+        if(D_SET_WIFI) log_e("GetMode = %i \n",WiFi.getMode());
+    WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0)); 
+        if(D_SET_WIFI) log_e("GetMode = %i \n",WiFi.getMode());
+    WiFi.softAP(_F("HeishaMonBoth-Setup"));
+    if(D_SET_WIFI){
+      log_e("START setupWiFi Status= %i Mode= %i  IP= ",WiFi.status(),WiFi.getMode());
+      Serial.println(WiFi.softAPIP());
+    }
+  }
+
+  if (heishamonSettings->wifi_hostname[0] == '\0') {
+    //Set hostname on wifi rather than ESP_xxxxx
+    WiFi.hostname(_F("HeishaMonBoth"));
+  } else {
+    WiFi.hostname(heishamonSettings->wifi_hostname);
+  }
+  if(D_SET_WIFI){
+    log_e("START setupWiFi Status= %i Mode= %i  IP= ",WiFi.status(),WiFi.getMode());
+    Serial.println(WiFi.localIP());
+  }
+#endif
 }
 
 int handleFactoryReset(struct webserver_t *client) {
@@ -880,7 +960,11 @@ int handleWifiScan(struct webserver_t *client) {
     webserver_send_content(client, str, strlen(str));
   }
   //initatie a new async scan for next try
+#if defined(ESP8266)
   WiFi.scanNetworksAsync(getWifiScanResults);
+#elif defined(ESP32)
+  WiFi.scanNetworks(true,getWifiScanResults);
+#endif
   return 0;
 }
 
@@ -1346,6 +1430,7 @@ static void printUpdateError(char **out, uint8_t size) {
 #endif
   } else if (Update.getError() == UPDATE_ERROR_MD5) {
     snprintf_P(&(*out)[len], size - len, PSTR("MD5 Failed\n"));
+#if defined(ESP8266)
   } else if (Update.getError() == UPDATE_ERROR_SIGN) {
     snprintf_P(&(*out)[len], size - len, PSTR("Signature verification failed"));
   } else if (Update.getError() == UPDATE_ERROR_FLASH_CONFIG) {
@@ -1360,6 +1445,22 @@ static void printUpdateError(char **out, uint8_t size) {
     snprintf_P(&(*out)[len], size - len, PSTR("UNKNOWN"));
   }
 }
+#elif defined(ESP32)
+  } else if (Update.getError() == UPDATE_ERROR_MAGIC_BYTE) {   //####ESP32
+    snprintf_P(&(*out)[len], size - len, PSTR("Wrong Magic Byte, not 0xE9"));   //####ESP32
+  } else if (Update.getError() == UPDATE_ERROR_ACTIVATE) {   //####ESP32
+    snprintf_P(&(*out)[len], size - len, PSTR("Could Not Activate The Firmwaren"));   //####ESP32
+  } else if (Update.getError() == UPDATE_ERROR_NO_PARTITION) {   //####ESP32
+    snprintf_P(&(*out)[len], size - len, PSTR("Partition Could Not be Found"));   //####ESP32
+  } else if (Update.getError() == UPDATE_ERROR_BAD_ARGUMENT) {   //####ESP32
+    snprintf_P(&(*out)[len], size - len, PSTR("Bad Argument"));   //####ESP32
+  } else if (Update.getError() == UPDATE_ERROR_ABORT) {   //####ESP32
+    snprintf_P(&(*out)[len], size - len, PSTR("Aborted , Invalid bootstrapping state, reset ESP32 before updating"));   //####ESP32
+  } else {   //####ESP32
+    snprintf_P(&(*out)[len], size - len, PSTR("UNKNOWN"));   //####ESP32
+  }
+}
+#endif
 
 
 int showFirmwareFail(struct webserver_t *client) {

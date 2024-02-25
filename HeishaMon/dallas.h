@@ -1,6 +1,10 @@
 #ifndef _DALLAS_H_
 #define _DALLAS_H_
 
+#ifdef ESP32
+#include <soc/gpio_struct.h>
+#endif
+
 #include <PubSubClient.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>

@@ -11,7 +11,7 @@
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include <DNSServer.h>
-#include <DoubleResetDetect.h>
+#include <ESP_DoubleResetDetector.h>
 
 #include <ArduinoJson.h>
 
@@ -31,8 +31,11 @@
 DNSServer dnsServer;
 
 //to read bus voltage in stats
+#ifdef ESP8266
 ADC_MODE(ADC_VCC);
+#endif
 
+#define ESP_DRD_USE_EEPROM true
 // maximum number of seconds between resets that
 // counts as a double reset
 #define DRD_TIMEOUT 0.1
@@ -109,7 +112,7 @@ static uint8_t cmdend = 0;
 static uint8_t cmdnrel = 0;
 
 //doule reset detection
-DoubleResetDetect drd(DRD_TIMEOUT, DRD_ADDRESS);
+DoubleResetDetector* drd;
 
 // mqtt
 WiFiClient mqtt_wifi_client;
@@ -170,7 +173,9 @@ void check_wifi()
     if (WiFi.softAPSSID() != "") {
       log_message(_F("WiFi (re)connected, shutting down hotspot..."));
       WiFi.softAPdisconnect(true);
+#ifdef ESP8266
       MDNS.notifyAPChange();
+#endif
     }
 
     if (firstConnectSinceBoot) { // this should start only when softap is down or else it will not work properly so run after the routine to disable softap
@@ -179,7 +184,9 @@ void check_wifi()
       setupOTA();
       MDNS.begin(heishamonSettings.wifi_hostname);
       MDNS.addService("http", "tcp", 80);
+#ifdef ESP8266
       experimental::ESP8266WiFiGratuitous::stationKeepAliveSetIntervalMs(5000); //necessary for some users with bad wifi routers
+#endif
 
       if (heishamonSettings.wifi_ssid[0] == '\0') {
         log_message(_F("WiFi connected without SSID and password in settings. Must come from persistent memory. Storing in settings."));
@@ -199,8 +206,10 @@ void check_wifi()
     */
     lastWifiRetryTimer = millis();
 
+#ifdef ESP8266
     // Allow MDNS processing
     MDNS.update();
+#endif
   }
 }
 
@@ -586,7 +595,9 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
             }
           } else if (strcmp_P((char *)dat, PSTR("/firmware")) == 0) {
             if (!Update.isRunning()) {
+#ifdef ESP8266
               Update.runAsync(true);
+#endif
               if (!Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000)) {
                 Update.printError(Serial1);
                 return -1;
@@ -914,7 +925,8 @@ void setupHttp() {
 }
 
 void doubleResetDetect() {
-  if (drd.detect()) {
+  drd = new DoubleResetDetector(DRD_TIMEOUT, DRD_ADDRESS);
+  if (drd->detectDoubleReset()) {
     Serial.println("Double reset detected, clearing config."); //save to print on std serial because serial switch didn't happen yet
     LittleFS.begin();
     LittleFS.format();
@@ -925,6 +937,7 @@ void doubleResetDetect() {
     WiFi.disconnect();
     WiFi.persistent(false);
     Serial.println("Config cleared. Please reset to configure this device...");
+#if defined(ESP8266)
     //initiate debug led indication for factory reset
     pinMode(2, FUNCTION_0); //set it as gpio
     pinMode(2, OUTPUT);
@@ -934,7 +947,9 @@ void doubleResetDetect() {
       digitalWrite(2, LOW);
       delay(100);
     }
-
+#elif defined(ESP32)
+    // need to define new reset indication
+#endif
   }
 }
 
@@ -952,12 +967,16 @@ void setupSerial1() {
     Serial1.println(heishamon_version);
   }
   else {
+#if defined(ESP8266)
     pinMode(2, FUNCTION_0); //set it as gpio
+#elif defined(ESP32)
+#endif
   }
 }
 
 void switchSerial() {
   Serial.println(F("Switching serial to connect to heatpump. Look for debug on serial1 (GPIO2) and mqtt log topic."));
+#if defined(ESP8266)
   //serial to cn-cnt
   Serial.flush();
   Serial.end();
@@ -968,6 +987,9 @@ void switchSerial() {
   //turn on GPIO's on tx/rx for opentherm part
   pinMode(1, FUNCTION_3);
   pinMode(3, FUNCTION_3);
+#elif defined(ESP32)
+  // need to create new serial startup config for ESP32
+#endif
 
   setupGPIO(heishamonSettings.gpioSettings); //switch extra GPIOs to configured mode
 
@@ -1082,6 +1104,7 @@ void setup() {
       //first boot
       File startupFile = LittleFS.open("/heishamon", "w");
       startupFile.close();    
+#if defined(ESP8266)
       pinMode(2, FUNCTION_0); //set it as gpio
       pinMode(2, OUTPUT);
       while (true) {
@@ -1090,6 +1113,9 @@ void setup() {
         digitalWrite(2, LOW);
         delay(50);
       }
+#elif defined(ESP32)
+    //create new first start indication
+#endif
     }
   }
 
@@ -1126,6 +1152,7 @@ void setup() {
     HeishaOTSetup();
   }
 
+#if defined(ESP8266)
   rst_info *resetInfo = ESP.getResetInfoPtr();
   Serial1.printf(PSTR("Reset reason: %d, exception cause: %d\n"), resetInfo->reason, resetInfo->exccause);
 
@@ -1140,6 +1167,24 @@ void setup() {
   } else {
     rules_setup();
   }
+#elif defined(ESP32)
+/*
+  esp_reset_reason_t reset_reason = esp_reset_reason(); 
+  Serial1.printf(PSTR("Reset reason: %d\n"), reset_reason);
+
+  if (reset_reason > 0 && reset_reason < 4) {  //is this correct for esp32?
+    if (LittleFS.begin()) {
+      LittleFS.rename("/rules.txt", "/rules.old");
+    }
+    rules_setup();
+    if (LittleFS.begin()) {
+      LittleFS.rename("/rules.old", "/rules.txt");
+    }
+  } else {
+    rules_setup();
+  }
+*/
+#endif
 }
 
 void send_initial_query() {
@@ -1248,11 +1293,15 @@ void loop() {
     free(up);
     message += F(" ## Free memory: ");
     message += getFreeMemory();
+#if defined(ESP8266)
     message += F("% ## Heap fragmentation: ");
     message += ESP.getHeapFragmentation();
     message += F("% ## Max free block: ");
     message += ESP.getMaxFreeBlockSize();
     message += F(" bytes ## Free heap: ");
+#elif defined(ESP32)
+    message += F("% ## Free heap: ");
+#endif
     message += ESP.getFreeHeap();
     message += F(" bytes ## Wifi: ");
     message += getWifiQuality();
@@ -1270,7 +1319,11 @@ void loop() {
     stats += F("{\"uptime\":");
     stats += String(millis());
     stats += F(",\"voltage\":");
+#if defined(ESP8266)
     stats += ESP.getVcc() / 1024.0;
+#else
+    stats += "3.3";
+#endif
     stats += F(",\"free memory\":");
     stats += getFreeMemory();
     stats += F(",\"free heap\":");
@@ -1306,9 +1359,11 @@ void loop() {
     sprintf_P(mqtt_topic, PSTR("%s/%s"), heishamonSettings.mqtt_topic_base, mqtt_willtopic);
     mqtt_client.publish(mqtt_topic, "Online");
 
+#ifdef ESP8266
     if (WiFi.isConnected()) {
       MDNS.announce();
     }
+#endif
   }
 
   timerqueue_update();

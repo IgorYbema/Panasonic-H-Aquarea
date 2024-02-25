@@ -12,7 +12,7 @@
 
 #include <stdint.h>
 
-#ifndef ESP8266
+#if !defined(ESP8266) && !defined(ESP32)
   #define F
   #define MEMPOOL_SIZE 16000
   typedef struct pbuf {
@@ -24,7 +24,11 @@
     uint8_t flags;
     uint16_t ref;
   } pbuf;
-#else
+#elif defined(ESP32)
+  #include <Arduino.h>
+  #include "lwip/pbuf.h"
+  #define MEMPOOL_SIZE 16000 
+#elif defined(ESP8266)
   #include <Arduino.h>
   #include "lwip/pbuf.h"
   #define MEMPOOL_SIZE MMU_SEC_HEAP_SIZE
@@ -118,8 +122,8 @@ typedef struct rules_t {
   unsigned short nr;
 
   struct {
-#if defined(DEBUG) or defined(ESP8266)
-  #ifdef ESP8266
+#if defined(DEBUG) or defined(ESP8266) or defined(ESP32)
+  #if defined(ESP8266) or defined(ESP32)
       unsigned long first;
       unsigned long second;
   #else

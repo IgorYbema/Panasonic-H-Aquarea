@@ -79,6 +79,10 @@ static struct vm_vfloat_t vfloat;
 static struct vm_vnull_t vnull;
 
 struct rule_options_t rule_options;
+//quick hack for ESP32, address according to heishamonboth
+#ifdef ESP32
+#define MMU_SEC_HEAP 0x40108000
+#endif
 unsigned char *mempool = (unsigned char *)MMU_SEC_HEAP;
 unsigned int memptr = 0;
 
