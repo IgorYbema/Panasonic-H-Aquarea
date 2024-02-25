@@ -1122,7 +1122,11 @@ void setup() {
 
   //first boot check, to visually confirm good flash
   //this also formats the littlefs if necessary
+#if defined(ESP8266)
+  if (LittleFS.begin()) {
+#else
   if (LittleFS.begin(true)) {
+#endif
     if (LittleFS.exists("/heishamon")) {
       //normal boot
     } else if (LittleFS.exists("/config.json")) {
