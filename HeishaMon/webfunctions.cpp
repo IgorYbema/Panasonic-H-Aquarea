@@ -298,6 +298,7 @@ void setupWifi(settingsStruct *heishamonSettings) {
     WiFi.hostname(heishamonSettings->wifi_hostname);
   }
 #elif defined(ESP32)
+  WiFi.setTxPower(WIFI_POWER_8_5dBm); //temporary
   WiFi.setSleep(false);
   WiFi.softAPdisconnect(true); 
   delay(100);  // must delay to avoid error 

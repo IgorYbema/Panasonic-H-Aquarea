@@ -8,6 +8,11 @@
 #elif defined(ESP32)
   #define heatpumpSerial Serial0
   #define loggingSerial Serial
+  #define cztawSerial Serial1
+  #define HEATPUMPRX 20
+  #define HEATPUMPTX 21
+  #define CZTAWRX 10
+  #define CZTAWTX 4
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #endif
@@ -150,6 +155,7 @@ void check_wifi()
         also, do not disconnect if wifi network scan is active
     */
     if ((heishamonSettings.wifi_ssid[0] != '\0') && (WiFi.status() != WL_DISCONNECTED) && (WiFi.scanComplete() != -1) && (WiFi.softAPgetStationNum() > 0))  {
+      //need to check this for ESP32
       log_message(_F("WiFi lost, but softAP station connecting, so stop trying to connect to configured ssid..."));
       WiFi.disconnect(true);
     }
@@ -1003,6 +1009,14 @@ void switchSerial() {
   pinMode(3, FUNCTION_3);
 #elif defined(ESP32)
   // need to create new serial startup config for ESP32
+  heatpumpSerial.flush();
+  heatpumpSerial.end();
+  heatpumpSerial.begin(9600, SERIAL_8E1,HEATPUMPRX,HEATPUMPTX);
+  heatpumpSerial.flush();
+  cztawSerial.flush();
+  cztawSerial.end();
+  cztawSerial.begin(9600, SERIAL_8E1,CZTAWRX,CZTAWTX);
+  cztawSerial.flush();  
 #endif
 
   setupGPIO(heishamonSettings.gpioSettings); //switch extra GPIOs to configured mode
