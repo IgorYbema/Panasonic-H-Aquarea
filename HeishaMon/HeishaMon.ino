@@ -1200,10 +1200,6 @@ void timer_cb(int nr) {
 void setup() {
   //first get total memory before we do anything
   getFreeMemory();
-  log_d("Total heap: %d", ESP.getHeapSize());
-  log_d("Free heap: %d", ESP.getFreeHeap());
-  log_d("Total PSRAM: %d", ESP.getPsramSize());
-  log_d("Free PSRAM: %d", ESP.getFreePsram());
 
   //set boottime
   char *up = getUptime();
