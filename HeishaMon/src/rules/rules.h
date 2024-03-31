@@ -40,7 +40,6 @@
  * max(sizeof(vm_vfloat_t), sizeof(vm_vinteger_t), sizeof(vm_vnull_t))
  */
 #define MAX_VARSTACK_NODE_SIZE 7
-
 #define MAX(a,b) \
    ({ __typeof__ (a) _a = (a); \
        __typeof__ (b) _b = (b); \
@@ -50,7 +49,6 @@
    ({ __typeof__ (a) _a = (a); \
        __typeof__ (b) _b = (b); \
      _a < _b ? _a : _b; })
-
 typedef enum {
   TOPERATOR = 1,
   TFUNCTION = 2,

@@ -10,15 +10,17 @@
 #elif defined(ESP32)
   #define heatpumpSerial Serial0
   #define loggingSerial Serial
-  #define cztawSerial Serial1
-  #define HEATPUMPRX 20
-  #define HEATPUMPTX 21
-  #define CZTAWRX 10
-  #define CZTAWTX 4
+  #define proxySerial Serial1
+  #define HEATPUMPRX 9
+  #define HEATPUMPTX 8
+  #define PROXYRX 18
+  #define PROXYTX 17
   #define ENABLEPIN 5
-  #define LEDPIN 2
+  #define ENABLEOTPIN 4
+  #define LEDPIN 42
 #include <WiFi.h>
 #include <ESPmDNS.h>
+#include <Adafruit_NeoPixel.h>
 #endif
 
 
@@ -26,8 +28,6 @@
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include <DNSServer.h>
-#include <ESP_DoubleResetDetector.h>
-
 #include <ArduinoJson.h>
 
 #include "lwip/apps/sntp.h"
@@ -50,15 +50,10 @@ DNSServer dnsServer;
 ADC_MODE(ADC_VCC);
 #endif
 
-#define ESP_DRD_USE_EEPROM true
-// maximum number of seconds between resets that
-// counts as a double reset
-#define DRD_TIMEOUT 0.1
-
-// address to the block in the RTC user memory
-// change it if it collides with another usageb
-// of the address block
+//detect a factory reset request on eeprom
+#define DRD_TIMEOUT 500
 #define DRD_ADDRESS 0x00
+#include <EEPROM.h>
 
 const byte DNS_PORT = 53;
 
@@ -97,6 +92,15 @@ static int uploadpercentage = 0;
 char data[MAXDATASIZE] = { '\0' };
 byte data_length = 0;
 
+#ifdef ESP32
+//for received proxied data
+bool proxyEnabled = true; //true for now, should be a setting
+char proxydata[MAXDATASIZE] = { '\0' };
+byte proxydata_length = 0;
+//for the neopixel
+Adafruit_NeoPixel pixels(1, LEDPIN);
+#endif
+
 // store actual data
 String openTherm[2];
 char actData[DATASIZE] = { '\0' };
@@ -126,8 +130,7 @@ static uint8_t cmdstart = 0;
 static uint8_t cmdend = 0;
 static uint8_t cmdnrel = 0;
 
-//doule reset detection
-DoubleResetDetector* drd;
+
 
 // mqtt
 WiFiClient mqtt_wifi_client;
@@ -344,13 +347,78 @@ byte calcChecksum(byte* command, int length) {
   return chk;
 }
 
-bool isValidReceiveChecksum() {
+bool isValidReceiveChecksum(char* check_data, byte check_length) {
   byte chk = 0;
-  for ( int i = 0; i < data_length; i++)  {
-    chk += data[i];
+  for ( int i = 0; i < check_length; i++)  {
+    chk += check_data[i];
   }
   return (chk == 0); //all received bytes + checksum should result in 0
 }
+
+#ifdef ESP32
+void readProxy()
+{
+  int proxylen = 0;
+  while ((proxySerial.available()) && ((proxydata_length + proxylen) < MAXDATASIZE)) {
+    proxydata[proxydata_length + proxylen] = proxySerial.read(); //read available data and place it after the last received data
+    proxylen++;
+    if ((proxydata[0] != 0x71) and  (proxydata[0] != 0x31) and  (proxydata[0] != 0xF1)) { //wrong header received!
+      log_message(_F("PROXY Received bad header. Ignoring this data!"));
+      if (heishamonSettings.logHexdump) logHex(proxydata, proxylen);
+      proxydata_length = 0;
+      return; //return so this while loop does not loop forever if there happens to be a continous invalid data stream
+    }
+  }
+  //if ((proxylen > 0) && (proxydata_length == 0 )) proxy_totalreads++; //this is the start of a new read
+  proxydata_length +=  proxylen;
+  if (proxydata_length > 1 ) { //should have received length part of header now
+    if ((proxydata_length > ( proxydata[1] + 3)) || (proxydata_length >= MAXDATASIZE)) {
+      sprintf_P(log_msg, PSTR("PROXY Received %i bytes proxy %i\n"), proxydata_length, proxydata[1]);
+      log_message(log_msg);
+      log_message(_F("PROXY Received more data than header suggests! Ignoring this as this is bad data."));
+      if (heishamonSettings.logHexdump) logHex(proxydata, proxydata_length);
+      proxydata_length = 0;
+      return;
+    }
+    if (proxydata_length == (proxydata[1] + 3)) { //we received all data (serial2_data[1] is header length field)
+      sprintf_P(log_msg, PSTR("PROXY Received %i bytes proxy %i"), proxydata_length, proxydata[1]); log_message(log_msg);
+      if (! isValidReceiveChecksum(proxydata,proxydata_length) ) {
+        log_message(_F("PROXY Checksum received false!"));
+        proxydata_length = 0; //for next attempt
+        return;
+      }      
+      log_message(_F("PROXY Checksum and header received ok!"));
+      if ((proxydata[0]==0x71 or proxydata[0]==0xF1) and proxydata_length == (PANASONICQUERYSIZE+1)) { //this is a query from cztaw on proxy port
+        log_message(_F("PROXY request to Heat Pump"));
+        if (heishamonSettings.logHexdump) logHex(proxydata, proxydata_length);
+        if (proxydata[0]==0xf1) {  //this is a write query, just pass this message forward as new command
+          send_command((byte*)proxydata,proxydata_length-1); //strip CRC, will be calculated again in send_command
+        }
+        //then just reply with the current settings, for read and write it is the same as the write is only acknowledged in the next read
+        if (proxydata[3] = 0x10) {
+          log_message(_F("PROXY asked for basic query"));
+          if ((actData[0] == 0x71) && (actData[1] == 0xc8) && (actData[2] == 0x01)) { //don't answer if we don't have data
+            proxySerial.write(actData,DATASIZE); //should containt valid checksum also
+          }
+        } else if (proxydata[3] = 0x21 ) {
+          log_message(_F("PROXY asked for extra query"));
+          if ((actDataExtra[0] == 0x71) && (actDataExtra[1] == 0xc8) && (actDataExtra[2] == 0x01)) { //don't answer if we don't have data
+            proxySerial.write(actDataExtra,DATASIZE); //should containt valid checksum also
+          }
+        } else {
+          log_message(_F("PROXY asked for unknown query!"));
+        }
+        proxydata_length = 0;
+        return;
+      } else {
+        log_message(_F("PROXY received unknown message!"));
+        proxydata_length = 0;
+        return;
+      }
+    }
+  }
+}
+#endif
 
 bool readSerial()
 {
@@ -384,7 +452,7 @@ bool readSerial()
       sprintf_P(log_msg, PSTR("Received %d bytes data"), data_length); log_message(log_msg);
       sending = false; //we received an answer after our last command so from now on we can start a new send request again
       if (heishamonSettings.logHexdump) logHex(data, data_length);
-      if (! isValidReceiveChecksum() ) {
+      if (! isValidReceiveChecksum(data, data_length) ) {
         log_message(_F("Checksum received false!"));
         data_length = 0; //for next attempt
         badcrcread++;
@@ -812,6 +880,7 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
             } break;
           case 110: {
               int ret = saveSettings(client, &heishamonSettings);
+              #ifdef ESP8266
               if ((!heishamonSettings.opentherm) && (heishamonSettings.listenonly)) {
                 //make sure we disable TX to heatpump-RX using the mosfet so this line is floating and will not disturb cz-taw1
                 //does not work for opentherm version currently
@@ -819,6 +888,13 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
               } else {
                 digitalWrite(ENABLEPIN, HIGH);
               }
+              #else
+              if (!heishamonSettings.opentherm) {
+                digitalWrite(ENABLEOTPIN, LOW);
+              } else {
+                digitalWrite(ENABLEOTPIN, HIGH);
+              }
+              #endif
               switch (client->route) {
                 case 111: {
                     return settingsNewPassword(client, &heishamonSettings);
@@ -949,9 +1025,12 @@ void setupHttp() {
 }
 
 void doubleResetDetect() {
-  drd = new DoubleResetDetector(DRD_TIMEOUT, DRD_ADDRESS);
-  if (drd->detectDoubleReset()) {
-    loggingSerial.println("Double reset detected, clearing config."); //save to print on std serial because serial switch didn't happen yet
+  EEPROM.begin(512);
+  unsigned int numResets = EEPROM.read(DRD_ADDRESS);
+  if (numResets > 2) {
+    loggingSerial.println("Factory reset request detected, clearing config."); //save to print on std serial because serial switch didn't happen yet
+    EEPROM.write(DRD_ADDRESS, 0);
+    EEPROM.commit();
     LittleFS.begin();
     LittleFS.format();
     //create first boot file
@@ -971,8 +1050,16 @@ void doubleResetDetect() {
       delay(100);
       digitalWrite(LEDPIN, LOW);
       delay(100);
+      yield();
     }
   }
+  loggingSerial.println(F("No double reset detected, setting flag...")); //removing this line cause a panic, why???
+  numResets++;
+  EEPROM.write(DRD_ADDRESS, numResets);
+  EEPROM.commit();
+  delay(DRD_TIMEOUT);
+  EEPROM.write(DRD_ADDRESS, 0);
+  EEPROM.commit();
 }
 
 void setupSerial() {
@@ -992,8 +1079,11 @@ void setupSerial() {
     pinMode(LEDPIN, FUNCTION_0); //set it as gpio
   }
 #elif defined(ESP32)
-pinMode(LEDPIN, OUTPUT);
-digitalWrite(LEDPIN,HIGH); //is also power led
+  pixels.begin();
+  pixels.clear();
+  pixels.setPixelColor(0, pixels.Color(random(255), random(255), random(255)));
+  pixels.show(); 
+
 #endif
 }
 
@@ -1016,16 +1106,20 @@ void switchSerial() {
   heatpumpSerial.end();
   heatpumpSerial.begin(9600, SERIAL_8E1,HEATPUMPRX,HEATPUMPTX);
   heatpumpSerial.flush();
-  cztawSerial.flush();
-  cztawSerial.end();
-  cztawSerial.begin(9600, SERIAL_8E1,CZTAWRX,CZTAWTX);
-  cztawSerial.flush();  
+  proxySerial.flush();
+  proxySerial.end();
+  proxySerial.begin(9600, SERIAL_8E1,PROXYRX,PROXYTX);
+  proxySerial.flush();  
 #endif
 
   setupGPIO(heishamonSettings.gpioSettings); //switch extra GPIOs to configured mode
 
   //mosfet output enable
   pinMode(ENABLEPIN, OUTPUT);
+  #if defined (ESP32)
+  pinMode(ENABLEOTPIN, OUTPUT);
+  digitalWrite(ENABLEOTPIN, LOW); //low from start
+  #endif
 
   //try to detect if cz-taw1 is connected in parallel
   if (!heishamonSettings.listenonly) {
@@ -1118,25 +1212,31 @@ void setup() {
 
   setupSerial();
 
-  Serial.println();
-  Serial.println(F("--- HEISHAMON ---"));
-  Serial.println(F("starting..."));
+  loggingSerial.println();
+  loggingSerial.println(F("--- HEISHAMON ---"));
+  loggingSerial.println(F("starting..."));
 
   //first boot check, to visually confirm good flash
   //this also formats the littlefs if necessary
 #if defined(ESP8266)
   if (LittleFS.begin()) {
 #else
+  loggingSerial.println(F("Starting littlefs..."));
   if (LittleFS.begin(true)) {
+    loggingSerial.println(F("Started littlefs..."));
 #endif
+    loggingSerial.println(F("Checking littlefs for first boot..."));
     if (LittleFS.exists("/heishamon")) {
       //normal boot
+      loggingSerial.println(F("Heishamon boot file exists, normal boot..."));
     } else if (LittleFS.exists("/config.json")) {
+      loggingSerial.println(F("Heishamon config file exists, create boot file..."));
       //from old firmware, create file and then normal boot
       File startupFile = LittleFS.open("/heishamon", "w");
       startupFile.close();    
     } else {
       //first boot
+      loggingSerial.println(F("Heishamon boot file missing, first start..."));
       File startupFile = LittleFS.open("/heishamon", "w");
       startupFile.close();    
 #if defined(ESP8266)
@@ -1148,30 +1248,42 @@ void setup() {
         delay(50);
         digitalWrite(LEDPIN, LOW);
         delay(50);
+        yield();
       }
     }
   }
-
   //double reset detect from start
+  loggingSerial.println(F("Check for double reset..."));
   doubleResetDetect();
 
+  loggingSerial.println(F("Send current wifi info to serial..."));
   WiFi.printDiag(loggingSerial);
   //initiate a wifi scan at boot to prefill the wifi scan json list
+  loggingSerial.println(F("Initiate initial wifi scan..."));
   byte numSsid = WiFi.scanNetworks();
   getWifiScanResults(numSsid);
 
+  loggingSerial.println(F("Loading config from flash..."));
   loadSettings(&heishamonSettings);
 
+  loggingSerial.println(F("Setup wifi..."));
   setupWifi(&heishamonSettings);
 
+  loggingSerial.println(F("Setup MQTT..."));
   setupMqtt();
+
+  loggingSerial.println(F("Setup HTTP..."));
   setupHttp();
 
+  loggingSerial.println(F("Setup SNTP..."));
   sntp_stop();
   sntp_setoperatingmode(SNTP_OPMODE_POLL);
   sntp_init();
 
+  loggingSerial.println(F("Switch serial..."));
   switchSerial(); //switch serial to gpio13/gpio15
+
+  loggingSerial.println(F("Sending new wifi diag..."));
   WiFi.printDiag(loggingSerial);
 
   setupConditionals(); //setup for routines based on settings
@@ -1181,8 +1293,13 @@ void setup() {
 
   //OT begin must be after serial setup
   if (heishamonSettings.opentherm) {
+    #if defined(ESP8266)
     //always enable mosfets if opentherm is used
     digitalWrite(ENABLEPIN, HIGH);
+    #else
+    //dedicated OT enable pin on ESP32 model
+    digitalWrite(ENABLEOTPIN, HIGH);
+    #endif
     HeishaOTSetup();
   }
 
@@ -1251,7 +1368,7 @@ void send_optionalpcb_query() {
 }
 
 
-void read_panasonic_data() {
+void readHeatpump() {
   if (sending && ((unsigned long)(millis() - sendCommandReadTime) > SERIALTIMEOUT)) {
     log_message(_F("Previous read data attempt failed due to timeout!"));
     sprintf_P(log_msg, PSTR("Received %d bytes data"), data_length);
@@ -1266,10 +1383,11 @@ void read_panasonic_data() {
     data_length = 0; //clear any data in array
     sending = false; //receiving the answer from the send command timed out, so we are allowed to send a new command
   }
-  if ( (heishamonSettings.listenonly || sending) && (Serial.available() > 0)) readSerial();
+  if ( (heishamonSettings.listenonly || sending) && (heatpumpSerial.available() > 0)) readSerial();
 }
 
 void loop() {
+  //webserver function
   webserver_loop();
 
   // check wifi
@@ -1283,7 +1401,10 @@ void loop() {
     HeishaOTLoop(actData, mqtt_client, heishamonSettings.mqtt_topic_base);
   }
 
-  read_panasonic_data();
+  readHeatpump();
+  #ifdef ESP32
+  if (proxyEnabled) readProxy();
+  #endif
 
   if ((!sending) && (cmdnrel > 0)) { //check if there is a send command in the buffer
     log_message(_F("Sending command from buffer"));

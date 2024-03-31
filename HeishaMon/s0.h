@@ -6,8 +6,8 @@
 #define DEFAULT_S0_PIN_1 12 
 #define DEFAULT_S0_PIN_2 14 
 #elif defined(ESP32)
-#define DEFAULT_S0_PIN_1 12 
-#define DEFAULT_S0_PIN_2 14 
+#define DEFAULT_S0_PIN_1 1
+#define DEFAULT_S0_PIN_2 2 
 #endif
 
 struct s0SettingsStruct {
