@@ -79,11 +79,11 @@ static struct vm_vfloat_t vfloat;
 static struct vm_vnull_t vnull;
 
 struct rule_options_t rule_options;
-//quick hack for ESP32, address according to heishamonboth
-#ifdef ESP32
-#define MMU_SEC_HEAP 0x40108000
+#if defined(ESP8266)
+unsigned char *mempool = (unsigned char *)MEMPOOL_ADDRESS;
+#elif defined(ESP32)
+unsigned char mempool[MEMPOOL_SIZE]; //use normal memory for now, PSRAM not working yet
 #endif
-unsigned char *mempool = (unsigned char *)MMU_SEC_HEAP;
 unsigned int memptr = 0;
 
 static void vm_global_value_prt(char *out, int size);

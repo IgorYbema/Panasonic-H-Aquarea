@@ -74,7 +74,7 @@ static uint8_t *rbuffer = NULL;
 static uint16_t tcp_write_P(tcp_pcb *pcb, PGM_P buf, uint16_t len, uint8_t flags) {
   char *str = (char *)malloc(len+1);
   if(str == NULL) {
-    Serial1.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
+    //loggingSerial.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
     ESP.restart();
     exit(-1);
   }
@@ -646,7 +646,7 @@ int8_t http_parse_request(struct webserver_t *client, uint8_t **buf, uint16_t *l
               memcpy(tmp, &client->buffer[x+1], args.len);
               if((client->data.websockkey = strdup(tmp)) == NULL) {
 #if defined(ESP8266) || defined(ESP32)
-                Serial1.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
+                //loggingSerial.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
                 ESP.restart();
                 exit(-1);
 #endif
@@ -665,7 +665,7 @@ int8_t http_parse_request(struct webserver_t *client, uint8_t **buf, uint16_t *l
                   tmp[args.len-pos] = 0;
                   if((client->data.boundary = strdup(tmp)) == NULL) {
 #if defined(ESP8266) || defined(ESP32)
-                    Serial1.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
+                    //loggingSerial.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
                     ESP.restart();
                     exit(-1);
 #endif
@@ -1648,7 +1648,7 @@ void webserver_send_content_P(struct webserver_t *client, PGM_P buf, uint16_t si
   /*LCOV_EXCL_START*/
   if(node == NULL) {
   #if defined(ESP8266) || defined(ESP32)
-    Serial1.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
+    //loggingSerial.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
     ESP.restart();
     exit(-1);
   #endif
@@ -1703,7 +1703,7 @@ void webserver_send_content(struct webserver_t *client, char *buf, uint16_t size
   /*LCOV_EXCL_START*/
   if(node == NULL) {
   #if defined(ESP8266) || defined(ESP32)
-    Serial1.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
+    //loggingSerial.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
     ESP.restart();
     exit(-1);
   #endif
@@ -1741,7 +1741,7 @@ void webserver_send_content(struct webserver_t *client, char *buf, uint16_t size
 #else
   if((node->data.ptr = malloc(size+1)) == NULL) {
   #if defined(ESP8266) || defined(ESP32)
-    Serial1.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
+    //loggingSerial.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
     ESP.restart();
     exit(-1);
   #endif
@@ -2471,7 +2471,7 @@ int8_t webserver_start(int port, webserver_cb_t *callback, uint8_t async) {
     rbuffer = (uint8_t *)malloc(WEBSERVER_READ_SIZE);
     if(rbuffer == NULL) {
 #if defined(ESP8266) || defined(ESP32)
-      Serial1.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
+      //loggingSerial.printf(PSTR("Out of memory %s:#%d\n"), __FUNCTION__, __LINE__);
       ESP.restart();
       exit(-1);
 #endif

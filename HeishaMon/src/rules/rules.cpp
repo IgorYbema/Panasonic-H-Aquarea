@@ -4597,16 +4597,20 @@ int rule_initialize(struct pbuf *input, struct rules_t ***rules, int *nrrules, s
     mempool->len = 512;
   }
   if(*nrrules >= 64) {
-#if defined(ESP8266) || defined(ESP32)
+#if defined(ESP8266)
     Serial1.println(PSTR("more than the maximum of 64 rule blocks defined"));
+#elif defined(ESP32)
+    Serial.println(PSTR("more than the maximum of 64 rule blocks defined"));
 #else
     printf("more than the maximum of 64 rule blocks defined\n");
 #endif
   }
 
   if(input->len < alignedbuffer(mempool->len)) {
-#if defined(ESP8266) || defined(ESP32)
-    Serial1.println(PSTR("not enough free space in rules mempool"));
+#if defined(ESP8266)
+	Serial1.println(PSTR("not enough free space in rules mempool"));
+#elif defined(ESP32)
+    Serial.println(PSTR("not enough free space in rules mempool"));
 #else
     printf("not enough free space in rules mempool\n");
 #endif

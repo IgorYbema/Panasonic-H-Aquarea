@@ -680,7 +680,6 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
             client->route = 110;
           } else if (strcmp_P((char *)dat, PSTR("/saverules")) == 0) {
             client->route = 170;
-
             if (LittleFS.begin()) {
               LittleFS.remove("/rules.new");
               client->userdata = new File(LittleFS.open("/rules.new", "a+"));
@@ -951,6 +950,7 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
               client->userdata = NULL;
               timerqueue_insert(0, 1, -4);
               webserver_send(client, 301, (char *)"text/plain", 0);
+
             } break;
           default: {
               webserver_send(client, 301, (char *)"text/plain", 0);
@@ -1057,9 +1057,6 @@ void doubleResetDetect() {
   numResets++;
   EEPROM.write(DRD_ADDRESS, numResets);
   EEPROM.commit();
-  delay(DRD_TIMEOUT);
-  EEPROM.write(DRD_ADDRESS, 0);
-  EEPROM.commit();
 }
 
 void setupSerial() {
@@ -1081,7 +1078,7 @@ void setupSerial() {
 #elif defined(ESP32)
   pixels.begin();
   pixels.clear();
-  pixels.setPixelColor(0, pixels.Color(random(255), random(255), random(255)));
+  pixels.setPixelColor(0, pixels.Color(0,16,0));
   pixels.show(); 
 
 #endif
@@ -1187,10 +1184,8 @@ void timer_cb(int nr) {
         } break;
       case -4: {
           if (rules_parse("/rules.new") == -1) {
-            logprintln_P(F("new ruleset failed to parse, using previous ruleset"));
             rules_parse("/rules.txt");
           } else {
-            logprintln_P(F("new ruleset successfully parsed"));
             if (LittleFS.begin()) {
               LittleFS.rename("/rules.new", "/rules.txt");
             }
@@ -1205,6 +1200,10 @@ void timer_cb(int nr) {
 void setup() {
   //first get total memory before we do anything
   getFreeMemory();
+  log_d("Total heap: %d", ESP.getHeapSize());
+  log_d("Free heap: %d", ESP.getFreeHeap());
+  log_d("Total PSRAM: %d", ESP.getPsramSize());
+  log_d("Free PSRAM: %d", ESP.getFreePsram());
 
   //set boottime
   char *up = getUptime();
@@ -1254,7 +1253,7 @@ void setup() {
   }
   //double reset detect from start
   loggingSerial.println(F("Check for double reset..."));
-  doubleResetDetect();
+  //disable for now doubleResetDetect();
 
   loggingSerial.println(F("Send current wifi info to serial..."));
   WiFi.printDiag(loggingSerial);
@@ -1286,11 +1285,14 @@ void setup() {
   loggingSerial.println(F("Sending new wifi diag..."));
   WiFi.printDiag(loggingSerial);
 
+  loggingSerial.println(F("Settings conditinals..."));
   setupConditionals(); //setup for routines based on settings
 
+  loggingSerial.println(F("Settings DNS..."));
   dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
   dnsServer.start(DNS_PORT, "*", apIP);
 
+  loggingSerial.println(F("Check OT config..."));
   //OT begin must be after serial setup
   if (heishamonSettings.opentherm) {
     #if defined(ESP8266)
@@ -1303,6 +1305,7 @@ void setup() {
     HeishaOTSetup();
   }
 
+  loggingSerial.println(F("Enabling rules.."));
 #if defined(ESP8266)
   rst_info *resetInfo = ESP.getResetInfoPtr();
   loggingSerial.printf(PSTR("Reset reason: %d, exception cause: %d\n"), resetInfo->reason, resetInfo->exccause);
@@ -1319,11 +1322,10 @@ void setup() {
     rules_setup();
   }
 #elif defined(ESP32)
-/*
   esp_reset_reason_t reset_reason = esp_reset_reason(); 
   loggingSerial.printf(PSTR("Reset reason: %d\n"), reset_reason);
 
-  if (reset_reason > 0 && reset_reason < 4) {  //is this correct for esp32?
+  if (reset_reason > 3 && reset_reason < 12) {  //is this correct for esp32?
     if (LittleFS.begin()) {
       LittleFS.rename("/rules.txt", "/rules.old");
     }
@@ -1334,8 +1336,12 @@ void setup() {
   } else {
     rules_setup();
   }
-*/
 #endif
+  loggingSerial.println(F("Clearing double reset flag.."));
+  //end of setup, clear double reset flag
+  EEPROM.write(DRD_ADDRESS, 0);
+  EEPROM.commit();
+  loggingSerial.println(F("End of setup.."));
 }
 
 void send_initial_query() {
@@ -1522,4 +1528,7 @@ void loop() {
   }
 
   timerqueue_update();
+  #ifdef ESP32
+  delay(1); // to keep watchdog happy
+  #endif
 }
