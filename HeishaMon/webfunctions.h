@@ -83,8 +83,8 @@ int handleJsonOutput(struct webserver_t *client, char* actData, char* actDataExt
 int handleFactoryReset(struct webserver_t *client);
 int handleReboot(struct webserver_t *client);
 int handleDebug(struct webserver_t *client, char *hex, byte hex_len);
-void settingsToJson(DynamicJsonDocument &jsonDoc, settingsStruct *heishamonSettings);
-void saveJsonToConfig(DynamicJsonDocument &jsonDoc);
+void settingsToJson(JsonDocument  &jsonDoc, settingsStruct *heishamonSettings);
+void saveJsonToConfig(JsonDocument  &jsonDoc);
 void loadSettings(settingsStruct *heishamonSettings);
 int getSettings(struct webserver_t *client, settingsStruct *heishamonSettings);
 int handleSettings(struct webserver_t *client);

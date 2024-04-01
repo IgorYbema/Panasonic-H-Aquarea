@@ -194,7 +194,7 @@ void loadSettings(settingsStruct *heishamonSettings) {
         std::unique_ptr<char[]> buf(new char[size]);
 
         configFile.readBytes(buf.get(), size);
-        DynamicJsonDocument jsonDoc(1024);
+        JsonDocument jsonDoc;
         DeserializationError error = deserializeJson(jsonDoc, buf.get());
         char log_msg[1024];
         serializeJson(jsonDoc, log_msg);
@@ -382,7 +382,7 @@ int handleReboot(struct webserver_t *client) {
   return 0;
 }
 
-void settingsToJson(DynamicJsonDocument &jsonDoc, settingsStruct *heishamonSettings) {
+void settingsToJson(JsonDocument &jsonDoc, settingsStruct *heishamonSettings) {
   //set jsonDoc with current settings
   jsonDoc["wifi_hostname"] = heishamonSettings->wifi_hostname;
   jsonDoc["wifi_password"] = heishamonSettings->wifi_password;
@@ -446,7 +446,7 @@ void settingsToJson(DynamicJsonDocument &jsonDoc, settingsStruct *heishamonSetti
   jsonDoc["updataAllDallasTime"] = heishamonSettings->updataAllDallasTime;
 }
 
-void saveJsonToConfig(DynamicJsonDocument &jsonDoc) {
+void saveJsonToConfig(JsonDocument &jsonDoc) {
   if (LittleFS.begin()) {
     File configFile = LittleFS.open("/config.json", "w");
     if (configFile) {
@@ -465,7 +465,7 @@ int saveSettings(struct webserver_t *client, settingsStruct *heishamonSettings) 
 
   bool reconnectWiFi = false;
   bool wrongPassword = false;
-  DynamicJsonDocument jsonDoc(1024);
+  JsonDocument jsonDoc;
 
   settingsToJson(jsonDoc, heishamonSettings); //stores current settings in a json document
 

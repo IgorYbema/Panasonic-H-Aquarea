@@ -219,7 +219,7 @@ void check_wifi()
         log_message(_F("WiFi connected without SSID and password in settings. Must come from persistent memory. Storing in settings."));
         WiFi.SSID().toCharArray(heishamonSettings.wifi_ssid, 40);
         WiFi.psk().toCharArray(heishamonSettings.wifi_password, 40);
-        DynamicJsonDocument jsonDoc(1024);
+        JsonDocument jsonDoc;
         settingsToJson(jsonDoc, &heishamonSettings); //stores current settings in a json document
         saveJsonToConfig(jsonDoc); //save to config file
       }
@@ -1183,8 +1183,8 @@ void timer_cb(int nr) {
           setupWifi(&heishamonSettings);
         } break;
       case -4: {
-          if (rules_parse("/rules.new") == -1) {
-            rules_parse("/rules.txt");
+          if (rules_parse((char*)"/rules.new") == -1) {
+            rules_parse((char*)"/rules.txt");
           } else {
             if (LittleFS.begin()) {
               LittleFS.rename("/rules.new", "/rules.txt");
