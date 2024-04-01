@@ -82,7 +82,7 @@ struct rule_options_t rule_options;
 #if defined(ESP8266)
 unsigned char *mempool = (unsigned char *)MEMPOOL_ADDRESS;
 #elif defined(ESP32)
-unsigned char mempool[MEMPOOL_SIZE]; //use normal memory for now, PSRAM not working yet
+unsigned char *mempool; //malloc in runtime
 #endif
 unsigned int memptr = 0;
 
@@ -1433,7 +1433,7 @@ void rules_timer_cb(int nr) {
 
 int rules_parse(char *file) {
   File frules = LittleFS.open(file, "r");
-  if(frules) {
+  if ((frules) && (frules.size() > 0)) { //don't run for empty file
     parsing = 1;
 
     if(nrrules > 0) {
@@ -1459,18 +1459,10 @@ int rules_parse(char *file) {
 
     unsigned int txtoffset = alignedbuffer(MEMPOOL_SIZE-len-5);
 
-    while(1) {
+    while(chunk*BUFFER_SIZE < len) {
       memset(content, 0, BUFFER_SIZE);
       frules.seek(chunk*BUFFER_SIZE, SeekSet);
-      if (chunk * BUFFER_SIZE <= len) {
-        frules.readBytes(content, BUFFER_SIZE);
-        len1 = BUFFER_SIZE;
-      } else if ((chunk * BUFFER_SIZE) >= len && (chunk * BUFFER_SIZE) <= len + BUFFER_SIZE) {
-        frules.readBytes(content, len - ((chunk - 1)*BUFFER_SIZE));
-        len1 = len - ((chunk - 1) * BUFFER_SIZE);
-      } else {
-        break;
-      }
+      len1 = frules.readBytes(content, BUFFER_SIZE);
       memcpy(&mempool[txtoffset+(chunk*BUFFER_SIZE)], &content, alignedbuffer(len1));
       chunk++;
     }
@@ -1646,6 +1638,13 @@ void rules_setup(void) {
   if(!LittleFS.begin()) {
     return;
   }
+  #ifdef ESP32
+  mempool = (unsigned char*)ps_malloc(MEMPOOL_SIZE); //in arduino IDE normal malloc causes big block to go to PSRAM if PSRAM is enabled. But seems to be unstable so for now don't enable PSRAM
+  if (mempool == NULL) {
+      logprintln_P(F("Mempool OOM"));
+      OUT_OF_MEMORY  
+  }
+  #endif
   memset(mempool, 0, MEMPOOL_SIZE);
 
   logprintf_P(F("rules mempool size: %d"), MEMPOOL_SIZE);
