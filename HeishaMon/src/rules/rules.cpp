@@ -3623,6 +3623,8 @@ int rule_run(struct rules_t *obj, int validate) {
   while(go != -1) {
 #if defined(ESP8266)
     ESP.wdtFeed(); //only on ESP8266
+#elif defined(ESP32)
+	delay(1); //good enough for ESP32
 #endif
 
 /*LCOV_EXCL_START*/

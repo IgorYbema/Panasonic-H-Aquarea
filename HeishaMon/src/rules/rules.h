@@ -27,7 +27,7 @@
 #elif defined(ESP32)
   #include <Arduino.h>
   #include "lwip/pbuf.h" 	
-  #define MEMPOOL_SIZE 16*1024 //use 16kb normal RAM on esp32-mini-1-n4r2, PSRAM not working yet
+  #define MEMPOOL_SIZE 32*1024 //use 32kb PSRAM on esp32-mini-1-n4r2 (can not assign more than 64kb due to uint16_t in pbuf)
 #elif defined(ESP8266)
   #include <Arduino.h>
   #include "lwip/pbuf.h"
