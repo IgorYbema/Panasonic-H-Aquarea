@@ -19,6 +19,7 @@
 
 void rules_loop(void);
 void rules_boot(void);
+void rules_deinitialize(void);
 int rules_parse(char *file);
 void rules_setup(void);
 void rules_timer_cb(int nr);

@@ -8,13 +8,14 @@
   #define ENABLEPIN 5
   #define LEDPIN 2
 #elif defined(ESP32)
-  #define heatpumpSerial Serial0
+  #define heatpumpSerial Serial1
   #define loggingSerial Serial
-  #define proxySerial Serial1
-  #define HEATPUMPRX 9
-  #define HEATPUMPTX 8
-  #define PROXYRX 18
-  #define PROXYTX 17
+  #define uartSerial Serial0 //not used, 10x header pin
+  #define proxySerial Serial2
+  #define HEATPUMPRX 18
+  #define HEATPUMPTX 17
+  #define PROXYRX 9
+  #define PROXYTX 8
   #define ENABLEPIN 5
   #define ENABLEOTPIN 4
   #define LEDPIN 42
@@ -1183,7 +1184,14 @@ void timer_cb(int nr) {
           setupWifi(&heishamonSettings);
         } break;
       case -4: {
-          if (rules_parse((char*)"/rules.new") == -1) {
+          int ret = rules_parse((char*)"/rules.new");
+          if (ret == -2) {
+            //we received an empty rules.new file which means delete all rules
+            LittleFS.remove("/rules.txt");
+            LittleFS.remove("/rules.new");
+            rules_deinitialize();
+          } else if (ret == -1) {
+            log_message(_F("Failed to load new rules, reverting back to older rules!"));
             rules_parse((char*)"/rules.txt");
           } else {
             if (LittleFS.begin()) {
@@ -1305,34 +1313,18 @@ void setup() {
 #if defined(ESP8266)
   rst_info *resetInfo = ESP.getResetInfoPtr();
   loggingSerial.printf(PSTR("Reset reason: %d, exception cause: %d\n"), resetInfo->reason, resetInfo->exccause);
-
   if (resetInfo->reason > 0 && resetInfo->reason < 4) {
-    if (LittleFS.begin()) {
-      LittleFS.rename("/rules.txt", "/rules.old");
-    }
-    rules_setup();
-    if (LittleFS.begin()) {
-      LittleFS.rename("/rules.old", "/rules.txt");
-    }
-  } else {
-    rules_setup();
-  }
 #elif defined(ESP32)
   esp_reset_reason_t reset_reason = esp_reset_reason(); 
   loggingSerial.printf(PSTR("Reset reason: %d\n"), reset_reason);
-
   if (reset_reason > 3 && reset_reason < 12) {  //is this correct for esp32?
-    if (LittleFS.begin()) {
-      LittleFS.rename("/rules.txt", "/rules.old");
-    }
-    rules_setup();
-    if (LittleFS.begin()) {
-      LittleFS.rename("/rules.old", "/rules.txt");
-    }
+#endif  
+    loggingSerial.println("Not loading rules due to crash reboot!");
   } else {
-    rules_setup();
+    rules_parse((char *)"/rules.txt");
+    rules_boot();
   }
-#endif
+
   loggingSerial.println(F("Clearing double reset flag.."));
   //end of setup, clear double reset flag
   EEPROM.write(DRD_ADDRESS, 0);

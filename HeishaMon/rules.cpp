@@ -1431,9 +1431,120 @@ void rules_timer_cb(int nr) {
   FREE(name);
 }
 
+void rules_boot(void) {
+  for(uint8_t i=0;i<nrrules;i++) {
+    struct vm_tstart_t *start = (struct vm_tstart_t *)&rules[i]->ast.buffer[0];
+    if(rules[i]->ast.buffer[start->go] == TEVENT) {
+      struct vm_tevent_t *event = (struct vm_tevent_t *)&rules[i]->ast.buffer[start->go];
+      if(stricmp((char *)&event->token, "System#Boot") == 0) {
+        char out[512];
+        logprintf_P(F("==== SYSTEM#BOOT ===="));
+        logprintf_P(F("%s %d %s %d"), F(">>> rule"), i, F("nrbytes:"), rules[i]->ast.nrbytes);
+        logprintf_P(F("%s %d"), F(">>> global stack nrbytes:"), global_varstack.nrbytes);
+
+        rules[i]->timestamp.first = micros();
+
+        rule_run(rules[i], 0);
+
+        rules[i]->timestamp.second = micros();
+
+        logprintf_P(F("%s%d %s %d %s"), F("rule #"), rules[i]->nr, F("was executed in"), rules[i]->timestamp.second - rules[i]->timestamp.first, F("microseconds"));
+
+        logprintln_P(F("\n>>> local variables"));
+        memset(&out, 0, sizeof(out));
+        vm_value_prt(rules[i], (char *)&out, sizeof(out));
+        logprintln(out);
+        logprintln_P(F(">>> global variables"));
+        memset(&out, 0, sizeof(out));
+        vm_global_value_prt((char *)&out, sizeof(out));
+        logprintln(out);
+        break;
+      }
+    }
+  }
+}
+
+void printMemoryUsage() {
+  Serial.printf("Free heap: %d\n", ESP.getFreeHeap());
+  Serial.printf("Free PSRAM: %d\n", ESP.getFreePsram());  
+}
+
+
+void rules_setup(void) {
+  printMemoryUsage();
+  if (rule_options.event_cb == NULL) { //check if not initialized before
+    logprintln_P(F("Initializing rules engine..."));
+#ifdef ESP32
+    if (mempool == NULL) { //make sure we only malloc if not done before
+      mempool = (unsigned char *)ps_malloc(MEMPOOL_SIZE);  //in arduino IDE normal malloc causes big block to go to PSRAM if PSRAM is enabled. But seems to be unstable so for now don't enable PSRAM
+      if (mempool == NULL) {
+        logprintln_P(F("Mempool OOM"));
+        OUT_OF_MEMORY
+      }
+    }
+#endif
+    memset(mempool, 0, MEMPOOL_SIZE);
+
+    logprintf_P(F("Created rules mempool with size: %d"), MEMPOOL_SIZE);
+
+    global_varstack.stack = NULL;
+    global_varstack.nrbytes = 4;
+
+    memset(&rule_options, 0, sizeof(struct rule_options_t));
+    rule_options.is_token_cb = is_variable;
+    rule_options.is_event_cb = is_event;
+    rule_options.set_token_val_cb = vm_value_set;
+    rule_options.get_token_val_cb = vm_value_get;
+    rule_options.prt_token_val_cb = vm_value_prt;
+    rule_options.cpy_token_val_cb = vm_value_cpy;
+    rule_options.clr_token_val_cb = vm_value_clr;
+    rule_options.event_cb = event_cb;
+  }
+  printMemoryUsage();
+}
+
+bool existsRulesFile(char *file) {
+  if (LittleFS.begin() && (LittleFS.exists(file))) {
+    File f = LittleFS.open(file, "r");
+    if ((f) && (f.size() > 0)) {
+      f.close();
+      return true; //only return true if file exists and isn't empty
+    }
+  }
+  return false;
+}
+
+
+void rules_deinitialize() {
+  printMemoryUsage();
+  if (rule_options.event_cb != NULL) { 
+    logprintln_P(F("Deinitialize rules engine..."));
+#ifdef ESP32
+    FREE(mempool);
+#endif 
+    if(nrrules > 0) {
+      for(int i=0;i<nrrules;i++) {
+        if(rules[i]->userdata != NULL) {
+          FREE(rules[i]->userdata);
+        }
+      }
+      rules_gc(&rules, nrrules);
+      nrrules = 0;
+    }
+
+    FREE(global_varstack.stack); 
+
+    // set this to NULL so a new initialize can start if necessary. 
+    rule_options.event_cb = NULL;
+  }
+  printMemoryUsage();
+}
+
 int rules_parse(char *file) {
-  File frules = LittleFS.open(file, "r");
-  if ((frules) && (frules.size() > 0)) { //don't run for empty file
+  if (existsRulesFile(file)) { //only parse an existing and not empty, file
+    rules_setup(); //check there if done already
+
+    File frules = LittleFS.open(file, "r");
     parsing = 1;
 
     if(nrrules > 0) {
@@ -1502,7 +1613,7 @@ int rules_parse(char *file) {
       input.payload = &mempool[input.len];
     }
 
-    logprintf_P(F("rules memory used: %d / %d"), mem.len, mem.tot_len);
+    logprintf_P(F("Rules memory used: %d / %d"), mem.len, mem.tot_len);
 
     if(nrrules > 1) {
       FREE(varstack);
@@ -1540,7 +1651,7 @@ int rules_parse(char *file) {
     parsing = 0;
     return 0;
   } else {
-    return -1;
+    return -2; //means file is empty or does not exists
   }
 }
 
@@ -1594,98 +1705,3 @@ void rules_event_cb(const char *prefix, const char *name) {
   }
 }
 
-void rules_boot(void) {
-  for(uint8_t i=0;i<nrrules;i++) {
-    struct vm_tstart_t *start = (struct vm_tstart_t *)&rules[i]->ast.buffer[0];
-    if(rules[i]->ast.buffer[start->go] == TEVENT) {
-      struct vm_tevent_t *event = (struct vm_tevent_t *)&rules[i]->ast.buffer[start->go];
-      if(stricmp((char *)&event->token, "System#Boot") == 0) {
-        char out[512];
-        logprintf_P(F("==== SYSTEM#BOOT ===="));
-        logprintf_P(F("%s %d %s %d"), F(">>> rule"), i, F("nrbytes:"), rules[i]->ast.nrbytes);
-        logprintf_P(F("%s %d"), F(">>> global stack nrbytes:"), global_varstack.nrbytes);
-
-        rules[i]->timestamp.first = micros();
-
-        rule_run(rules[i], 0);
-
-        rules[i]->timestamp.second = micros();
-
-        logprintf_P(F("%s%d %s %d %s"), F("rule #"), rules[i]->nr, F("was executed in"), rules[i]->timestamp.second - rules[i]->timestamp.first, F("microseconds"));
-
-        logprintln_P(F("\n>>> local variables"));
-        memset(&out, 0, sizeof(out));
-        vm_value_prt(rules[i], (char *)&out, sizeof(out));
-        logprintln(out);
-        logprintln_P(F(">>> global variables"));
-        memset(&out, 0, sizeof(out));
-        vm_global_value_prt((char *)&out, sizeof(out));
-        logprintln(out);
-        break;
-      }
-    }
-  }
-
-  // unsigned long a = micros();
-  // for(int i=0;i<nrrules;i++) {
-    // FREE(rules[i]->varstack.buffer);
-    // rules[i]->varstack.nrbytes = 4;
-    // rules[i]->varstack.bufsize = 4;
-  // }
-}
-
-void rules_setup(void) {
-  if(!LittleFS.begin()) {
-    return;
-  }
-  #ifdef ESP32
-  mempool = (unsigned char*)ps_malloc(MEMPOOL_SIZE); //in arduino IDE normal malloc causes big block to go to PSRAM if PSRAM is enabled. But seems to be unstable so for now don't enable PSRAM
-  if (mempool == NULL) {
-      logprintln_P(F("Mempool OOM"));
-      OUT_OF_MEMORY  
-  }
-  #endif
-  memset(mempool, 0, MEMPOOL_SIZE);
-
-  logprintf_P(F("rules mempool size: %d"), MEMPOOL_SIZE);
-
-  logprintln_P(F("reading rules"));
-
-  global_varstack.stack = NULL;
-  global_varstack.nrbytes = 4;
-
-  memset(&rule_options, 0, sizeof(struct rule_options_t));
-  rule_options.is_token_cb = is_variable;
-  rule_options.is_event_cb = is_event;
-  rule_options.set_token_val_cb = vm_value_set;
-  rule_options.get_token_val_cb = vm_value_get;
-  rule_options.prt_token_val_cb = vm_value_prt;
-  rule_options.cpy_token_val_cb = vm_value_cpy;
-  rule_options.clr_token_val_cb = vm_value_clr;
-  rule_options.event_cb = event_cb;
-
-  // if(LittleFS.exists("/rules.new")) {
-    // logprintln_P(F("new ruleset found, trying to parse it"));
-    // if(rules_parse("/rules.new") == -1) {
-      // logprintln_P(F("new ruleset failed to parse, using previous ruleset after restart"));
-      // LittleFS.remove("/rules.new");
-      // ESP.restart();
-    // } else {
-      // LittleFS.rename("/rules.new", "/rules.txt");
-    // }
-  // } else if(LittleFS.exists("/rules.txt")) {
-    // if(rules_parse("/rules.txt") == -1) {
-      // logprintln_P(F("old ruleset failed to parse, restarting without rules"));
-      // LittleFS.rename("/rules.txt", "/rules.old");
-      // ESP.restart();
-    // }
-  // } else if(LittleFS.exists("/rules.old")) {
-    // LittleFS.rename("/rules.old", "/rules.txt");
-  // }
-
-  if(LittleFS.exists("/rules.txt")) {
-    rules_parse("/rules.txt");
-  }
-
-  rules_boot();
-}
