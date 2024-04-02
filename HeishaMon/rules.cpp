@@ -1464,14 +1464,7 @@ void rules_boot(void) {
   }
 }
 
-void printMemoryUsage() {
-  Serial.printf("Free heap: %d\n", ESP.getFreeHeap());
-  Serial.printf("Free PSRAM: %d\n", ESP.getFreePsram());  
-}
-
-
 void rules_setup(void) {
-  printMemoryUsage();
   if (rule_options.event_cb == NULL) { //check if not initialized before
     logprintln_P(F("Initializing rules engine..."));
 #ifdef ESP32
@@ -1500,7 +1493,6 @@ void rules_setup(void) {
     rule_options.clr_token_val_cb = vm_value_clr;
     rule_options.event_cb = event_cb;
   }
-  printMemoryUsage();
 }
 
 bool existsRulesFile(char *file) {
@@ -1516,7 +1508,6 @@ bool existsRulesFile(char *file) {
 
 
 void rules_deinitialize() {
-  printMemoryUsage();
   if (rule_options.event_cb != NULL) { 
     logprintln_P(F("Deinitialize rules engine..."));
 #ifdef ESP32
@@ -1537,7 +1528,6 @@ void rules_deinitialize() {
     // set this to NULL so a new initialize can start if necessary. 
     rule_options.event_cb = NULL;
   }
-  printMemoryUsage();
 }
 
 int rules_parse(char *file) {

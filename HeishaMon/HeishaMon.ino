@@ -51,11 +51,6 @@ DNSServer dnsServer;
 ADC_MODE(ADC_VCC);
 #endif
 
-//detect a factory reset request on eeprom
-#define DRD_TIMEOUT 500
-#define DRD_ADDRESS 0x00
-#include <EEPROM.h>
-
 const byte DNS_PORT = 53;
 
 #define SERIALTIMEOUT 2000 // wait until all 203 bytes are read, must not be too long to avoid blocking the code
@@ -1026,13 +1021,8 @@ void setupHttp() {
 }
 
 void doubleResetDetect() {
-  EEPROM.begin(512);
-  unsigned int numResets = EEPROM.read(DRD_ADDRESS);
-  if (numResets > 2) {
+  if (LittleFS.exists("/doublereset")) {
     loggingSerial.println("Factory reset request detected, clearing config."); //save to print on std serial because serial switch didn't happen yet
-    EEPROM.write(DRD_ADDRESS, 0);
-    EEPROM.commit();
-    LittleFS.begin();
     LittleFS.format();
     //create first boot file
     File startupFile = LittleFS.open("/heishamon", "w");
@@ -1044,7 +1034,6 @@ void doubleResetDetect() {
     //initiate debug led indication for factory reset
 #if defined(ESP8266)
     pinMode(LEDPIN, FUNCTION_0); //set it as gpio
-#endif
     pinMode(LEDPIN, OUTPUT);
     while (true) {
       digitalWrite(LEDPIN, HIGH);
@@ -1053,11 +1042,21 @@ void doubleResetDetect() {
       delay(100);
       yield();
     }
+#else
+    pixels.begin();
+    pixels.clear();
+    while (true) {
+     delay(100);
+     pixels.setPixelColor(0, pixels.Color(128,0,0));
+     pixels.show();
+     delay(100);
+     pixels.setPixelColor(0, pixels.Color(0,0,128));
+     pixels.show();
+    }
+#endif
   }
-  loggingSerial.println(F("No double reset detected, setting flag...")); //removing this line cause a panic, why???
-  numResets++;
-  EEPROM.write(DRD_ADDRESS, numResets);
-  EEPROM.commit();
+  File doubleresetFile = LittleFS.open("/doublereset", "w");
+  doubleresetFile.close();
 }
 
 void setupSerial() {
@@ -1079,7 +1078,7 @@ void setupSerial() {
 #elif defined(ESP32)
   pixels.begin();
   pixels.clear();
-  pixels.setPixelColor(0, pixels.Color(0,16,0));
+  pixels.setPixelColor(0, pixels.Color(0,0,0));
   pixels.show(); 
 
 #endif
@@ -1244,7 +1243,6 @@ void setup() {
       startupFile.close();    
 #if defined(ESP8266)
       pinMode(LEDPIN, FUNCTION_0); //set it as gpio
-#endif
       pinMode(LEDPIN, OUTPUT);
       while (true) {
         digitalWrite(LEDPIN, HIGH);
@@ -1253,11 +1251,23 @@ void setup() {
         delay(50);
         yield();
       }
+#else
+      pixels.begin();
+      pixels.clear();
+      while (true) {
+        delay(50);
+        pixels.setPixelColor(0, pixels.Color(128,0,0));
+        pixels.show();
+        delay(50);
+        pixels.setPixelColor(0, pixels.Color(0,0,0));
+       pixels.show();
+      }
+#endif      
     }
   }
   //double reset detect from start
   loggingSerial.println(F("Check for double reset..."));
-  //disable for now doubleResetDetect();
+  doubleResetDetect();
 
   loggingSerial.println(F("Send current wifi info to serial..."));
   WiFi.printDiag(loggingSerial);
@@ -1289,7 +1299,7 @@ void setup() {
   loggingSerial.println(F("Sending new wifi diag..."));
   WiFi.printDiag(loggingSerial);
 
-  loggingSerial.println(F("Settings conditinals..."));
+  loggingSerial.println(F("Settings conditionals..."));
   setupConditionals(); //setup for routines based on settings
 
   loggingSerial.println(F("Settings DNS..."));
@@ -1327,8 +1337,12 @@ void setup() {
 
   loggingSerial.println(F("Clearing double reset flag.."));
   //end of setup, clear double reset flag
-  EEPROM.write(DRD_ADDRESS, 0);
-  EEPROM.commit();
+  LittleFS.remove("/doublereset");
+  #ifdef ESP32
+  //show green neopixel to indicate end of setup
+  pixels.setPixelColor(0, pixels.Color(0,16,0));
+  pixels.show(); 
+  #endif
   loggingSerial.println(F("End of setup.."));
 }
 
