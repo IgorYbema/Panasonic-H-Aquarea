@@ -54,7 +54,7 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
   char log_msg[512];
   {
     char str[200];
-    sprintf_P(str, PSTR("%#010x"), request);
+    sprintf_P(str, PSTR("%#010lx"), request);
     mqttPublish((char*)mqtt_topic_opentherm, _F("raw"), str);
   }
   switch (ot.getDataID(request)) {
@@ -72,7 +72,7 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
         getOTStructMember(_F("dhwEnable"))->value.b = (bool)DHWEnable;
 
         sprintf_P(log_msg, PSTR(
-                "OpenTherm: Received status check: %d, CH: %d, DHW: %d, Cooling, %d, OTC: %d, CH2: %d, SWMode: %d, DHWBlock: %d"),
+                "OpenTherm: Received status check: %lu, CH: %u, DHW: %u, Cooling, %u, OTC: %u, CH2: %u, SWMode: %u, DHWBlock: %u"),
                 data >> 8, CHEnable, DHWEnable, Cooling, OTCEnable, CH2Enable, SWMode, DHWBlock
                );
         log_message(log_msg);
@@ -110,7 +110,7 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
       unsigned long data = ot.getUInt(request);
       unsigned int SmartPower = (data >> 8) & (1 << 0);
       sprintf_P(log_msg,
-			  PSTR("OpenTherm: Received master config: %d, Smartpower: %d"),
+			  PSTR("OpenTherm: Received master config: %u, Smartpower: %u"),
               data >> 8, SmartPower
              );
       log_message(log_msg);
@@ -357,7 +357,7 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
       } break;
     */
     default: {
-        sprintf_P(log_msg, PSTR("OpenTherm: Unknown data ID: %d (%#010x)"), ot.getDataID(request), request);
+        sprintf_P(log_msg, PSTR("OpenTherm: Unknown data ID: %u (%#010lx)"), (unsigned int)ot.getDataID(request), request);
         log_message(log_msg);
         otResponse = ot.buildResponse(OpenThermMessageType::UNKNOWN_DATA_ID, ot.getDataID(request), 0);
       } break;
