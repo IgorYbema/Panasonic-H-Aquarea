@@ -1085,8 +1085,8 @@ void setupSerial() {
 }
 
 void switchSerial() {
-  loggingSerial.println(F("Switching serial to connect to heatpump. Look for debug on serial1 (GPIO2) and mqtt log topic."));
 #if defined(ESP8266)
+  loggingSerial.println(F("Switching serial to connect to heatpump. Look for debug on serial1 (GPIO2) and mqtt log topic."));
   //serial to cn-cnt
   heatpumpSerial.flush();
   heatpumpSerial.end();
@@ -1114,8 +1114,9 @@ void switchSerial() {
   //mosfet output enable
   pinMode(ENABLEPIN, OUTPUT);
   #if defined (ESP32)
+  //OT 24v booster disable from boot
   pinMode(ENABLEOTPIN, OUTPUT);
-  digitalWrite(ENABLEOTPIN, LOW); //low from start
+  digitalWrite(ENABLEOTPIN, LOW);
   #endif
 
   //try to detect if cz-taw1 is connected in parallel
@@ -1463,7 +1464,9 @@ void loop() {
     message += ESP.getMaxFreeBlockSize();
     message += F(" bytes ## Free heap: ");
 #elif defined(ESP32)
-    message += F("% ## Free heap: ");
+    message += F("% ## Free PSRAM: ");
+    message += ESP.getFreePsram();
+    message += F(" bytes ## Free heap: ");
 #endif
     message += ESP.getFreeHeap();
     message += F(" bytes ## Wifi: ");

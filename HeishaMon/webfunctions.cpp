@@ -82,8 +82,13 @@ int getWifiQuality() {
 
 int getFreeMemory() {
   //store total memory at boot time
-  static uint32_t total_memory = 0;
+  static uint32_t total_memory = 0;  
+#if defined(ESP8266)
   if ( 0 == total_memory ) total_memory = ESP.getFreeHeap();
+#else
+  //on esp32 we have the total heap size
+  if ( 0 == total_memory ) total_memory = ESP.getHeapSize();
+#endif
 
   uint32_t free_memory   = ESP.getFreeHeap();
   return (100 * free_memory / total_memory ) ; // as a %
