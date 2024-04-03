@@ -391,12 +391,12 @@ void readProxy()
           send_command((byte*)proxydata,proxydata_length-1); //strip CRC, will be calculated again in send_command
         }
         //then just reply with the current settings, for read and write it is the same as the write is only acknowledged in the next read
-        if (proxydata[3] = 0x10) {
+        if (proxydata[3] == 0x10) {
           log_message(_F("PROXY asked for basic query"));
           if ((actData[0] == 0x71) && (actData[1] == 0xc8) && (actData[2] == 0x01)) { //don't answer if we don't have data
             proxySerial.write(actData,DATASIZE); //should containt valid checksum also
           }
-        } else if (proxydata[3] = 0x21 ) {
+        } else if (proxydata[3] == 0x21 ) {
           log_message(_F("PROXY asked for extra query"));
           if ((actDataExtra[0] == 0x71) && (actDataExtra[1] == 0xc8) && (actDataExtra[2] == 0x01)) { //don't answer if we don't have data
             proxySerial.write(actDataExtra,DATASIZE); //should containt valid checksum also
@@ -751,8 +751,8 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
                 }
               }
 
-              memset(&cmd, 256, 0);
-              memset(&log_msg, 256, 0);
+              memset(&cmd, 0, 256);
+              memset(&log_msg, 0, 256);
 
               if (heishamonSettings.optionalPCB) {
                 //optional commands
