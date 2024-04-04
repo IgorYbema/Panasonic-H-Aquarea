@@ -303,29 +303,17 @@ void setupWifi(settingsStruct *heishamonSettings) {
     WiFi.hostname(heishamonSettings->wifi_hostname);
   }
 #elif defined(ESP32)
-  WiFi.setTxPower(WIFI_POWER_8_5dBm); //temporary
+  //WiFi.setTxPower(WIFI_POWER_8_5dBm); //fix for bad chips
   WiFi.setSleep(false);
   WiFi.softAPdisconnect(true); 
   delay(100);  // must delay to avoid error 
   WiFi.disconnect(true); 
-  // ESP32 wifi: Don't switch off if AP is closed. 
-  // It is the reason why  WiFi.softAPdisconnect(true) must be before WiFi.disconnect(true)
-  // https://github.com/Tinkerforge/esp32-brick/commit/7b2376ac30ff09286ce77c8dac11ffa68ee56952
   if (heishamonSettings->wifi_ssid[0] != '\0') {
      log_message(_F("Wifi client mode..."));
     if (heishamonSettings->wifi_password[0] == '\0') {
         WiFi.begin(heishamonSettings->wifi_ssid);
       } else {
         WiFi.begin(heishamonSettings->wifi_ssid, heishamonSettings->wifi_password);
-      }
-      uint8_t  wifi_retry=0;   // COUNTER SOLVES ESP32-BUG WITH CERTAIN ROUTERS: CONNECTION ONLY ESTABLISHED EVERY SECOND TIME
-      while(WiFi.status() != WL_CONNECTED && wifi_retry < 100){
-        delay(300);
-        wifi_retry++;
-      }     
-      if(WiFi.status() == WL_CONNECTED) {
-        WiFi.setAutoReconnect(true);
-        WiFi.persistent(true); //breaks stuff  https://forum.arduino.cc/t/esp8266-esp32-confusion-about-wifi-persistent/624959
       }
   }
   else {

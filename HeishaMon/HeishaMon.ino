@@ -57,6 +57,7 @@ const byte DNS_PORT = 53;
 
 settingsStruct heishamonSettings;
 
+uint32_t neoPixelState = 0; //running neoPixelState
 bool inSetup; //bool to check if still booting
 bool sending = false; // mutex for sending data
 bool mqttcallbackinprogress = false; // mutex for processing mqtt callback
@@ -144,22 +145,33 @@ int timerqueue_size = 0;
 */
 void check_wifi()
 {
-  if ((WiFi.status() != WL_CONNECTED) && (WiFi.localIP()))  {
+  int wifistatus = WiFi.status();
+  if ((wifistatus != WL_CONNECTED) && (WiFi.localIP()))  {
     // special case where it seems that we are not connect but we do have working IP (causing the -1% wifi signal), do a reset.
+#ifdef ESP8266    
     log_message(_F("Weird case, WiFi seems disconnected but is not. Resetting WiFi!"));
     setupWifi(&heishamonSettings);
-  } else if ((WiFi.status() != WL_CONNECTED) || (!WiFi.localIP()))  {
+#else
+    log_message(_F("WiFi just got disconnected, still have IP addres."));
+#endif
+  } else if ((wifistatus != WL_CONNECTED) || (!WiFi.localIP()))  {
     /*
         if we are not connected to an AP
         we must be in softAP so respond to DNS
     */
     dnsServer.processNextRequest();
+    #ifdef ESP32
+    neoPixelState = pixels.Color(16,16,0); //set neopixel to yellow to indicate lost wifi
+    #endif
 
     /* we need to stop reconnecting to a configured wifi network if there is a hotspot user connected
         also, do not disconnect if wifi network scan is active
     */
-    if ((heishamonSettings.wifi_ssid[0] != '\0') && (WiFi.status() != WL_DISCONNECTED) && (WiFi.scanComplete() != -1) && (WiFi.softAPgetStationNum() > 0))  {
-      //need to check this for ESP32
+#ifdef ESP8266    
+    if ((heishamonSettings.wifi_ssid[0] != '\0') && (wifistatus != WL_DISCONNECTED) && (WiFi.scanComplete() != -1) && (WiFi.softAPgetStationNum() > 0))  {
+#else
+    if ((heishamonSettings.wifi_ssid[0] != '\0') && (wifistatus != WL_STOPPED) && (WiFi.scanComplete() != -1) && (WiFi.softAPgetStationNum() > 0))  {
+#endif
       log_message(_F("WiFi lost, but softAP station connecting, so stop trying to connect to configured ssid..."));
       WiFi.disconnect(true);
     }
@@ -169,12 +181,23 @@ void check_wifi()
     */
     if ((heishamonSettings.wifi_ssid[0] != '\0') && ((unsigned long)(millis() - lastWifiRetryTimer) > WIFIRETRYTIMER ) )  {
       lastWifiRetryTimer = millis();
+#ifdef ESP8266
       if (WiFi.softAPSSID() == "") {
         log_message(_F("WiFi lost, starting setup hotspot..."));
-        WiFi.softAP((char*)"HeishaMon-Setup");
+        WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+        WiFi.softAP(_F("HeishaMon-Setup"));
       }
-      if ((WiFi.status() == WL_DISCONNECTED)  && (WiFi.softAPgetStationNum() == 0 )) {
+      if ((wifistatus == WL_DISCONNECTED)  && (WiFi.softAPgetStationNum() == 0 )) {
         log_message(_F("Retrying configured WiFi, ..."));
+#else
+      if((WiFi.getMode() & WIFI_MODE_AP) == 0) {
+        log_message(_F("WiFi lost, starting setup hotspot..."));
+        WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+        WiFi.softAP(_F("HeishaMon-Setup"));
+      }
+      if ((wifistatus== WL_STOPPED) && (WiFi.softAPgetStationNum() == 0 )) {
+        log_message(_F("Retrying configured WiFi, ..."));
+#endif
         if (heishamonSettings.wifi_password[0] == '\0') {
           WiFi.begin(heishamonSettings.wifi_ssid);
         } else {
@@ -195,12 +218,13 @@ void check_wifi()
   }
 #else
   else { //WiFi Status=WL_CONNECTED  and IP>0  check if active AP and disable if yes
-  if((WiFi.getMode() & WIFI_MODE_AP) != 0) {
-    log_message(_F("WiFi (re)connected, shutting down hotspot..."));
-    WiFi.softAPdisconnect(true);
-  }
+    neoPixelState = pixels.Color(0,0,0); //neopixel should be black again to indicate normale working
+    if((WiFi.getMode() & WIFI_MODE_AP) != 0) {
+      log_message(_F("WiFi (re)connected, shutting down hotspot..."));
+      WiFi.softAP("");
+      WiFi.softAPdisconnect(true);
+    }
 #endif
-
 
     if (firstConnectSinceBoot) { // this should start only when softap is down or else it will not work properly so run after the routine to disable softap
       firstConnectSinceBoot = false;
@@ -288,7 +312,7 @@ void blinkNeoPixel(bool status) {
   if (status) {
     pixels.setPixelColor(0, 0, 0, 16); //blue
   } else {
-    pixels.setPixelColor(0, 0, 0, 0);
+    pixels.setPixelColor(0, neoPixelState);
   }
   pixels.show(); 
 }
@@ -1291,20 +1315,19 @@ void setup() {
 
   loggingSerial.println(F("Send current wifi info to serial..."));
   WiFi.printDiag(loggingSerial);
-  //initiate a wifi scan at boot to prefill the wifi scan json list
-  loggingSerial.println(F("Initiate initial wifi scan..."));
-  //initatie a new async scan fors next try
-#if defined(ESP8266)
-  WiFi.scanNetworksAsync(getWifiScanResults);
-#elif defined(ESP32)
-  WiFi.scanNetworks(true);
-#endif
 
   loggingSerial.println(F("Loading config from flash..."));
   loadSettings(&heishamonSettings);
 
   loggingSerial.println(F("Setup wifi..."));
   setupWifi(&heishamonSettings);
+  //initiate a wifi scan at boot to prefill the wifi scan json list
+  loggingSerial.println(F("Initiate initial wifi scan..."));
+#if defined(ESP8266)
+  WiFi.scanNetworksAsync(getWifiScanResults);
+#elif defined(ESP32)
+  WiFi.scanNetworks(true);
+#endif
 
   loggingSerial.println(F("Setup MQTT..."));
   setupMqtt();
@@ -1362,7 +1385,8 @@ void setup() {
   delay(200); //small delay to allow double reset
   #ifdef ESP32
   //turn off neopixel to indicate end of setup
-  pixels.setPixelColor(0, 0, 0, 0);
+  neoPixelState = pixels.Color(0,0,0);
+  pixels.setPixelColor(0, neoPixelState);
   pixels.show(); 
   #endif
   //end of setup, clear double reset flag
@@ -1475,7 +1499,30 @@ void loop() {
     //log stats
     if (totalreads > 0 ) readpercentage = (((float)goodreads / (float)totalreads) * 100);
     String message;
+#ifdef ESP8266
     message.reserve(384);
+#endif
+/* for debugging ESP32 wifi
+    Serial.println(WiFi.status());
+    Serial.println(WiFi.softAPgetStationNum());
+    int wifimode = WiFi.getMode();
+    switch (wifimode) {
+      case WIFI_MODE_STA:
+        Serial.println("WIFI_MODE_STA");
+        break;
+      case WIFI_MODE_AP:
+        Serial.println("WIFI_MODE_AP");
+        break;
+      case WIFI_MODE_APSTA:
+        Serial.println("WIFI_MODE_APSTA");
+        break;
+      default:
+        Serial.println(WiFi.getMode());
+        break;
+      
+    }
+  */
+
     message += F("Heishamon stats: Uptime: ");
     char *up = getUptime();
     message += up;
@@ -1506,7 +1553,9 @@ void loop() {
     log_message((char*)message.c_str());
 
     String stats;
+#ifdef ESP8266
     stats.reserve(384);
+#endif
     stats += F("{\"uptime\":");
     stats += String(millis());
     stats += F(",\"voltage\":");
