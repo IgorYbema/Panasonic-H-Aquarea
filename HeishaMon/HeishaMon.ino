@@ -9,7 +9,7 @@
   #define LEDPIN 2
 #elif defined(ESP32)
   #define heatpumpSerial Serial1
-  #define loggingSerial Serial
+  #define loggingSerial Serial //usb serial CDC
   #define uartSerial Serial0 //not used, 10x header pin
   #define proxySerial Serial2
   #define HEATPUMPRX 18
@@ -57,6 +57,7 @@ const byte DNS_PORT = 53;
 
 settingsStruct heishamonSettings;
 
+bool inSetup; //bool to check if still booting
 bool sending = false; // mutex for sending data
 bool mqttcallbackinprogress = false; // mutex for processing mqtt callback
 
@@ -282,8 +283,23 @@ void mqtt_reconnect()
   }
 }
 
+#ifdef ESP32
+void blinkNeoPixel(bool status) {
+  if (status) {
+    pixels.setPixelColor(0, 0, 0, 16); //blue
+  } else {
+    pixels.setPixelColor(0, 0, 0, 0);
+  }
+  pixels.show(); 
+}
+#endif  
+
+
 void log_message(char* string)
 {
+#ifdef ESP32
+  if (!inSetup) blinkNeoPixel(true);
+#endif
   time_t rawtime;
   rawtime = time(NULL);
   struct tm *timeinfo = localtime(&rawtime);
@@ -312,6 +328,9 @@ void log_message(char* string)
   }
   websocket_write_all(log_line, strlen(log_line));
   free(log_line);
+#ifdef ESP32
+  if (!inSetup) blinkNeoPixel(false);
+#endif  
 }
 
 void logHex(char *hex, byte hex_len) {
@@ -1047,10 +1066,10 @@ void doubleResetDetect() {
     pixels.clear();
     while (true) {
      delay(100);
-     pixels.setPixelColor(0, pixels.Color(128,0,0));
+     pixels.setPixelColor(0, 128, 0, 0);
      pixels.show();
      delay(100);
-     pixels.setPixelColor(0, pixels.Color(0,0,128));
+     pixels.setPixelColor(0, 0, 0, 128);
      pixels.show();
     }
 #endif
@@ -1078,9 +1097,8 @@ void setupSerial() {
 #elif defined(ESP32)
   pixels.begin();
   pixels.clear();
-  pixels.setPixelColor(0, pixels.Color(0,0,0));
+  pixels.setPixelColor(0, 16, 0, 0);
   pixels.show(); 
-
 #endif
 }
 
@@ -1208,10 +1226,11 @@ void timer_cb(int nr) {
 void setup() {
   //first get total memory before we do anything
   getFreeMemory();
-
   //set boottime
   char *up = getUptime();
   free(up);
+
+  inSetup = true;
 
   setupSerial();
 
@@ -1257,10 +1276,10 @@ void setup() {
       pixels.clear();
       while (true) {
         delay(50);
-        pixels.setPixelColor(0, pixels.Color(128,0,0));
+        pixels.setPixelColor(0, 128, 0, 0);
         pixels.show();
         delay(50);
-        pixels.setPixelColor(0, pixels.Color(0,0,0));
+        pixels.setPixelColor(0, 0, 0, 128);
        pixels.show();
       }
 #endif      
@@ -1274,8 +1293,12 @@ void setup() {
   WiFi.printDiag(loggingSerial);
   //initiate a wifi scan at boot to prefill the wifi scan json list
   loggingSerial.println(F("Initiate initial wifi scan..."));
-  byte numSsid = WiFi.scanNetworks();
-  getWifiScanResults(numSsid);
+  //initatie a new async scan fors next try
+#if defined(ESP8266)
+  WiFi.scanNetworksAsync(getWifiScanResults);
+#elif defined(ESP32)
+  WiFi.scanNetworks(true);
+#endif
 
   loggingSerial.println(F("Loading config from flash..."));
   loadSettings(&heishamonSettings);
@@ -1336,15 +1359,17 @@ void setup() {
     rules_boot();
   }
 
-  loggingSerial.println(F("Clearing double reset flag.."));
-  //end of setup, clear double reset flag
-  LittleFS.remove("/doublereset");
+  delay(200); //small delay to allow double reset
   #ifdef ESP32
-  //show green neopixel to indicate end of setup
-  pixels.setPixelColor(0, pixels.Color(0,16,0));
+  //turn off neopixel to indicate end of setup
+  pixels.setPixelColor(0, 0, 0, 0);
   pixels.show(); 
   #endif
+  //end of setup, clear double reset flag
+  loggingSerial.println(F("Clearing double reset flag.."));
+  LittleFS.remove("/doublereset");  
   loggingSerial.println(F("End of setup.."));
+  inSetup = false;
 }
 
 void send_initial_query() {

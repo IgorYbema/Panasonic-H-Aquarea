@@ -933,6 +933,13 @@ int handleSettings(struct webserver_t *client) {
 }
 
 int handleWifiScan(struct webserver_t *client) {
+#if defined(ESP32) 
+  //first get result from previous scan
+  int numSSID = WiFi.scanComplete();
+  if (numSSID > 0) { 
+    getWifiScanResults(numSSID);
+  }
+#endif
   if (client->content == 0) {
     webserver_send(client, 200, (char *)"application/json", 0);
     char *str = (char *)wifiJsonList.c_str();
@@ -942,7 +949,7 @@ int handleWifiScan(struct webserver_t *client) {
 #if defined(ESP8266)
   WiFi.scanNetworksAsync(getWifiScanResults);
 #elif defined(ESP32)
-  WiFi.scanNetworks(true,getWifiScanResults);
+  WiFi.scanNetworks(true);
 #endif
   return 0;
 }
