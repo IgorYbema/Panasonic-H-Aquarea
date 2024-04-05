@@ -18,33 +18,30 @@
 #include "../function.h"
 #include "../rules.h"
 
-int8_t rule_function_isset_callback(struct rules_t *obj, uint16_t argc, uint16_t *argv, uint16_t *ret) {
-/* LCOV_EXCL_START*/
-#ifdef DEBUG
-  printf("%s\n", __FUNCTION__);
-#endif
-/* LCOV_EXCL_STOP*/
+int8_t rule_function_isset_callback(struct rules_t *obj) {
+  uint8_t x = rules_gettop(obj);
+  uint8_t ret = 0;
 
-  if(argc != 1) {
+  if(x < 1 || x > 1) {
     return -1;
   }
 
-  struct vm_vinteger_t out;
-  out.ret = 0;
-  out.type = VINTEGER;
-
-  unsigned char nodeA[rule_max_var_bytes()];
-  rule_stack_pull(obj->varstack, argv[0], nodeA);
-  switch(nodeA[0]) {
+  switch(rules_type(obj, -1)) {
     case VNULL: {
-      out.value = 0;
+      ret = 0;
+#ifdef DEBUG
+      printf(".. %s NULL -> 0\n", __FUNCTION__);
+#endif
     } break;
-    default: {
-      out.value = 1;
+    case VINTEGER:
+    case VFLOAT: {
+      ret = 1;
+#ifdef DEBUG
+      printf(".. %s !NULL -> 1\n", __FUNCTION__);
+#endif
     } break;
   }
-
-  *ret = rule_stack_push(obj->varstack, &out);
-
+  rules_remove(obj, -1);
+  rules_pushinteger(obj, ret);
   return 0;
 }

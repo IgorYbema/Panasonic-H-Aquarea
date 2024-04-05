@@ -19,38 +19,40 @@
 #include "../function.h"
 #include "../rules.h"
 
-int8_t rule_function_floor_callback(struct rules_t *obj, uint16_t argc, uint16_t *argv, uint16_t *ret) {
-/* LCOV_EXCL_START*/
-#ifdef DEBUG
-  printf("%s\n", __FUNCTION__);
-#endif
-/* LCOV_EXCL_STOP*/
+int8_t rule_function_floor_callback(struct rules_t *obj) {
+  float x = 0, z = 0;
+  uint8_t nr = rules_gettop(obj);
 
-  if(argc != 1) {
+  if(nr > 1) {
     return -1;
   }
 
-  struct vm_vinteger_t out;
-  out.ret = 0;
-  out.type = VINTEGER;
-  out.value = 0;
-
-  unsigned char nodeA[rule_max_var_bytes()];
-  rule_stack_pull(obj->varstack, argv[0], nodeA);
-  switch(nodeA[0]) {
+  switch(rules_type(obj, nr)) {
+    case VNULL: {
+      rules_remove(obj, nr--);
+      rules_pushnil(obj);
+      return 0;
+    } break;
     case VINTEGER: {
-      struct vm_vinteger_t *val = (struct vm_vinteger_t *)nodeA;
-      out.value = val->value;
+      x = (float)rules_tointeger(obj, nr);
     } break;
     case VFLOAT: {
-      struct vm_vfloat_t *val = (struct vm_vfloat_t *)nodeA;
-      float v = 0.0;
-      uint322float(val->value, &v);
-      out.value = (int)floor(v);
+      x = rules_tofloat(obj, nr);
     } break;
   }
+  rules_remove(obj, nr--);
 
-  *ret = rule_stack_push(obj->varstack, &out);
+  if(modff(x, &z) == 0) {
+#ifdef DEBUG
+    printf("\tfloor = %d\n", (int)x);
+#endif
+    rules_pushinteger(obj, x);
+  } else {
+#ifdef DEBUG
+    printf("\tfloor = %d\n", (int)floor(x));
+#endif
+    rules_pushinteger(obj, (int)floor(x));
+  }
 
   return 0;
 }

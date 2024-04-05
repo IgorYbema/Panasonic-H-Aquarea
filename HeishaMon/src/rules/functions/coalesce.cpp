@@ -15,54 +15,42 @@
 #include <string.h>
 #include <math.h>
 
+#include "../../common/uint32float.h"
 #include "../function.h"
 #include "../rules.h"
 
-int8_t rule_function_coalesce_callback(struct rules_t *obj, uint16_t argc, uint16_t *argv, uint16_t *ret) {
-/* LCOV_EXCL_START*/
-#ifdef DEBUG
-  printf("%s\n", __FUNCTION__);
-#endif
-/* LCOV_EXCL_STOP*/
+int8_t rule_function_coalesce_callback(struct rules_t *obj) {
+  float x = 0, z = 0;
+  uint8_t nr = rules_gettop(obj), loop = 1, y = 0;
 
-  uint16_t i = 0;
-  for(i=0;i<argc;i++) {
-    unsigned char nodeA[rule_max_var_bytes()];
-    rule_stack_pull(obj->varstack, argv[i], nodeA);
-    if(nodeA[0] == VNULL) {
-      continue;
-    } else {
-      switch(nodeA[0]) {
-        case VINTEGER: {
-          struct vm_vinteger_t out;
-          struct vm_vinteger_t *val = (struct vm_vinteger_t *)&nodeA[0];
-          out.type = VINTEGER;
-          out.ret = 0;
-          out.value = val->value;
-
-          *ret = rule_stack_push(obj->varstack, &out);
-          return 0;
-        } break;
-        case VFLOAT: {
-          struct vm_vfloat_t out;
-          struct vm_vfloat_t *val = (struct vm_vfloat_t *)&nodeA[0];
-          out.type = VFLOAT;
-          out.ret = 0;
-          out.value = val->value;
-
-          *ret = rule_stack_push(obj->varstack, &out);
-          return 0;
-        } break;
-        /* LCOV_EXCL_START*/
-        case VCHAR: {
-          exit(-1);
-        } break;
-        /* LCOV_EXCL_STOP*/
-        default: {
-
-        } break;
-      }
+  for(y=1;y<=nr && loop == 1;y++) {
+    switch(rules_type(obj, y)) {
+      case VNULL: {
+      } break;
+      case VINTEGER: {
+        x = (float)rules_tointeger(obj, y);
+        loop = 0;
+      } break;
+      case VFLOAT: {
+        x = rules_tofloat(obj, y);
+        loop = 0;
+      } break;
     }
+  }
+  while(nr > 0) {
+    rules_remove(obj, nr--);
+  }
+
+  if(modff(x, &z) == 0) {
+#ifdef DEBUG
+    printf("\tcoalesce = %d\n", (int)x);
+#endif
+    rules_pushinteger(obj, x);
+  } else {
+#ifdef DEBUG
+    printf("\tcoalesce = %f\n", x);
+#endif
+    rules_pushfloat(obj, x);
   }
 
   return 0;

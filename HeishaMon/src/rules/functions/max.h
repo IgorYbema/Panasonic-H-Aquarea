@@ -12,6 +12,6 @@
 #include <stdint.h>
 #include "../rules.h"
 
-int8_t rule_function_max_callback(struct rules_t *obj, uint16_t argc, uint16_t *argv, uint16_t *ret);
+int8_t rule_function_max_callback(struct rules_t *obj);
 
 #endif

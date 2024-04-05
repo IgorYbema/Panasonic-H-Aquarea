@@ -1306,7 +1306,5 @@ void loop() {
     }
   }
 
-  rules_execute();
-
   timerqueue_update();
 }

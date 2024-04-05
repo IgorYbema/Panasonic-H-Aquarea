@@ -29,21 +29,21 @@
 #include "functions/max.h"
 #include "functions/min.h"
 #include "functions/coalesce.h"
-#include "functions/settimer.h"
-#include "functions/ceil.h"
-#include "functions/isset.h"
 #include "functions/round.h"
+#include "functions/ceil.h"
 #include "functions/floor.h"
+#include "functions/settimer.h"
+#include "functions/isset.h"
 
 struct rule_function_t rule_functions[] = {
   { "max", rule_function_max_callback },
   { "min", rule_function_min_callback },
   { "coalesce", rule_function_coalesce_callback },
-  { "isset", rule_function_isset_callback },
-  { "settimer", rule_function_set_timer_callback },
+  { "round", rule_function_round_callback },
   { "floor", rule_function_floor_callback },
   { "ceil", rule_function_ceil_callback },
-  { "round", rule_function_round_callback }
+  { "setTimer", rule_function_set_timer_callback },
+  { "isset", rule_function_isset_callback }
 };
 
 uint16_t nr_rule_functions = sizeof(rule_functions)/sizeof(rule_functions[0]);

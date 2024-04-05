@@ -19,38 +19,58 @@
 #include "../function.h"
 #include "../rules.h"
 
-int8_t rule_function_round_callback(struct rules_t *obj, uint16_t argc, uint16_t *argv, uint16_t *ret) {
-/* LCOV_EXCL_START*/
-#ifdef DEBUG
-  printf("%s\n", __FUNCTION__);
-#endif
-/* LCOV_EXCL_STOP*/
+int8_t rule_function_round_callback(struct rules_t *obj) {
+  float x = 0, z = 0;
+  uint8_t dec = 0;
+  uint8_t nr = rules_gettop(obj), y = nr;
 
-  if(argc != 1) {
+  if(nr > 2) {
     return -1;
+  } else if(nr == 2) {
+    switch(rules_type(obj, nr)) {
+      case VINTEGER: {
+        dec = rules_tointeger(obj, nr);
+      } break;
+    }
+    rules_remove(obj, nr--);
   }
 
-  struct vm_vinteger_t out;
-  out.ret = 0;
-  out.type = VINTEGER;
-  out.value = 0;
-
-  unsigned char nodeA[rule_max_var_bytes()];
-  rule_stack_pull(obj->varstack, argv[0], nodeA);
-  switch(nodeA[0]) {
+  switch(rules_type(obj, nr)) {
+    case VNULL: {
+      rules_remove(obj, nr--);
+      rules_pushnil(obj);
+      return 0;
+    } break;
     case VINTEGER: {
-      struct vm_vinteger_t *val = (struct vm_vinteger_t *)nodeA;
-      out.value = val->value;
+      x = (float)rules_tointeger(obj, nr);
     } break;
     case VFLOAT: {
-      struct vm_vfloat_t *val = (struct vm_vfloat_t *)nodeA;
-      float v = 0.0;
-      uint322float(val->value, &v);
-      out.value = (int)v;
+      x = rules_tofloat(obj, nr);
     } break;
   }
+  rules_remove(obj, nr--);
 
-  *ret = rule_stack_push(obj->varstack, &out);
+  if(modff(x, &z) == 0) {
+#ifdef DEBUG
+    printf("\tround = %d\n", (int)x);
+#endif
+    rules_pushinteger(obj, x);
+  } else {
+    if(y == 2) {
+      uint8_t size = snprintf(NULL, 0, "%.*f", dec, x)+1;
+      char buf[size] = { '\0' };
+      snprintf((char *)&buf, size, "%.*f", dec, x);
+#ifdef DEBUG
+      printf("\tround = %f\n", atof(buf));
+#endif
+      rules_pushfloat(obj, atof(buf));
+    } else {
+#ifdef DEBUG
+      printf("\tround = %d\n", (int)x);
+#endif
+      rules_pushinteger(obj, (int)x);
+    }
+  }
 
   return 0;
 }

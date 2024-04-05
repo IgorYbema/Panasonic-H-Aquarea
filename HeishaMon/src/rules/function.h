@@ -13,7 +13,7 @@
 
 struct rule_function_t {
   const char *name;
-  int8_t (*callback)(struct rules_t *obj, uint16_t argc, uint16_t *argv, uint16_t *ret);
+  int8_t (*callback)(struct rules_t *obj);
 } __attribute__((packed));
 
 extern struct rule_function_t rule_functions[];

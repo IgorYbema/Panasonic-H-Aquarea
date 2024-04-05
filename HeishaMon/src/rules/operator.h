@@ -12,10 +12,10 @@
 #include "rules.h" /* rewrite */
 
 struct rule_operator_t {
+  uint8_t opcode;
   const char *name;
   uint8_t precedence;
   uint8_t associativity;
-  int8_t (*callback)(struct rules_t *obj, uint16_t a, uint16_t b, uint16_t *ret);
 } __attribute__((packed));
 
 extern struct rule_operator_t rule_operators[];

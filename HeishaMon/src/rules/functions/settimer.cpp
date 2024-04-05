@@ -18,74 +18,53 @@
 #include <unistd.h>
 
 #include "../function.h"
-#include "../../common/log.h"
 #include "../../common/mem.h"
 #include "../rules.h"
 #include "../../common/timerqueue.h"
 
-int8_t rule_function_set_timer_callback(struct rules_t *obj, uint16_t argc, uint16_t *argv, uint16_t *ret) {
+int8_t rule_function_set_timer_callback(struct rules_t *obj) {
   struct timerqueue_t *node = NULL;
   struct itimerval it_val;
-  uint16_t i = 0, x = 0, sec = 0, usec = 0, nr = 0;
+  uint16_t sec = 0, nr = 0;
+  uint8_t x = rules_gettop(obj);
 
-  unsigned char nodeA[rule_max_var_bytes()];
-  unsigned char nodeB[rule_max_var_bytes()];
-
-  if(argc > 2) {
+  if(x < 2 || x > 2) {
     return -1;
   }
 
-  if(argc == 2) {
-    rule_stack_pull(obj->varstack, argv[0], nodeA);
-    rule_stack_pull(obj->varstack, argv[1], nodeB);
-
-    if(nodeA[0] != VINTEGER) {
+  switch(rules_type(obj, -1)) {
+    case VNULL: {
+      rules_remove(obj, -1);
+      rules_remove(obj, -1);
       return -1;
-    }
-    if(nodeB[0] != VINTEGER) {
+    } break;
+    case VINTEGER: {
+      sec = rules_tointeger(obj, -1);
+    } break;
+    case VFLOAT: {
+      sec = (int)rules_tofloat(obj, -1);
+    } break;
+  }
+  rules_remove(obj, -1);
+
+  switch(rules_type(obj, -1)) {
+    case VNULL: {
+      rules_remove(obj, -1);
       return -1;
-    }
-
-    struct vm_vinteger_t *val = (struct vm_vinteger_t *)&nodeA[0];
-    nr = val->value;
-
-    val = (struct vm_vinteger_t *)&nodeB[0];
-
-    timerqueue_insert(val->value, 0, nr);
-
-    logprintf_P(F("%s set timer #%d to %d seconds"), __FUNCTION__, nr, val->value);
+    } break;
+    case VINTEGER: {
+      nr = rules_tointeger(obj, -1);
+    } break;
+    case VFLOAT: {
+      nr = (int)rules_tofloat(obj, -1);
+    } break;
   }
 
-  if(argc == 1) {
-    if(nodeA[0] != VINTEGER) {
-      return -1;
-    }
+  timerqueue_insert(sec, 0, nr);
 
-    struct vm_vinteger_t *val = (struct vm_vinteger_t *)&nodeA[0];
-    nr = val->value;
-
-    uint16_t size = 0;
-
-    int a = 0;
-    for(a=0;a<timerqueue_size;a++) {
-      if(timerqueue[a]->nr == nr) {
-        struct vm_vinteger_t out;
-        out.ret = 0;
-        out.type = VINTEGER;
-        out.value = timerqueue[a]->sec;
-
-        *ret = rule_stack_push(obj->varstack, &out);
-        break;
-      }
-    }
-    if(size == 0) {
-      struct vm_vnull_t out;
-      out.ret = 0;
-      out.type = VNULL;
-
-      *ret = rule_stack_push(obj->varstack, &out);
-    }
-  }
+#ifdef DEBUG
+  printf("\n\n%s set timer #%d to %d seconds\n\n", __FUNCTION__, nr, sec);
+#endif
 
   return 0;
 }

@@ -15,38 +15,45 @@
 #include <string.h>
 #include <math.h>
 
+#include "../../common/uint32float.h"
 #include "../function.h"
 #include "../rules.h"
 
-int8_t rule_function_min_callback(struct rules_t *obj, uint16_t argc, uint16_t *argv, uint16_t *ret) {
-/* LCOV_EXCL_START*/
-#ifdef DEBUG
-  printf("%s\n", __FUNCTION__);
-#endif
-/* LCOV_EXCL_STOP*/
+int8_t rule_function_min_callback(struct rules_t *obj) {
+  float y = 0, x = 0, z = 0, a = 0;
+  uint8_t nr = rules_gettop(obj);
 
-  struct vm_vinteger_t out;
-  out.ret = 0;
-  out.type = VINTEGER;
-  out.value = 0;
-
-  uint16_t i = 0;
-  for(i=0;i<argc;i++) {
-    unsigned char nodeA[rule_max_var_bytes()];
-    rule_stack_pull(obj->varstack, argv[i], nodeA);
-    switch(nodeA[0]) {
+  while(nr > 0) {
+    switch(rules_type(obj, nr)) {
       case VINTEGER: {
-        struct vm_vinteger_t *val = (struct vm_vinteger_t *)&nodeA[0];
-        if(i == 0) {
-          out.value = val->value;
-        } else if(val->value < out.value) {
-          out.value = val->value;
-        }
+        y = (float)rules_tointeger(obj, nr);
       } break;
+      case VFLOAT: {
+        y = rules_tofloat(obj, nr);
+      } break;
+      case VNULL: {
+      } break;
+    }
+    rules_remove(obj, nr--);
+    if(a == 0) {
+      a = 1;
+      x = y;
+    } else {
+      x = MIN(x, y);
     }
   }
 
-  *ret = rule_stack_push(obj->varstack, &out);
+  if(modff(x, &z) == 0) {
+#ifdef DEBUG
+    printf("\tmin = %d\n", (int)x);
+#endif
+    rules_pushinteger(obj, x);
+  } else {
+#ifdef DEBUG
+    printf("\tmin = %f\n", x);
+#endif
+    rules_pushfloat(obj, x);
+  }
 
   return 0;
 }
