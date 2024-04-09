@@ -58,6 +58,7 @@
   #define setval(a, b) a = b
 #endif
 
+#define is_math(a) (a >= 9 && a <= 14)
 #define is_op_and_math(a) (a >= 1 && a <= 14)
 #define rule_max_var_bytes() 4
 #define gettype(a) (getval(a) & 0x1F)
@@ -73,7 +74,9 @@ typedef struct vm_top_t {
 
 typedef struct vm_vchar_t {
   uint8_t type;
+  uint8_t fixed;
   uint8_t len;
+  uint8_t ref;
   char *value;
 } __attribute__((aligned(4))) vm_vchar_t;
 
@@ -307,6 +310,33 @@ static uint16_t lexer_parse_string(char *text, uint16_t len, uint16_t *pos) {
   return 0;
 }
 
+static int8_t lexer_parse_quoted_string(char *text, uint16_t len, uint16_t *pos) {
+  uint8_t start = 0;
+  char current = 0;
+  current = getval(text[*pos]);
+
+  while(*pos < len) {
+    if((current < 9 || current > 10) && (current < 32 || current > 127)) {
+      return -2;
+    } else if(current == '\\' && text[(*pos+1)] == start) {
+      (*pos)+=2;
+    } else if(start == current) {
+      (*pos)--;
+      break;
+    }
+    if(current == '"' || current == '\'') {
+      start = current;
+    }
+    ++(*pos);
+    current = getval(text[(*pos)]);
+  }
+  if(*pos == len) {
+    return -1;
+  }
+
+  return 0;
+}
+
 static int8_t lexer_parse_skip_characters(char *text, uint16_t len, uint16_t *pos) {
   char current = getval(text[*pos]);
 
@@ -393,6 +423,7 @@ static int16_t lexer_peek(char **text, uint16_t skip, uint8_t *type, uint16_t *s
         i += 1;
         loop = 0;
       } break;
+      case TSTRING:
       case TEVENT:
       case TVAR: {
         i++;
@@ -401,7 +432,7 @@ static int16_t lexer_peek(char **text, uint16_t skip, uint8_t *type, uint16_t *s
         /*
          * Consider tokens above 31 as regular characters
          */
-        while(current >= 32 && current < 126) {
+        while(current >= 32 && current <= 128) {
           ++i;
           current = getval((*text)[i]);
         }
@@ -430,7 +461,7 @@ static int32_t varstack_find(char **text, uint16_t start, uint16_t len) {
       struct vm_vchar_t *old = (struct vm_vchar_t *)&varstack->buffer[i];
       if(len == old->len) {
         for(x=0;x<len;x++) {
-          if(getval(old->value[x]) != getval((*text)[start+1+x])) {
+          if(getval(old->value[x]) != getval((*text)[start+x])) {
             break;
           }
         }
@@ -444,9 +475,9 @@ static int32_t varstack_find(char **text, uint16_t start, uint16_t len) {
   return -1;
 }
 
-static uint16_t varstack_add(char **text, uint16_t start, uint16_t len) {
+static uint16_t varstack_add(char **text, uint16_t start, uint16_t len, uint8_t fixed) {
   uint16_t a = varstack->nrbytes;
-  int16_t i = 0;
+  int32_t i = -1;
 
   struct vm_vchar_t *value = (struct vm_vchar_t *)&varstack->buffer[a];
 
@@ -456,18 +487,46 @@ static uint16_t varstack_add(char **text, uint16_t start, uint16_t len) {
     return i;
   }
 
+  if(fixed == 0) {
+    for(i=0;i<a;i++) {
+      if(gettype(varstack->buffer[i]) == VCHAR) {
+        struct vm_vchar_t *old = (struct vm_vchar_t *)&varstack->buffer[i];
+        if(getval(old->fixed) == 0 && getval(old->ref) == 0) {
+          break;
+        }
+        i += sizeof(struct vm_vchar_t)-1;
+      }
+    }
+    if(i == a) {
+      i = -1;
+    }
+    if(i > -1) {
+      a = i;
+      value = (struct vm_vchar_t *)&varstack->buffer[a];
+    }
+  }
+
   if((value->value = (char *)MALLOC(len+1)) == NULL) {
     OUT_OF_MEMORY;
   }
   memset(value->value, 0, len+1);
   for(uint16_t x=0;x<len;x++) {
-    setval(value->value[x], getval((*text)[start+1+x]));
+    if(((uint8_t)getval((*text)[start+x])) == 127) {
+      setval(value->value[x], 9);
+    } else if(((uint8_t)getval((*text)[start+x])) == 128) {
+      setval(value->value[x], 10);
+    } else {
+      setval(value->value[x], getval((*text)[start+x]));
+    }
   }
   setval(value->value[len], 0);
   setval(value->type, VCHAR);
   setval(value->len, len);
-  setval(varstack->nrbytes, a+sizeof(struct vm_vchar_t));
-
+  setval(value->ref, 0);
+  setval(value->fixed, fixed);
+  if(i == -1) {
+    setval(varstack->nrbytes, a+sizeof(struct vm_vchar_t));
+  }
 
   return a;
 }
@@ -492,7 +551,106 @@ static int8_t rule_prepare(char **text,
       next = getval((*text)[pos+1]);
     }
 
-    if(isdigit(current) || (current == '-' && pos < *len && isdigit(next))) {
+    if(current == '\'' || current == '"') {
+      uint16_t s = pos;
+      int8_t ret = 0;
+      ret = lexer_parse_quoted_string((*text), *len, &pos);
+      if(ret < 0) {
+        if(ret == -1) {
+          if((*len - pos) > 5) {
+            /* LCOV_EXCL_START*/
+            logprintf_P(F("ERROR: no ending quotes found for '%.5s...'"), &(*text)[s]);
+            /* LCOV_EXCL_STOP*/
+          } else {
+            logprintf_P(F("ERROR: no ending quotes found for '%.5s'"), &(*text)[s]);
+          }
+        } else if(ret == -2) {
+          if((*len - pos) > 5) {
+            logprintf_P(F("ERROR: found invalid ASCII at '%.5s...'"), &(*text)[s]);
+          } else {
+            /* LCOV_EXCL_START*/
+            logprintf_P(F("ERROR: found invalid ASCII at '%.5s'"), &(*text)[s]);
+            /* LCOV_EXCL_STOP*/
+          }
+        }
+        return -1;
+      } else {
+        uint16_t len = pos - s;
+        nrtokens++;
+
+        if(varstack_find(text, s+1, len) == -1) {
+          *stacksize += align(sizeof(struct vm_vchar_t), 4);
+          *memsize += len+1;
+        }
+
+#ifdef DEBUG
+        printf("[STACK] VCHAR: %d\n", align(sizeof(struct vm_vchar_t)+1, 4));
+#endif
+        /*
+         * Skip the start quote
+         */
+        s++;
+        uint16_t x = 0;
+        uint8_t current = 0, next = 0, next2 = 0;
+        setval((*text)[tpos], TSTRING); tpos++;
+        for(x=0;x<len;x++) {
+          current = getval((*text)[s+x]);
+          if((x+1) < len) {
+            next = getval((*text)[s+x+1]);
+          }
+          if((x+2) < len) {
+            next2 = getval((*text)[s+x+2]);
+          }
+          /*
+           * Remove escape characters
+           */
+          if(current == '\\' && (next == '"' || next == '\'')) {
+            s++;
+            len--;
+          /*
+           * Keep the literal '\n'
+           */
+          } else if(current == '\\' && next == '\\' && next2 == 'n') {
+            s++;
+            len--;
+            setval((*text)[tpos+x], '\\');
+            current = 'n';
+          /*
+           * Keep the literal '\t'
+           */
+          } else if(current == '\\' && next == '\\' && next2 == 't') {
+            s++;
+            len--;
+            setval((*text)[tpos+x], '\\');
+            current = 't';
+          } else if(current == '\\' && next == 'n') {
+            s+=2;
+            len-=2;
+            current = 10;
+          } else if(current == '\\' && next == 't') {
+            s++;
+            len--;
+            current = 9;
+          }
+          /*
+           * Put ASCII TAB in ASCII DEL position
+           * Put ASCII newline in ASCII EURO position
+           */
+          if(current == 9) {
+            setval((*text)[tpos+x], 127);
+          } else if(current == 10) {
+            setval((*text)[tpos+x], 128);
+          } else {
+            setval((*text)[tpos+x], getval((*text)[s+x]));
+          }
+        }
+        tpos += len;
+        /*
+         * Skip the end quote
+         */
+        pos+=2;
+      }
+    } else if(isdigit(current) || (current == '-' && pos < *len && isdigit(next))) {
       if(ctx == TEVENT) {
         /* LCOV_EXCL_START*/
         /* FIXME */
@@ -763,7 +921,7 @@ static int8_t rule_prepare(char **text,
         for(x=0;x<len;x++) {
           setval((*text)[tpos+x], getval((*text)[s+x]));
         }
-        if(varstack_find(text, tpos-1, len) == -1) {
+        if(varstack_find(text, tpos, len) == -1) {
           *stacksize += align(sizeof(struct vm_vchar_t), 4);
           *memsize += len+1;
         }
@@ -889,6 +1047,7 @@ static int8_t rule_prepare(char **text,
         printf("[BC] OP_CLEAR: %lu\n", sizeof(struct vm_top_t));
 #endif
       }
+      ctx = TSEMICOLON;
       do_clear = 1;
     } else {
       uint16_t a = 0, b = *len-(pos)-1;
@@ -912,6 +1071,10 @@ static int8_t rule_prepare(char **text,
         *heapsize += sizeof(struct vm_vnull_t);
         *bcsize += sizeof(struct vm_top_t);
         *bcsize += sizeof(struct vm_top_t);
+
+        if(ctx != TASSIGN) {
+          ctx = TFUNCTION;
+        }
 
 #ifdef DEBUG
         printf("[BC] OP_PUSH: %lu\n", sizeof(struct vm_top_t));
@@ -974,12 +1137,15 @@ static int8_t rule_prepare(char **text,
           }
 
           if(match == 0) {
-            if(varstack_find(text, pos-1, len1) == -1) {
+            if(varstack_find(text, pos, len1) == -1) {
               *stacksize += align(sizeof(struct vm_vchar_t), 4);
               *memsize += len1+1;
             }
             if(ctx == TIF || ctx == TASSIGN) {
               do_clear = 0;
+              *bcsize += sizeof(struct vm_top_t);
+            }
+            if(ctx == TSEMICOLON) {
               *bcsize += sizeof(struct vm_top_t);
             }
             if(ctx == TEVENT) {
@@ -992,7 +1158,7 @@ static int8_t rule_prepare(char **text,
 #ifdef DEBUG
             printf("[STACK] VCHAR: %d\n", align(sizeof(struct vm_vchar_t)+1, 4));
             printf("[HEAP] VNULL: %lu\n", sizeof(struct vm_vnull_t));
-            if(ctx == TIF || ctx == TASSIGN) {
+            if(ctx == TIF || ctx == TASSIGN || ctx == TSEMICOLON) {
               printf("[BC] OP_SETVAL: %lu\n", sizeof(struct vm_top_t));
             }
             if(ctx == TTHEN || ctx == TEVENT) {
@@ -1009,7 +1175,7 @@ static int8_t rule_prepare(char **text,
               printf("[BC] OP_GETVAL: %lu\n", sizeof(struct vm_top_t));
 #endif
 
-            } else if(ctx == TASSIGN) {
+            } else if(ctx == TASSIGN || ctx == TSEMICOLON) {
               do_clear = 0;
               *bcsize += sizeof(struct vm_top_t);
 
@@ -1026,6 +1192,13 @@ static int8_t rule_prepare(char **text,
 #endif
 
             }
+          }
+          if(ctx == TFUNCTION) {
+            *bcsize += sizeof(struct vm_top_t);
+
+#ifdef DEBUG
+            printf("[BC] OP_GETVAL: %lu\n", sizeof(struct vm_top_t));
+#endif
           }
         }
 
@@ -1060,8 +1233,7 @@ static int8_t rule_prepare(char **text,
           for(a=0;a<len;a++) {
             setval((*text)[tpos+a], getval((*text)[s+a]));
           }
-
-          if(varstack_find(text, tpos-1, len) == -1) {
+          if(varstack_find(text, tpos, len) == -1) {
             *stacksize += align(sizeof(struct vm_vchar_t), 4);
             *memsize += len+1;
           }
@@ -1258,6 +1430,48 @@ int8_t rules_pushfloat(struct rules_t *obj, float nr) {
   setval(node->value[2], ((uint32_t)x >> 5) & 0xFF);
 
   return vm_stack_push(obj, 0, val) >= 0;
+}
+
+int8_t rules_pushstring(struct rules_t *obj, char *str) {
+  uint16_t c = varstack_add(&str, 0, strlen(str), 0);
+  assert(c >= 0);
+
+  unsigned char val[rule_max_var_bytes()] = { '\0' };
+  struct vm_vptr_t *node = (struct vm_vptr_t *)val;
+
+  setval(node->type, VPTR);
+  setval(node->value, c/sizeof(struct vm_top_t));
+
+  return vm_stack_push(obj, 0, val) >= 0;
+}
+
+void rules_ref(const char *str) {
+  int32_t c = varstack_find((char **)&str, 0, strlen(str));
+  if(c == -1) {
+    return;
+  }
+
+  struct vm_vchar_t *node = (struct vm_vchar_t *)&varstack->buffer[c];
+  if(getval(node->fixed) == 0) {
+    setval(node->ref, getval(node->ref)+1);
+  }
+}
+
+void rules_unref(const char *str) {
+  int32_t c = varstack_find((char **)&str, 0, strlen(str));
+  if(c == -1) {
+    return;
+  }
+
+  struct vm_vchar_t *node = (struct vm_vchar_t *)&varstack->buffer[c];
+  if(getval(node->fixed) == 0) {
+    setval(node->ref, getval(node->ref)-1);
+    if(getval(node->ref) == 0) {
+      FREE(node->value);
+      node->value = NULL;
+      setval(node->len, 0);
+    }
+  }
 }
 
 const char *rules_tostring(struct rules_t *obj, int8_t pos) {
@@ -1712,7 +1926,7 @@ static void bc_assign_slots(struct rules_t *obj) {
           break;
         }
         if((bc_before(obj, a) >= 0) &&
-           (((int8_t)getval(node->a) < 0 && gettype(obj->bc.buffer[a]) != OP_PUSH) ||
+           ((((int8_t)getval(node->a) < 0 && gettype(obj->bc.buffer[a]) != OP_PUSH)) ||
            gettype(obj->bc.buffer[a]) == OP_JMP ||
            gettype(obj->bc.buffer[a]) == OP_TEST ||
            gettype(obj->bc.buffer[a]) == OP_RET)) {
@@ -1765,7 +1979,8 @@ static void bc_assign_slots(struct rules_t *obj) {
       min = MIN(vars, min);
 
       if(gettype(obj->bc.buffer[a]) != OP_SETVAL &&
-         gettype(obj->bc.buffer[a]) != OP_CLEAR) {
+         gettype(obj->bc.buffer[a]) != OP_CLEAR &&
+         !(gettype(obj->bc.buffer[a]) == OP_PUSH && getval(x->c) == 1)) {
         setval(x->a, vars);
       }
 
@@ -1779,7 +1994,8 @@ static void bc_assign_slots(struct rules_t *obj) {
         struct vm_top_t *z = (struct vm_top_t *)&obj->bc.buffer[c];
         if(
            gettype(obj->bc.buffer[c]) != OP_CLEAR &&
-           gettype(obj->bc.buffer[c]) != OP_SETVAL) {
+           gettype(obj->bc.buffer[c]) != OP_SETVAL &&
+           !(gettype(obj->bc.buffer[c]) == OP_PUSH && getval(z->c) == 1)) {
           if((int8_t)getval(z->a) == d) {
             setval(z->a, vars);
           }
@@ -1795,14 +2011,16 @@ static void bc_assign_slots(struct rules_t *obj) {
             if((int8_t)getval(z->b) == vars) {
               if((int8_t)getval(z->a) == vars) {
                 if(gettype(obj->bc.buffer[c]) != OP_CLEAR &&
-                   gettype(obj->bc.buffer[c]) != OP_SETVAL) {
+                   gettype(obj->bc.buffer[c]) != OP_SETVAL &&
+                   !(gettype(obj->bc.buffer[c]) == OP_PUSH && getval(z->c) == 1)) {
                   setval(z->a, vars-1);
                 }
               }
               vars--;
               min = MIN(vars, min);
               if(gettype(obj->bc.buffer[a]) != OP_CLEAR &&
-                 gettype(obj->bc.buffer[a]) != OP_SETVAL) {
+                 gettype(obj->bc.buffer[a]) != OP_SETVAL &&
+                 !(gettype(obj->bc.buffer[a]) == OP_PUSH && getval(z->c) == 1)) {
                 setval(x->a, vars);
               }
             }
@@ -1868,7 +2086,8 @@ static void bc_assign_slots(struct rules_t *obj) {
           }
           struct vm_top_t *z = (struct vm_top_t *)&obj->bc.buffer[c];
           if(gettype(obj->bc.buffer[c]) != OP_SETVAL &&
-             gettype(obj->bc.buffer[c]) != OP_CLEAR) {
+             gettype(obj->bc.buffer[c]) != OP_CLEAR &&
+             !(gettype(obj->bc.buffer[c]) == OP_PUSH && getval(z->c) == 1)) {
             if((int8_t)getval(z->a) == d) {
               changed = 1;
               setval(z->a, e);
@@ -1941,7 +2160,7 @@ static int32_t bc_parse_math_order(char **text, struct rules_t *obj, uint16_t *p
     case TNUMBER2:
     case TNUMBER3: {
       if(a == TVAR) {
-        uint16_t x = varstack_add(text, start, len);
+        uint16_t x = varstack_add(text, start+1, len, 1);
         heap_in = ++(*cnt);
         bc_in = first = bc_parent(obj, OP_GETVAL, heap_in, x/sizeof(struct vm_vchar_t), 0);
       } else {
@@ -2002,7 +2221,7 @@ static int32_t bc_parse_math_order(char **text, struct rules_t *obj, uint16_t *p
           (*pos)++;
           uint16_t a = 0;
           if(c == TVAR) {
-            a = varstack_add(text, start, len);
+            a = varstack_add(text, start+1, len, 1);
             b = ++(*cnt);
             bc_parent(obj, OP_GETVAL, b, a/sizeof(struct vm_vchar_t), 0);
             d = b;
@@ -2371,6 +2590,7 @@ uint16_t lexer_clear(struct rules_t *obj, char **text, uint16_t start, uint16_t 
         i += 1;
         loop = 0;
       } break;
+      case TSTRING:
       case TEVENT:
       case TVAR: {
         if(nr >= start && nr <= end) {
@@ -2382,7 +2602,7 @@ uint16_t lexer_clear(struct rules_t *obj, char **text, uint16_t start, uint16_t 
         /*
          * Consider tokens above 31 as regular characters
          */
-        while(current >= 32 && current < 126) {
+        while(current >= 32 && current <= 128) {
           if(nr >= start && nr <= end) {
             ++x;
           }
@@ -2464,9 +2684,9 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
   {
     while(lexer_peek(text, pos, &type, &start, &len) >= 0) {
       if(type == TVAR) {
-        varstack_add(text, start, len);
+        varstack_add(text, start+1, len, 1);
       } else if(type == TEVENT) {
-        varstack_add(text, start, len);
+        varstack_add(text, start+1, len, 1);
       }
       pos++;
     }
@@ -2553,7 +2773,7 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
             /* LCOV_EXCL_STOP*/
           }
 
-          uint16_t idx = varstack_add(text, start, len);
+          uint16_t idx = varstack_add(text, start+1, len, 1);
           struct vm_vchar_t *chr = (struct vm_vchar_t *)&varstack->buffer[idx];
           obj->name = (char *)chr->value;
 
@@ -2851,6 +3071,7 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
           case VNULL:
           case VINTEGER:
           case VFLOAT:
+          case TSTRING:
           case TNUMBER1:
           case TNUMBER2:
           case TNUMBER3:{
@@ -2873,10 +3094,14 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
       case VNULL:
       case VINTEGER:
       case VFLOAT:
+      case TSTRING:
       case TNUMBER1:
       case TNUMBER2:
       case TNUMBER3:{
       TVAR_AS_VALUE:
+        go = ret;
+        ret = TNUMBER;
+
         uint16_t a = 0;
         if(in_child > -1) {
           if(lexer_peek(text, in_child, &type, &start, &len) < 0) {
@@ -2897,7 +3122,7 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
 
         if(a == TEVENT && in_child == 0) {
           if(type == TVAR) {
-            uint16_t c = varstack_add(text, start, len);
+            uint16_t c = varstack_add(text, start+1, len, 1);
             bc_parent(obj, OP_SETVAL, c/sizeof(struct vm_vchar_t), 0, 0);
           } else {
             /* LCOV_EXCL_START*/
@@ -2906,8 +3131,12 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
             /* LCOV_EXCL_STOP*/
           }
         } else {
-          if(type == TVAR) {
-            uint16_t c = varstack_add(text, start, len);
+          if(type == TSTRING) {
+            uint16_t c = varstack_add(text, start+1, len, 1);
+            a = (c/sizeof(struct vm_vchar_t))+1;
+            ret = TSTRING;
+          } else if(type == TVAR) {
+            uint16_t c = varstack_add(text, start+1, len, 1);
             // a = vm_heap_push(obj, VNULL, NULL, 0, 0, 0);
             // a = vm_val_posr(a);
             a = ++mathcnt;
@@ -2942,8 +3171,6 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
 
         val = a;
         pos++;
-        go = ret;
-        ret = TNUMBER;
       } break;
       case TASSIGN: {
         uint16_t tmp = pos;
@@ -2998,6 +3225,7 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
             go = type;
             goto TVAR_AS_VALUE;
           }
+          case TSTRING:
           case TNUMBER1:
           case TNUMBER2:
           case TNUMBER3:
@@ -3048,7 +3276,7 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
               /* LCOV_EXCL_STOP*/
             }
 
-            uint16_t a = varstack_add(text, start, len);
+            uint16_t a = varstack_add(text, start+1, len, 1);
 
             bc_parent(obj, OP_SETVAL, a/sizeof(struct vm_vchar_t), val, 0);
             pos++;
@@ -3122,7 +3350,7 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
 
             if(type == TEVENT) {
               if(in_child > 0) {
-                uint16_t idx = varstack_add(text, start, len);
+                uint16_t idx = varstack_add(text, start+1, len, 1);
                 bc_parent(obj, OP_CALL, ++mathcnt, idx/sizeof(struct vm_vchar_t), 1);
               }
             } else {
@@ -3362,9 +3590,13 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
               /* LCOV_EXCL_STOP*/
             }
 
-            if(ret == TNUMBER || ret == TOPERATOR) {
+            if(ret == TNUMBER || ret == TOPERATOR || ret == TSTRING) {
               if(type == TFUNCTION || (type == TEVENT && in_child > 0)) {
-                bc_parent(obj, OP_PUSH, val, 0, 0);
+                if(ret == TSTRING) {
+                  bc_parent(obj, OP_PUSH, val, 0, 1);
+                } else {
+                  bc_parent(obj, OP_PUSH, val, 0, 0);
+                }
               }
             }
 
@@ -3404,6 +3636,7 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
           case VNULL:
           case VINTEGER:
           case VFLOAT:
+          case TSTRING:
           case TNUMBER1:
           case TNUMBER2:
           case TNUMBER3: {
@@ -3411,7 +3644,7 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
             go = type;
           } break;
           case TCOMMA: {
-            if(ret == TNUMBER) {
+            if(ret == TNUMBER || ret == TSTRING) {
               uint8_t a = 0;
               if(in_child == -1) {
                 /* LCOV_EXCL_START*/
@@ -3427,7 +3660,11 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
               }
 
               if(a == TFUNCTION || (a == TEVENT && in_child > 0)) {
-                bc_parent(obj, OP_PUSH, val, 0, 0);
+                if(ret == TSTRING) {
+                  bc_parent(obj, OP_PUSH, val, 0, 1);
+                } else {
+                  bc_parent(obj, OP_PUSH, val, 0, 0);
+                }
               }
             }
 
@@ -3687,6 +3924,28 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
 #ifndef DEBUG
       goto STEP_IS_NULL;
 #endif
+    } else if(is_math(type)) {
+      uint8_t i = 0;
+      const char *op = NULL;
+      for(i=0;i<nr_rule_operators;i++) {
+        if(rule_operators[i].opcode == type) {
+          op = rule_operators[i].name;
+          break;
+        }
+      }
+      logprintf_P(F("ERROR: cannot compute %s with a left char value"), op);
+      return -1;
+    } else if(is_op_and_math(type)) {
+      uint8_t i = 0;
+      const char *op = NULL;
+      for(i=0;i<nr_rule_operators;i++) {
+        if(rule_operators[i].opcode == type) {
+          op = rule_operators[i].name;
+          break;
+        }
+      }
+      logprintf_P(F("ERROR: cannot compare %s with a left char value"), op);
+      return -1;
     }
     if(y_type == VINTEGER) {
       struct vm_vinteger_t *node1 = (struct vm_vinteger_t *)&obj->heap->buffer[c];
@@ -3716,6 +3975,28 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
       uint322float(val, &y);
     } else if(y_type == VNULL) {
       goto STEP_IS_NULL;
+    } else if(is_math(type)) {
+      uint8_t i = 0;
+      const char *op = NULL;
+      for(i=0;i<nr_rule_operators;i++) {
+        if(rule_operators[i].opcode == type) {
+          op = rule_operators[i].name;
+          break;
+        }
+      }
+      logprintf_P(F("ERROR: cannot compute %s with a right char value"), op);
+      return -1;
+    } else if(is_op_and_math(type)) {
+      uint8_t i = 0;
+      const char *op = NULL;
+      for(i=0;i<nr_rule_operators;i++) {
+        if(rule_operators[i].opcode == type) {
+          op = rule_operators[i].name;
+          break;
+        }
+      }
+      logprintf_P(F("ERROR: cannot compare %s with a right char value"), op);
+      return -1;
     }
 #ifdef DEBUG
     if(x_type == VNULL) {
@@ -4008,6 +4289,24 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
         setval(upd->value[1], ((uint32_t)x >> 8) & 0xFF);
         setval(upd->value[2], ((uint32_t)x) & 0xFF);
       } break;
+      case VCHAR: {
+        int16_t offset = vm_val_pos(-1);
+        offset = getval(obj->stack->nrbytes)-offset;
+
+        if(offset >= 4) {
+          if(getval(obj->stack->buffer[offset]) == VPTR) {
+            struct vm_vptr_t *node = (struct vm_vptr_t *)&obj->stack->buffer[offset];
+
+            struct vm_vptr_t *upd = (struct vm_vptr_t *)&obj->heap->buffer[a];
+            setval(upd->type, VPTR);
+            setval(upd->value, getval(node->value));
+          } else {
+            return -1;
+          }
+        } else {
+          return -1;
+        }
+      } break;
       case VFLOAT: {
         float f = rules_tofloat(obj, -1);
         uint32_t x = 0;
@@ -4047,10 +4346,10 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
       logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
       return -1;
     }
-    if((int8_t)getval(node->b) > 0) {
-      logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
-      return -1;
-    }
+    // if((int8_t)getval(node->b) > 0) {
+      // logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
+      // return -1;
+    // }
 #endif
 
     if((int8_t)getval(node->b) < 0) {
@@ -4095,7 +4394,28 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
 
       memset(obj->stack->buffer, 0, getval(obj->stack->bufsize));
       setval(obj->stack->nrbytes, 4);
-    } else {
+    } else if((int8_t)getval(node->b) > 0) {
+      uint16_t a = (int8_t)getval(node->a)*sizeof(struct vm_vchar_t);
+      uint16_t b = (int8_t)(getval(node->b)-1)*sizeof(struct vm_vchar_t);
+
+#ifdef DEBUG
+      if(b > varstack->nrbytes) {
+        logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
+        return -1;
+      }
+#endif
+
+      vm_stack_push(obj, a, &varstack->buffer[a]);
+      vm_stack_push(obj, b, &varstack->buffer[b]);
+
+      rule_options.vm_value_set(obj);
+
+      rules_remove(obj, -1);
+      rules_remove(obj, -1);
+
+      memset(obj->stack->buffer, 0, getval(obj->stack->bufsize));
+      setval(obj->stack->nrbytes, 4);
+    } else { // node->b == 0
       uint16_t a = (int8_t)getval(node->a)*sizeof(struct vm_vchar_t);
       uint16_t b = ((int8_t)getval(node->b)+1)*rule_max_var_bytes();
 
@@ -4120,16 +4440,29 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
 
   STEP_PUSH: {
     struct vm_top_t *node = (struct vm_top_t *)&obj->bc.buffer[pos];
-    uint16_t a = vm_val_pos((int8_t)getval(node->a));
+    if((int8_t)getval(node->a) < 0) {
+      uint16_t a = vm_val_pos((int8_t)getval(node->a));
 
 #ifdef DEBUG
-    if(a > obj->heap->nrbytes) {
-      logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
-      return -1;
-    }
+      if(a > obj->heap->nrbytes) {
+        logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
+        return -1;
+      }
 #endif
 
-    vm_stack_push(obj, a, &obj->heap->buffer[a]);
+      vm_stack_push(obj, a, &obj->heap->buffer[a]);
+    } else {
+      uint16_t a = (uint8_t)(getval(node->a)-1)*sizeof(struct vm_vchar_t);
+
+#ifdef DEBUG
+      if(a > varstack->nrbytes) {
+        logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
+        return -1;
+      }
+#endif
+
+      vm_stack_push(obj, a, &varstack->buffer[a]);
+    }
 
     pos += sizeof(struct vm_top_t);
 
@@ -4170,41 +4503,59 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
         return -1;
         /* LCOV_EXCL_STOP*/
       }
+      if(rules_gettop(obj) == 1) {
+        switch(rules_type(obj, -1)) {
+          case VNULL: {
+            struct vm_vnull_t *upd = (struct vm_vnull_t *)&obj->heap->buffer[a];
+            setval(upd->type, VNULL);
+          } break;
+          case VINTEGER: {
+            int32_t x = rules_tointeger(obj, -1);
+            struct vm_vinteger_t *upd = (struct vm_vinteger_t *)&obj->heap->buffer[a];
+            setval(upd->type, VINTEGER);
+            setval(upd->value[0], ((uint32_t)x >> 16) & 0xFF);
+            setval(upd->value[1], ((uint32_t)x >> 8) & 0xFF);
+            setval(upd->value[2], ((uint32_t)x) & 0xFF);
+          } break;
+          case VCHAR: {
+            int16_t offset = vm_val_pos(-1);
+            offset = getval(obj->stack->nrbytes)-offset;
 
-      switch(rules_type(obj, -1)) {
-        case VNULL: {
-          struct vm_vnull_t *upd = (struct vm_vnull_t *)&obj->heap->buffer[a];
-          setval(upd->type, VNULL);
-        } break;
-        case VINTEGER: {
-          int32_t x = rules_tointeger(obj, -1);
-          struct vm_vinteger_t *upd = (struct vm_vinteger_t *)&obj->heap->buffer[a];
-          setval(upd->type, VINTEGER);
-          setval(upd->value[0], ((uint32_t)x >> 16) & 0xFF);
-          setval(upd->value[1], ((uint32_t)x >> 8) & 0xFF);
-          setval(upd->value[2], ((uint32_t)x) & 0xFF);
-        } break;
-        case VFLOAT: {
-          float f = rules_tofloat(obj, -1);
-          uint32_t x = 0;
-          float2uint32(f, &x);
+            if(offset >= 4) {
+              if(getval(obj->stack->buffer[offset]) == VPTR) {
+                struct vm_vptr_t *node = (struct vm_vptr_t *)&obj->stack->buffer[offset];
+                struct vm_vptr_t *upd = (struct vm_vptr_t *)&obj->heap->buffer[a];
+                setval(upd->type, VPTR);
+                setval(upd->value, getval(node->value));
+              } else {
+                return -1;
+              }
+            } else {
+              return -1;
+            }
+          } break;
+          case VFLOAT: {
+            float f = rules_tofloat(obj, -1);
+            uint32_t x = 0;
+            float2uint32(f, &x);
 
-          struct vm_vfloat_t *upd = (struct vm_vfloat_t *)&obj->heap->buffer[a];
+            struct vm_vfloat_t *upd = (struct vm_vfloat_t *)&obj->heap->buffer[a];
 
-          setval(upd->type, VFLOAT | ((((uint32_t)x >> 29) & 0x7) << 5));
-          setval(upd->value[0], ((uint32_t)x >> 21) & 0xFF);
-          setval(upd->value[1], ((uint32_t)x >> 13) & 0xFF);
-          setval(upd->value[2], ((uint32_t)x >> 5) & 0xFF);
-        } break;
-        /* LCOV_EXCL_START*/
-        default: {
-          logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
-          return -1;
-        } break;
-        /* LCOV_EXCL_STOP*/
+            setval(upd->type, VFLOAT | ((((uint32_t)x >> 29) & 0x7) << 5));
+            setval(upd->value[0], ((uint32_t)x >> 21) & 0xFF);
+            setval(upd->value[1], ((uint32_t)x >> 13) & 0xFF);
+            setval(upd->value[2], ((uint32_t)x >> 5) & 0xFF);
+          } break;
+          /* LCOV_EXCL_START*/
+          default: {
+            logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
+            return -1;
+          } break;
+          /* LCOV_EXCL_STOP*/
+        }
+
+        rules_remove(obj, -1);
       }
-
-      rules_remove(obj, -1);
     } else {
       struct vm_vchar_t *var = (struct vm_vchar_t *)&varstack->buffer[b*sizeof(struct vm_vchar_t)];
 
@@ -4314,12 +4665,17 @@ static void print_varstack(void) {
   uint16_t i = 0;
 
   for(i=0;i<varstack->nrbytes;i++) {
-    printf("%2lu\t", i/sizeof(struct vm_vchar_t));
+    printf("%2lu ", i/sizeof(struct vm_vchar_t));
 
     switch(varstack->buffer[i]) {
       case VCHAR: {
         struct vm_vchar_t *node = (struct vm_vchar_t *)&varstack->buffer[i];
-        printf("%s\n", node->value);
+        printf("%d %d", node->fixed, node->ref);
+        if(node->value != NULL) {
+          printf("\t%s\n", node->value);
+        } else {
+          printf("\n");
+        }
       } break;
       /* LCOV_EXCL_START*/
       default: {

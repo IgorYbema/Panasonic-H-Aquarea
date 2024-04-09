@@ -190,6 +190,10 @@ void rules_gc(struct rules_t ***rules, uint8_t *nrrules);
 int8_t rules_pushnil(struct rules_t *obj);
 int8_t rules_pushfloat(struct rules_t *obj, float nr);
 int8_t rules_pushinteger(struct rules_t *obj, int nr);
+int8_t rules_pushstring(struct rules_t *obj, char *str);
+
+void rules_ref(const char *str);
+void rules_unref(const char *str);
 
 int rules_tointeger(struct rules_t *obj, int8_t pos);
 float rules_tofloat(struct rules_t *obj, int8_t pos);

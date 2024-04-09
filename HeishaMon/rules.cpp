@@ -53,6 +53,7 @@ typedef struct array_t {
     int i;
     float f;
     void *n;
+    const char *s;
   } val;
   uint8_t type;
 } array_t;
@@ -483,6 +484,9 @@ static int8_t vm_value_get(struct rules_t *obj) {
           case VFLOAT: {
             rules_pushfloat(obj, array->val.f);
           } break;
+          case VCHAR: {
+            rules_pushstring(obj, (char *)array->val.s);
+          } break;
           case VNULL: {
             rules_pushnil(obj);
           } break;
@@ -504,7 +508,8 @@ static int8_t vm_value_set(struct rules_t *obj) {
   }
   type = rules_type(obj, -1);
 
-  if(rules_type(obj, -2) != VCHAR || (type != VINTEGER && type != VFLOAT && type != VNULL)) {
+  if(rules_type(obj, -2) != VCHAR
+    || (type != VINTEGER && type != VFLOAT && type != VNULL && type != VCHAR)) {
     return -1;
   }
 
@@ -677,21 +682,41 @@ static int8_t vm_value_set(struct rules_t *obj) {
         OUT_OF_MEMORY
       }
       array = &table->array[table->nr];
+      memset(array, 0, sizeof(struct array_t));
       table->nr++;
+      rules_ref(key);
     }
 
     array->key = key;
 
     switch(type) {
       case VINTEGER: {
+        if(array->type == VCHAR && array->val.s != NULL) {
+          rules_unref(array->val.s);
+        }
         array->val.i = rules_tointeger(obj, -1);
         array->type = VINTEGER;
       } break;
       case VFLOAT: {
+        if(array->type == VCHAR && array->val.s != NULL) {
+          rules_unref(array->val.s);
+        }
         array->val.f = rules_tofloat(obj, -1);
         array->type = VFLOAT;
       } break;
+      case VCHAR: {
+        if(array->type == VCHAR && array->val.s != NULL) {
+          rules_unref(array->val.s);
+        }
+
+        array->val.s = rules_tostring(obj, -1);
+        array->type = VCHAR;
+        rules_ref(array->val.s);
+      } break;
       case VNULL: {
+        if(array->type == VCHAR && array->val.s != NULL) {
+          rules_unref(array->val.s);
+        }
         array->val.n = NULL;
         array->type = VNULL;
       } break;
@@ -733,6 +758,13 @@ static void rules_print_stack(struct varstack_t *table) {
           logprintf_P(F("%2d %s = %g"), x, array->key, array->val.f);
 #else
           printf("%2d %s = %g\n", x, array->key, array->val.f);
+#endif
+        } break;
+        case VCHAR: {
+#ifdef ESP8266
+          logprintf_P(F("%2d %s = %s"), x, array->key, array->val.s);
+#else
+          printf("%2d %s = %s\n", x, array->key, array->val.s);
 #endif
         } break;
         case VNULL: {
