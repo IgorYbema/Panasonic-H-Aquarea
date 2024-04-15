@@ -118,17 +118,6 @@ typedef enum {
   OP_RET = 22
 } opcodes;
 
-
-typedef struct rule_timer_t {
-#ifdef ESP8266
-  uint32_t first;
-  uint32_t second;
-#else
-  struct timespec first;
-  struct timespec second;
-#endif
-} __attribute__((aligned(4))) rule_timer_t;
-
 typedef struct rules_t {
   /* --- PUBLIC MEMBERS --- */
 
@@ -158,8 +147,6 @@ typedef struct rules_t {
 
   struct rule_stack_t bc;
   struct rule_stack_t *heap;
-  struct rule_stack_t *stack;
-  struct rule_timer_t *timestamp;
 
 } __attribute__((aligned(4))) rules_t;
 
@@ -172,10 +159,12 @@ typedef struct rule_options_t {
 
   int8_t (*vm_value_set)(struct rules_t *obj);
   int8_t (*vm_value_get)(struct rules_t *obj);
+
   /*
    * Events
    */
   int8_t (*event_cb)(struct rules_t *obj, char *name);
+  void (*done_cb)(struct rules_t *obj);
 } rule_options_t;
 
 extern struct rule_options_t rule_options;
@@ -202,5 +191,9 @@ const char *rules_tostring(struct rules_t *obj, int8_t pos);
 void rules_remove(struct rules_t *rule, int8_t pos);
 uint8_t rules_gettop(struct rules_t *rule);
 uint8_t rules_type(struct rules_t *rule, int8_t pos);
+
+#if defined(DEBUG) || defined(COVERALLS)
+uint16_t rules_memused(void);
+#endif
 
 #endif

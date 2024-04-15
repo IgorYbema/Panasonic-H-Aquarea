@@ -47,6 +47,13 @@ static uint8_t nrrules = 0;
 
 struct rule_options_t rule_options;
 
+typedef struct rule_timer_t {
+  uint32_t first;
+  uint32_t second;
+} __attribute__((aligned(4))) rule_timer_t;
+
+static struct rule_timer_t timestamp;
+
 typedef struct array_t {
   const char *key;
   union {
@@ -316,6 +323,10 @@ static int8_t is_event(char *text, uint16_t size) {
   }
 
   return -1;
+}
+
+static void rule_done_cb(struct rules_t *obj) {
+  return;
 }
 
 static int8_t event_cb(struct rules_t *obj, char *name) {
@@ -796,14 +807,14 @@ void rules_timer_cb(int nr) {
   if(nr > -1) {
     logprintf_P(F("%s %s %s"), F("===="), name, F("===="));
 
-    rules[nr]->timestamp->first = micros();
+    timestamp.first = micros();
 
     int ret = rule_run(rules[nr], 0);
 
-    rules[nr]->timestamp->second = micros();
+    timestamp.second = micros();
 
     if(ret == 0) {
-      logprintf_P(F("%s%d %s %d %s"), F("rule #"), rules[nr]->nr, F("was executed in"), rules[nr]->timestamp->second - rules[nr]->timestamp->first, F("microseconds"));
+      logprintf_P(F("%s%d %s %d %s"), F("rule #"), rules[nr]->nr, F("was executed in"), timestamp.second - timestamp.first, F("microseconds"));
 
       logprintf_P(F("\n>>> local variables\n"));
       rules_print_stack((struct varstack_t *)rules[nr]->userdata);
@@ -906,14 +917,14 @@ void rules_event_cb(const char *prefix, const char *name) {
   if(nr > -1) {
     logprintf_P(F("%s %s %s"), F("===="), name, F("===="));
 
-    rules[nr]->timestamp->first = micros();
+    timestamp.first = micros();
 
     int ret = rule_run(rules[nr], 0);
 
-    rules[nr]->timestamp->second = micros();
+    timestamp.second = micros();
 
     if(ret == 0) {
-      logprintf_P(F("%s%d %s %d %s"), F("rule #"), rules[nr]->nr, F("was executed in"), rules[nr]->timestamp->second - rules[nr]->timestamp->first, F("microseconds"));
+      logprintf_P(F("%s%d %s %d %s"), F("rule #"), rules[nr]->nr, F("was executed in"), timestamp.second - timestamp.first, F("microseconds"));
 
       logprintf_P(F("\n>>> local variables\n"));
       rules_print_stack((struct varstack_t *)rules[nr]->userdata);
@@ -931,14 +942,14 @@ void rules_boot(void) {
   if(nr > -1) {
     logprintf_P(F("%s %s %s"), F("===="), F("System#Boot"), F("===="));
 
-    rules[nr]->timestamp->first = micros();
+    timestamp.first = micros();
 
     int ret = rule_run(rules[nr], 0);
 
-    rules[nr]->timestamp->second = micros();
+    timestamp.second = micros();
 
     if(ret == 0) {
-      logprintf_P(F("%s%d %s %d %s"), F("rule #"), rules[nr]->nr, F("was executed in"), rules[nr]->timestamp->second - rules[nr]->timestamp->first, F("microseconds"));
+      logprintf_P(F("%s%d %s %d %s"), F("rule #"), rules[nr]->nr, F("was executed in"), timestamp.second - timestamp.first, F("microseconds"));
 
       logprintf_P(F("\n>>> local variables\n"));
       rules_print_stack((struct varstack_t *)rules[nr]->userdata);
@@ -962,6 +973,7 @@ void rules_setup(void) {
   memset(&rule_options, 0, sizeof(struct rule_options_t));
   rule_options.is_variable_cb = is_variable;
   rule_options.is_event_cb = is_event;
+  rule_options.done_cb = rule_done_cb;
   rule_options.vm_value_set = vm_value_set;
   rule_options.vm_value_get = vm_value_get;
   rule_options.event_cb = event_cb;
