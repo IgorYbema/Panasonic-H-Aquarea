@@ -132,12 +132,32 @@ static uint8_t cmdnrel = 0;
 
 // mqtt
 WiFiClient mqtt_wifi_client;
-PubSubClient mqtt_client(mqtt_wifi_client);
+PubSubClient mqtt_client;
 
 bool firstConnectSinceBoot = true; //if this is true there is no first connection made yet
 
 struct timerqueue_t **timerqueue = NULL;
 int timerqueue_size = 0;
+
+#ifdef ESP32
+#include <ETH.h>
+#include <SPI.h>
+#define ETH_TYPE        ETH_PHY_W5500
+#define ETH_ADDR         1
+#define ETH_CS          10
+#define ETH_IRQ          15
+#define ETH_RST          14
+
+// SPI pins
+#define ETH_SPI_SCK     12
+#define ETH_SPI_MISO    13
+#define ETH_SPI_MOSI    11
+
+void setupETH() {
+  SPI.begin(ETH_SPI_SCK, ETH_SPI_MISO, ETH_SPI_MOSI);
+  if (!ETH.begin(ETH_TYPE, ETH_ADDR, ETH_CS, ETH_IRQ, ETH_RST, SPI)) loggingSerial.println("Could not start ETH!");
+}
+#endif
 
 
 /*
@@ -428,24 +448,24 @@ void readProxy()
       }      
       log_message(_F("PROXY Checksum and header received ok!"));
       if ((proxydata[0]==0x71 or proxydata[0]==0xF1) and proxydata_length == (PANASONICQUERYSIZE+1)) { //this is a query from cztaw on proxy port
-        log_message(_F("PROXY request to Heat Pump"));
         if (heishamonSettings.logHexdump) logHex(proxydata, proxydata_length);
         if (proxydata[0]==0xf1) {  //this is a write query, just pass this message forward as new command
+          log_message(_F("PROXY received write query, copy message forward to heatpump"));
           send_command((byte*)proxydata,proxydata_length-1); //strip CRC, will be calculated again in send_command
         }
         //then just reply with the current settings, for read and write it is the same as the write is only acknowledged in the next read
         if (proxydata[3] == 0x10) {
-          log_message(_F("PROXY asked for basic query"));
+          log_message(_F("PROXY requests basic data"));
           if ((actData[0] == 0x71) && (actData[1] == 0xc8) && (actData[2] == 0x01)) { //don't answer if we don't have data
-            proxySerial.write(actData,DATASIZE); //should containt valid checksum also
+            proxySerial.write(actData,DATASIZE); //should contain valid checksum also
           }
         } else if (proxydata[3] == 0x21 ) {
-          log_message(_F("PROXY asked for extra query"));
+          log_message(_F("PROXY requests extra data"));
           if ((actDataExtra[0] == 0x71) && (actDataExtra[1] == 0xc8) && (actDataExtra[2] == 0x01)) { //don't answer if we don't have data
             proxySerial.write(actDataExtra,DATASIZE); //should containt valid checksum also
           }
         } else {
-          log_message(_F("PROXY asked for unknown query!"));
+          log_message(_F("PROXY has sent unknown query!"));
         }
         proxydata_length = 0;
         return;
@@ -1176,6 +1196,7 @@ void switchSerial() {
 }
 
 void setupMqtt() {
+  mqtt_client.setClient(mqtt_wifi_client);
   mqtt_client.setBufferSize(1024);
   mqtt_client.setSocketTimeout(10); mqtt_client.setKeepAlive(5); //fast timeout, any slower will block the main loop too long
   mqtt_client.setServer(heishamonSettings.mqtt_server, atoi(heishamonSettings.mqtt_port));
@@ -1246,6 +1267,7 @@ void timer_cb(int nr) {
   }
 
 }
+
 
 void setup() {
   //first get total memory before we do anything
@@ -1328,6 +1350,8 @@ void setup() {
 #elif defined(ESP32)
   WiFi.scanNetworks(true);
 #endif
+
+  setupETH();
 
   loggingSerial.println(F("Setup MQTT..."));
   setupMqtt();
@@ -1490,11 +1514,12 @@ void loop() {
   if ((unsigned long)(millis() - lastRunTime) > (1000 * heishamonSettings.waitTime)) {
     lastRunTime = millis();
     //check mqtt
-    if ( (WiFi.isConnected()) && (!mqtt_client.connected()) )
+    if ( (WiFi.isConnected() || ETH.connected()) && (!mqtt_client.connected()) )
     {
       log_message(_F("Lost MQTT connection!"));
       mqtt_reconnect();
     }
+
 
     //log stats
     if (totalreads > 0 ) readpercentage = (((float)goodreads / (float)totalreads) * 100);
