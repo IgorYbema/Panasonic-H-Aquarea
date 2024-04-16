@@ -294,6 +294,7 @@ void setupWifi(settingsStruct *heishamonSettings) {
     log_message(_F("Wifi hotspot mode..."));
     WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
     WiFi.softAP(_F("HeishaMon-Setup"));
+    
   }
 
   if (heishamonSettings->wifi_hostname[0] == '\0') {

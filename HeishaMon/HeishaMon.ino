@@ -69,6 +69,7 @@ unsigned long lastMqttReconnectAttempt = 0;
 
 #define WIFIRETRYTIMER 15000 // switch between hotspot and configured SSID each 10 secs if SSID is lost
 unsigned long lastWifiRetryTimer = 0;
+bool doInitialWifiScan = true; //we want an initial wifi scan to fill in the dropbox on the wifi settings page
 
 unsigned long lastRunTime = 0;
 unsigned long lastOptionalPCBRunTime = 0;
@@ -278,6 +279,15 @@ void check_wifi()
     // Allow MDNS processing
     MDNS.update();
 #endif
+  }
+  if (doInitialWifiScan && (millis() > 15000)) { //do a wifi scan a boot after 15 seconds
+    doInitialWifiScan = false;
+    log_message(_F("Starting initial wifi scan ..."));
+#if defined(ESP8266)
+  WiFi.scanNetworksAsync(getWifiScanResults);
+#elif defined(ESP32)
+  WiFi.scanNetworks(true);
+#endif    
   }
 }
 
@@ -1347,12 +1357,10 @@ void setup() {
 
   loggingSerial.println(F("Setup wifi..."));
   setupWifi(&heishamonSettings);
-  //initiate a wifi scan at boot to prefill the wifi scan json list
-  loggingSerial.println(F("Initiate initial wifi scan..."));
-#if defined(ESP8266)
-  WiFi.scanNetworksAsync(getWifiScanResults);
-#elif defined(ESP32)
-  WiFi.scanNetworks(true);
+  lastWifiRetryTimer = millis();
+
+#if defined(ESP32)
+  loggingSerial.println(F("Setup ethernet module..."));
   setupETH();
 #endif
 
