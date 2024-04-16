@@ -532,7 +532,7 @@ static int8_t vm_value_set(struct rules_t *obj) {
 
     switch(type) {
       case VCHAR: {
-        len = snprintf_P(NULL, 0, PSTR("%s"), rules_tostring(obj, -1);
+        len = snprintf_P(NULL, 0, PSTR("%s"), rules_tostring(obj, -1));
         if((payload = (char *)MALLOC(len+1)) == NULL) {
           OUT_OF_MEMORY
         }
