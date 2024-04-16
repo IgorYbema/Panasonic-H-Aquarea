@@ -531,23 +531,28 @@ static int8_t vm_value_set(struct rules_t *obj) {
     unsigned int len = 0;
 
     switch(type) {
-      case VINTEGER: {
-        int i = rules_tointeger(obj, -1);
-
-        len = snprintf(NULL, 0, "%d", i);
+      case VCHAR: {
+        len = snprintf_P(NULL, 0, PSTR("%s"), rules_tostring(obj, -1);
         if((payload = (char *)MALLOC(len+1)) == NULL) {
           OUT_OF_MEMORY
         }
-        snprintf(payload, len+1, "%d", i);
+        snprintf_P(payload, len+1, PSTR("%s"), rules_tostring(obj, -1));
+      } break;
+      case VINTEGER: {
+        int val = rules_tointeger(obj, -1);
+        len = snprintf_P(NULL, 0, PSTR("%d"), val);
+        if((payload = (char *)MALLOC(len+1)) == NULL) {
+          OUT_OF_MEMORY
+        }
+        snprintf_P(payload, len+1, PSTR("%d"), val);
       } break;
       case VFLOAT: {
-        float f = rules_tofloat(obj, -1);
-
-        len = snprintf(NULL, 0, "%g", f);
+        float val = rules_tofloat(obj, -1);
+        len = snprintf_P(NULL, 0, PSTR("%g"), val);
         if((payload = (char *)MALLOC(len+1)) == NULL) {
           OUT_OF_MEMORY
         }
-        snprintf(payload, len+1, "%g", f);
+        snprintf_P(payload, len+1, PSTR("%g"), val);
       } break;
     }
 
@@ -610,62 +615,6 @@ static int8_t vm_value_set(struct rules_t *obj) {
       }
       x++;
     }
-  } else if(key[0] == '@') {
-    char *payload = NULL;
-    unsigned int len = 0;
-
-    switch(type) {
-      case VINTEGER: {
-        int val = rules_tointeger(obj, -1);
-        len = snprintf_P(NULL, 0, PSTR("%d"), val);
-        if((payload = (char *)MALLOC(len+1)) == NULL) {
-          OUT_OF_MEMORY
-        }
-        snprintf_P(payload, len+1, PSTR("%d"), val);
-
-      } break;
-      case VFLOAT: {
-        float val = rules_tofloat(obj, -1);
-        len = snprintf_P(NULL, 0, PSTR("%g"), val);
-        if((payload = (char *)MALLOC(len+1)) == NULL) {
-          OUT_OF_MEMORY
-        }
-        snprintf_P(payload, len+1, PSTR("%g"), val);
-      } break;
-    }
-
-    if(parsing == 0 && !heishamonSettings.listenonly) {
-      unsigned char cmd[256] = { 0 };
-      char log_msg[256] = { 0 };
-
-      for(uint8_t x = 0; x < sizeof(commands) / sizeof(commands[0]); x++) {
-        cmdStruct tmp;
-        memcpy_P(&tmp, &commands[x], sizeof(tmp));
-        if(stricmp((char *)&key[1], tmp.name) == 0) {
-          uint16_t len = tmp.func(payload, cmd, log_msg);
-          log_message(log_msg);
-          send_command(cmd, len);
-          break;
-        }
-      }
-
-      memset(&cmd, 256, 0);
-      memset(&log_msg, 256, 0);
-
-      if(heishamonSettings.optionalPCB) {
-        //optional commands
-        for(uint8_t x = 0; x < sizeof(optionalCommands) / sizeof(optionalCommands[0]); x++) {
-          optCmdStruct tmp;
-          memcpy_P(&tmp, &optionalCommands[x], sizeof(tmp));
-          if(stricmp((char *)&key[1], tmp.name) == 0) {
-            uint16_t len = tmp.func(payload, log_msg);
-            log_message(log_msg);
-            break;
-          }
-        }
-      }
-    }
-    FREE(payload);
   } else {
     if(key[0] == '$') {
       table = (struct varstack_t *)obj->userdata;
