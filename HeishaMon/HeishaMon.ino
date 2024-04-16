@@ -155,7 +155,7 @@ int timerqueue_size = 0;
 
 void setupETH() {
   SPI.begin(ETH_SPI_SCK, ETH_SPI_MISO, ETH_SPI_MOSI);
-  if (!ETH.begin(ETH_TYPE, ETH_ADDR, ETH_CS, ETH_IRQ, ETH_RST, SPI)) loggingSerial.println("Could not start ETH!");
+  if (!ETH.begin(ETH_TYPE, ETH_ADDR, ETH_CS, ETH_IRQ, ETH_RST, SPI)) loggingSerial.println("Could not start ethernet. No ethernet module installed?");
 }
 #endif
 
@@ -286,7 +286,11 @@ void mqtt_reconnect()
   unsigned long now = millis();
   if ((lastMqttReconnectAttempt == 0) || ((unsigned long)(now - lastMqttReconnectAttempt) > MQTTRECONNECTTIMER)) { //only try reconnect each MQTTRECONNECTTIMER seconds or on boot when lastMqttReconnectAttempt is still 0
     lastMqttReconnectAttempt = now;
-    log_message(_F("Reconnecting to mqtt server ..."));
+    if (mqttReconnects == 0) {
+      log_message(_F("Connecting to mqtt server ..."));
+    } else {
+      log_message(_F("Reconnecting to mqtt server ..."));
+    }
     char topic[256];
     sprintf(topic, "%s/%s", heishamonSettings.mqtt_topic_base, mqtt_willtopic);
     if (mqtt_client.connect(heishamonSettings.wifi_hostname, heishamonSettings.mqtt_username, heishamonSettings.mqtt_password, topic, 1, true, "Offline"))
@@ -1349,9 +1353,8 @@ void setup() {
   WiFi.scanNetworksAsync(getWifiScanResults);
 #elif defined(ESP32)
   WiFi.scanNetworks(true);
-#endif
-
   setupETH();
+#endif
 
   loggingSerial.println(F("Setup MQTT..."));
   setupMqtt();
@@ -1514,9 +1517,13 @@ void loop() {
   if ((unsigned long)(millis() - lastRunTime) > (1000 * heishamonSettings.waitTime)) {
     lastRunTime = millis();
     //check mqtt
+  #ifdef ESP8266
+    if ( WiFi.isConnected() && (!mqtt_client.connected()) )
+  #else
     if ( (WiFi.isConnected() || ETH.connected()) && (!mqtt_client.connected()) )
+  #endif
     {
-      log_message(_F("Lost MQTT connection!"));
+      if (mqttReconnects > 0 ) log_message(_F("Lost MQTT connection!"));
       mqtt_reconnect();
     }
 
