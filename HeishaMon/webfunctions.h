@@ -5,6 +5,8 @@
 #include <ESP8266WiFiGratuitous.h>
 #elif defined(ESP32)
 #include <WiFi.h>
+#include <ETH.h>
+#include <SPI.h>
 #include <Update.h>
 #endif
 #include <PubSubClient.h>

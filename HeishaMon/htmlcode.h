@@ -206,7 +206,10 @@ static const char webBodyRootConsoleTab[] PROGMEM = "<button class=\"w3-bar-item
 static const char webBodyEndDiv[] PROGMEM = "</div>";
 
 static const char webBodyRootStatusWifi[] PROGMEM =   "<div class=\"w3-container w3-left\"><br>Wifi signal: ";
-static const char webBodyRootStatusMemory[] PROGMEM =   "%<br>Memory free: ";
+#ifdef ESP32
+static const char webBodyRootStatusEthernet[] PROGMEM =   "%<br>Ethernet status: ";
+#endif
+static const char webBodyRootStatusMemory[] PROGMEM =   "<br>Memory free: ";
 static const char webBodyRootStatusReceived[] PROGMEM =  "%<br>Correct received data: ";
 static const char webBodyRootStatusReconnects[] PROGMEM =  "%<br>MQTT reconnects: ";
 static const char webBodyRootStatusUptime[] PROGMEM =   "<br>Uptime: ";

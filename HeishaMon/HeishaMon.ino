@@ -141,8 +141,6 @@ struct timerqueue_t **timerqueue = NULL;
 int timerqueue_size = 0;
 
 #ifdef ESP32
-#include <ETH.h>
-#include <SPI.h>
 #define ETH_TYPE        ETH_PHY_W5500
 #define ETH_ADDR         1
 #define ETH_CS          10
@@ -156,9 +154,14 @@ int timerqueue_size = 0;
 
 void setupETH() {
   SPI.begin(ETH_SPI_SCK, ETH_SPI_MISO, ETH_SPI_MOSI);
-  if (!ETH.begin(ETH_TYPE, ETH_ADDR, ETH_CS, ETH_IRQ, ETH_RST, SPI)) loggingSerial.println("Could not start ethernet. No ethernet module installed?");
+  if (ETH.begin(ETH_TYPE, ETH_ADDR, ETH_CS, ETH_IRQ, ETH_RST, SPI)) {
+    ETH.setHostname(heishamonSettings.wifi_hostname);
+  } else {
+    loggingSerial.println("Could not start ethernet. No ethernet module installed?");
+  }
 }
 #endif
+
 
 
 /*
@@ -1585,7 +1588,28 @@ void loop() {
     message += getWifiQuality();
     message += F("% (RSSI: ");
     message += WiFi.RSSI();
+#ifdef ESP32
+    message += F(") ## Ethernet: ");
+    if (ETH.phyAddr() != 0) {        
+      if (ETH.connected()) {
+        if (ETH.hasIP()) {
+          message += F("connected (");
+          message += ETH.localIP().toString();
+          message += F(")");
+        } else {
+          message += F("connected (no IP)");
+        }
+      } 
+      else {
+        message += F("not connected");
+      }
+    } else {
+      message += F("not installed");
+    }
+    message += F(" ## Mqtt reconnects: ");
+#else
     message += F(") ## Mqtt reconnects: ");
+#endif
     message += mqttReconnects;
     message += F(" ## Correct data: ");
     message += readpercentage;

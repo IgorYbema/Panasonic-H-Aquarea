@@ -1006,9 +1006,24 @@ int handleRoot(struct webserver_t *client, float readpercentage, int mqttReconne
         char str[200];
         itoa(getWifiQuality(), str, 10);
         webserver_send_content(client, (char *)str, strlen(str));
-        webserver_send_content_P(client, webBodyRootStatusMemory, strlen_P(webBodyRootStatusMemory));
+#ifdef ESP32
+        if (ETH.phyAddr() != 0) {        
+          webserver_send_content_P(client, webBodyRootStatusEthernet, strlen_P(webBodyRootStatusEthernet));
+          if (ETH.connected()) {
+            if (ETH.hasIP()) {
+              webserver_send_content_P(client, PSTR("connected"), 9);
+            } else {
+              webserver_send_content_P(client, PSTR("connected - no IP"), 17);
+            }
+          } 
+          else {
+            webserver_send_content_P(client, PSTR("not connected"), 13);
+          }
+        }
+#endif
       } break;
     case 3: {
+        webserver_send_content_P(client, webBodyRootStatusMemory, strlen_P(webBodyRootStatusMemory));
         char str[200];
         itoa(getFreeMemory(), str, 10);
         webserver_send_content(client, (char *)str, strlen(str));
