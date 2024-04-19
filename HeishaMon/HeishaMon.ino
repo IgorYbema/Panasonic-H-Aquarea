@@ -93,7 +93,6 @@ byte data_length = 0;
 
 #ifdef ESP32
 //for received proxied data
-bool proxyEnabled = true; //true for now, should be a setting
 char proxydata[MAXDATASIZE] = { '\0' };
 byte proxydata_length = 0;
 //for the neopixel
@@ -155,6 +154,7 @@ int timerqueue_size = 0;
 void setupETH() {
   SPI.begin(ETH_SPI_SCK, ETH_SPI_MISO, ETH_SPI_MOSI);
   if (ETH.begin(ETH_TYPE, ETH_ADDR, ETH_CS, ETH_IRQ, ETH_RST, SPI)) {
+    //sethostname on ESP32 after eth.begin (!! for wifi is most be before...!!)
     ETH.setHostname(heishamonSettings.wifi_hostname);
   } else {
     loggingSerial.println("Could not start ethernet. No ethernet module installed?");
@@ -315,12 +315,22 @@ void mqtt_reconnect()
       }
       sprintf(topic, "%s/%s/#", heishamonSettings.mqtt_topic_base, mqtt_topic_commands);
       mqtt_client.subscribe(topic);
+      sprintf(topic, "%s/%s/#", heishamonSettings.mqtt_topic_base, mqtt_topic_gpio);
+      mqtt_client.subscribe(topic);      
       sprintf(topic, "%s/%s", heishamonSettings.mqtt_topic_base, mqtt_send_raw_value_topic);
       mqtt_client.subscribe(topic);
       sprintf(topic, "%s/%s", heishamonSettings.mqtt_topic_base, mqtt_willtopic);
       mqtt_client.publish(topic, "Online");
       sprintf(topic, "%s/%s", heishamonSettings.mqtt_topic_base, mqtt_iptopic);
+#ifdef ESP8266
       mqtt_client.publish(topic, WiFi.localIP().toString().c_str(), true);
+#else
+      if (ETH.hasIP()) {
+        mqtt_client.publish(topic, ETH.localIP().toString().c_str(), true);
+      } else {
+        mqtt_client.publish(topic, WiFi.localIP().toString().c_str(), true);
+      }
+#endif
 
       if (heishamonSettings.use_s0) { // connect to s0 topic to retrieve older watttotal from mqtt
         sprintf_P(mqtt_topic, PSTR("%s/%s/WatthourTotal/1"), heishamonSettings.mqtt_topic_base, mqtt_topic_s0);
@@ -452,12 +462,13 @@ void readProxy()
       sprintf_P(log_msg, PSTR("PROXY Received %i bytes proxy %i\n"), proxydata_length, proxydata[1]);
       log_message(log_msg);
       log_message(_F("PROXY Received more data than header suggests! Ignoring this as this is bad data."));
-      if (heishamonSettings.logHexdump) logHex(proxydata, proxydata_length);
       proxydata_length = 0;
+      if (heishamonSettings.logHexdump) logHex(proxydata, proxydata_length);
       return;
     }
     if (proxydata_length == (proxydata[1] + 3)) { //we received all data (serial2_data[1] is header length field)
-      sprintf_P(log_msg, PSTR("PROXY Received %i bytes proxy %i"), proxydata_length, proxydata[1]); log_message(log_msg);
+      sprintf_P(log_msg, PSTR("PROXY Received %i bytes"), proxydata_length); log_message(log_msg);
+      if (heishamonSettings.logHexdump) logHex(proxydata, proxydata_length);
       if (! isValidReceiveChecksum(proxydata,proxydata_length) ) {
         log_message(_F("PROXY Checksum received false!"));
         proxydata_length = 0; //for next attempt
@@ -465,12 +476,12 @@ void readProxy()
       }      
       log_message(_F("PROXY Checksum and header received ok!"));
       if ((proxydata[0]==0x71 or proxydata[0]==0xF1) and proxydata_length == (PANASONICQUERYSIZE+1)) { //this is a query from cztaw on proxy port
-        if (heishamonSettings.logHexdump) logHex(proxydata, proxydata_length);
         if (proxydata[0]==0xf1) {  //this is a write query, just pass this message forward as new command
           log_message(_F("PROXY received write query, copy message forward to heatpump"));
           send_command((byte*)proxydata,proxydata_length-1); //strip CRC, will be calculated again in send_command
+          //then just reply with the current settings, for read and write it is the same as the write is only acknowledged in the next read
+          //so we just run to the next if statement
         }
-        //then just reply with the current settings, for read and write it is the same as the write is only acknowledged in the next read
         if (proxydata[3] == 0x10) {
           log_message(_F("PROXY requests basic data"));
           if ((actData[0] == 0x71) && (actData[1] == 0xc8) && (actData[2] == 0x01)) { //don't answer if we don't have data
@@ -482,12 +493,19 @@ void readProxy()
             proxySerial.write(actDataExtra,DATASIZE); //should containt valid checksum also
           }
         } else {
-          log_message(_F("PROXY has sent unknown query!"));
+          log_message(_F("PROXY has sent unknown query! Forwarding to heatpump!"));
+          send_command((byte *)proxydata, proxydata_length-1); //strip CRC from end as send_command wil recalculate it
         }
         proxydata_length = 0;
         return;
+      } else if (proxydata[0]==0x31) {
+        log_message(_F("PROXY received startup message, forwarding to heatpump!"));
+        send_command((byte *)proxydata, proxydata_length-1); //strip CRC from end as send_command wil recalculate it
+        proxydata_length = 0;
+        return;
       } else {
-        log_message(_F("PROXY received unknown message!"));
+        log_message(_F("PROXY received unknown message, forwarding it to heatpump anyway!"));
+        send_command((byte *)proxydata, proxydata_length-1); //strip CRC from end as send_command wil recalculate it
         proxydata_length = 0;
         return;
       }
@@ -502,7 +520,7 @@ bool readSerial()
   while ((heatpumpSerial.available()) && ((data_length + len) < MAXDATASIZE)) {
     data[data_length + len] = heatpumpSerial.read(); //read available data and place it after the last received data
     len++;
-    if (data[0] != 113) { //wrong header received!
+    if ((data[0] != 0x71) && (data[0] != 0x31)) { //wrong header received!
       log_message(_F("Received bad header. Ignoring this data!"));
       if (heishamonSettings.logHexdump) logHex(data, len);
       badheaderread++;
@@ -560,7 +578,12 @@ bool readSerial()
           data_length = 0;
           return true;        
         } else {
+#ifdef ESP8266
           log_message(_F("Received an unknown full size datagram. Can't decode this yet."));
+#else 
+          log_message(_F("Received a full size datagram but not for me. Forwarding to proxy port."));
+          proxySerial.write(data,data_length);
+#endif               
           data_length = 0;
           return false;       
         }
@@ -573,7 +596,12 @@ bool readSerial()
         return true;
       }
       else {
+#ifdef ESP8266
         log_message(_F("Received a shorter datagram. Can't decode this yet."));
+#else
+        log_message(_F("Received a shorter datagram but not for me. Forwarding to proxy port."));
+        proxySerial.write(data,data_length);
+#endif           
         data_length = 0;
         return false;
       }
@@ -676,7 +704,10 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
     } else if (strncmp(topic_command, mqtt_topic_opentherm, strlen(mqtt_topic_opentherm)) == 0)  {
       char* topic_otcommand = topic_command + strlen(mqtt_topic_opentherm) + 1; //strip the opentherm subtopic from the topic
       mqttOTCallback(topic_otcommand, msg);
-    }
+    } else if (strncmp(topic_command, mqtt_topic_gpio, strlen(mqtt_topic_gpio)) == 0)  {
+      char* topic_gpiocommand = topic_command + strlen(mqtt_topic_gpio) + 1; //strip the gpio subtopic from the topic
+      mqttGPIOCallback(topic_gpiocommand, msg);
+    }    
     mqttcallbackinprogress = false;
   }
 }
@@ -964,6 +995,11 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
                 digitalWrite(ENABLEPIN, HIGH);
               }
               #else
+              if (!heishamonSettings.listenonly) {
+                digitalWrite(ENABLEPIN, LOW);
+              } else {
+                digitalWrite(ENABLEPIN, HIGH);
+              }
               if (!heishamonSettings.opentherm) {
                 digitalWrite(ENABLEOTPIN, LOW);
               } else {
@@ -1499,7 +1535,7 @@ void loop() {
 
   readHeatpump();
   #ifdef ESP32
-  if (proxyEnabled) readProxy();
+  if (heishamonSettings.proxy) readProxy();
   #endif
 
   if ((!sending) && (cmdnrel > 0)) { //check if there is a send command in the buffer

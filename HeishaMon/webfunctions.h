@@ -57,7 +57,9 @@ struct settingsStruct {
   bool logHexdump = false; //log hexdump from start
   bool logSerial1 = true; //log to serial1 (gpio2) from start
   bool opentherm = false; //opentherm enable flag
-
+#ifdef ESP32
+  bool proxy = true; //cztaw proxy port enable flag
+#endif
   s0SettingsStruct s0Settings[NUM_S0_COUNTERS];
   gpioSettingsStruct gpioSettings;
 };

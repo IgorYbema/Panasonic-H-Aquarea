@@ -228,6 +228,9 @@ void loadSettings(settingsStruct *heishamonSettings) {
           heishamonSettings->logSerial1 = ( jsonDoc["logSerial1"] == "enabled" ) ? true : false;
           heishamonSettings->optionalPCB = ( jsonDoc["optionalPCB"] == "enabled" ) ? true : false;
           heishamonSettings->opentherm = ( jsonDoc["opentherm"] == "enabled" ) ? true : false;
+#ifdef ESP32          
+          heishamonSettings->proxy = ( jsonDoc["proxy"] == "enabled" ) ? true : false;
+#endif          
           if ( jsonDoc["waitTime"]) heishamonSettings->waitTime = jsonDoc["waitTime"];
           if (heishamonSettings->waitTime < 5) heishamonSettings->waitTime = 5;
           if ( jsonDoc["waitDallasTime"]) heishamonSettings->waitDallasTime = jsonDoc["waitDallasTime"];
@@ -309,6 +312,13 @@ void setupWifi(settingsStruct *heishamonSettings) {
   WiFi.softAPdisconnect(true); 
   delay(100);  // must delay to avoid error 
   WiFi.disconnect(true); 
+  //sethostname on ESP32 before wifi.begin
+  if (heishamonSettings->wifi_hostname[0] == '\0') {
+    //Set hostname on wifi rather than ESP_xxxxx
+    WiFi.setHostname("HeishaMon");
+  } else {
+    WiFi.setHostname(heishamonSettings->wifi_hostname);
+  }
   if (heishamonSettings->wifi_ssid[0] != '\0') {
      log_message(_F("Wifi client mode..."));
     if (heishamonSettings->wifi_password[0] == '\0') {
@@ -323,12 +333,7 @@ void setupWifi(settingsStruct *heishamonSettings) {
     WiFi.softAP("HeishaMon-Setup");
   }
 
-  if (heishamonSettings->wifi_hostname[0] == '\0') {
-    //Set hostname on wifi rather than ESP_xxxxx
-    WiFi.hostname("HeishaMon");
-  } else {
-    WiFi.hostname(heishamonSettings->wifi_hostname);
-  }
+
 #endif
 }
 
@@ -433,6 +438,13 @@ void settingsToJson(JsonDocument &jsonDoc, settingsStruct *heishamonSettings) {
   } else {
     jsonDoc["opentherm"] = "disabled";
   }
+#ifdef ESP32  
+  if (heishamonSettings->proxy) {
+    jsonDoc["proxy"] = "enabled";
+  } else {
+    jsonDoc["proxy"] = "disabled";
+  }
+#endif 
   jsonDoc["waitTime"] = heishamonSettings->waitTime;
   jsonDoc["waitDallasTime"] = heishamonSettings->waitDallasTime;
   jsonDoc["dallasResolution"] = heishamonSettings->dallasResolution;
@@ -470,6 +482,9 @@ int saveSettings(struct webserver_t *client, settingsStruct *heishamonSettings) 
   jsonDoc["logSerial1"] = String("");
   jsonDoc["optionalPCB"] = String("");
   jsonDoc["opentherm"] = String("");
+#ifdef ESP32  
+  jsonDoc["proxy"] = String("");
+#endif  
   jsonDoc["use_1wire"] = String("");
   jsonDoc["use_s0"] = String("");
 
@@ -510,6 +525,10 @@ int saveSettings(struct webserver_t *client, settingsStruct *heishamonSettings) 
       jsonDoc["optionalPCB"] = tmp->value;
     } else if (strcmp(tmp->name.c_str(), "opentherm") == 0) {
       jsonDoc["opentherm"] = tmp->value;
+#ifdef ESP32      
+    } else if (strcmp(tmp->name.c_str(), "proxy") == 0) {
+      jsonDoc["proxy"] = tmp->value;
+#endif      
     } else if (strcmp(tmp->name.c_str(), "ntp_servers") == 0) {
       jsonDoc["ntp_servers"] = tmp->value;
     } else if (strcmp(tmp->name.c_str(), "timezone") == 0) {
@@ -796,6 +815,11 @@ int getSettings(struct webserver_t *client, settingsStruct *heishamonSettings) {
       } break;
     case 9: {
         char str[20];
+#ifdef ESP32        
+        webserver_send_content_P(client, PSTR(",\"proxy\":"), 9);
+        itoa(heishamonSettings->proxy, str, 10);
+        webserver_send_content(client, str, strlen(str));
+#endif      
         webserver_send_content_P(client, PSTR(",\"use_1wire\":"), 13);
         itoa(heishamonSettings->use_1wire, str, 10);
         webserver_send_content(client, str, strlen(str));
@@ -1007,8 +1031,8 @@ int handleRoot(struct webserver_t *client, float readpercentage, int mqttReconne
         itoa(getWifiQuality(), str, 10);
         webserver_send_content(client, (char *)str, strlen(str));
 #ifdef ESP32
+        webserver_send_content_P(client, webBodyRootStatusEthernet, strlen_P(webBodyRootStatusEthernet));
         if (ETH.phyAddr() != 0) {        
-          webserver_send_content_P(client, webBodyRootStatusEthernet, strlen_P(webBodyRootStatusEthernet));
           if (ETH.connected()) {
             if (ETH.hasIP()) {
               webserver_send_content_P(client, PSTR("connected"), 9);
@@ -1019,6 +1043,8 @@ int handleRoot(struct webserver_t *client, float readpercentage, int mqttReconne
           else {
             webserver_send_content_P(client, PSTR("not connected"), 13);
           }
+        } else {
+          webserver_send_content_P(client, PSTR("not installed"), 13);
         }
 #endif
       } break;
