@@ -3605,7 +3605,7 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
             }
           } else {
             if(lexer_peek(text, pos, &type, &start, &len) >= 0 && type == TCOMMA) {
-              bc_parent(obj, OP_PUSH, val, 0, 0);
+              bc_parent(obj, OP_PUSH, val, 0, ret == TSTRING);
             }
             type = a;
             pos++;
@@ -3712,6 +3712,8 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
                   bc_parent(obj, OP_PUSH, val, 0, 0);
                 }
               }
+            } else if(ret == TOPERATOR) {
+              bc_parent(obj, OP_PUSH, val, 0, 0);
             }
 
             ret = LPAREN;
