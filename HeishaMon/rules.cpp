@@ -70,7 +70,7 @@ typedef struct varstack_t {
   uint16_t nr;
 } varstack_t;
 
-static struct varstack_t global_varstack;
+static struct varstack_t global_varstack = { .array = NULL, .nr = 0 };
 
 unsigned char *mempool = (unsigned char *)MMU_SEC_HEAP;
 unsigned int memptr = 0;
@@ -668,7 +668,6 @@ static int8_t vm_value_set(struct rules_t *obj) {
         if(array->type == VCHAR && array->val.s != NULL) {
           rules_unref(array->val.s);
         }
-
         array->val.s = rules_tostring(obj, -1);
         array->type = VCHAR;
         rules_ref(array->val.s);
@@ -914,6 +913,12 @@ void rules_setup(void) {
     return;
   }
   memset(mempool, 0, MEMPOOL_SIZE);
+
+  struct varstack_t *node = (struct varstack_t *)&global_varstack;
+  if(node->array != NULL) {
+    FREE(node->array);
+  }
+  memset(&global_varstack, 0, sizeof(struct varstack_t));
 
   logprintf_P(F("rules mempool size: %d"), MEMPOOL_SIZE);
 
