@@ -665,12 +665,19 @@ static int8_t vm_value_set(struct rules_t *obj) {
         array->type = VFLOAT;
       } break;
       case VCHAR: {
+        uint8_t doref = 1;
         if(array->type == VCHAR && array->val.s != NULL) {
-          rules_unref(array->val.s);
+          if(strcmp(rules_tostring(obj, -1), array->val.s) != 0) {
+            rules_unref(array->val.s);
+          } else {
+            doref = 0;
+          }
         }
         array->val.s = rules_tostring(obj, -1);
         array->type = VCHAR;
-        rules_ref(array->val.s);
+        if(doref == 1) {
+          rules_ref(array->val.s);
+        }
       } break;
       case VNULL: {
         if(array->type == VCHAR && array->val.s != NULL) {
@@ -913,12 +920,6 @@ void rules_setup(void) {
     return;
   }
   memset(mempool, 0, MEMPOOL_SIZE);
-
-  struct varstack_t *node = (struct varstack_t *)&global_varstack;
-  if(node->array != NULL) {
-    FREE(node->array);
-  }
-  memset(&global_varstack, 0, sizeof(struct varstack_t));
 
   logprintf_P(F("rules mempool size: %d"), MEMPOOL_SIZE);
 
