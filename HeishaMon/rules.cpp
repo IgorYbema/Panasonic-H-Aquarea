@@ -843,16 +843,16 @@ int rules_parse(char *file) {
       FREE(node);
     }
 
+    struct varstack_t *table = (struct varstack_t *)&global_varstack;
+    if(table->array != NULL) {
+      FREE(table->array);
+    }
+    table->nr = 0;
+
     if(ret == -1) {
       if(nrrules > 0) {
         rules_free_stack();
         rules_gc(&rules, &nrrules);
-
-        struct varstack_t *table = (struct varstack_t *)&global_varstack;
-        if(table->array != NULL) {
-          FREE(table->array);
-        }
-        table->nr = 0;
       }
       return -1;
     }
