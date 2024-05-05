@@ -986,7 +986,7 @@ int http_parse_multipart_body(struct webserver_t *client, unsigned char *buf, ui
         // Value
         case 8:
         case 7: {
-          unsigned char *ptr = strnstr(client->buffer, "\r\n--", client->ptr);
+          unsigned char *ptr = strnstr(client->buffer, "\r\n-", client->ptr);
           if(ptr != NULL && client->substep != 8) {
             uint16_t pos = (ptr-client->buffer);
 
