@@ -62,9 +62,7 @@ int8_t rule_function_set_timer_callback(struct rules_t *obj) {
 
   timerqueue_insert(sec, 0, nr);
 
-#ifdef DEBUG
-  printf("\n\n%s set timer #%d to %d seconds\n\n", __FUNCTION__, nr, sec);
-#endif
+  logprintf_P(F("timer #%d set to %d seconds"), nr, sec);
 
   return 0;
 }
