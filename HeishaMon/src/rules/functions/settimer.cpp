@@ -19,6 +19,7 @@
 
 #include "../function.h"
 #include "../../common/mem.h"
+#include "../../common/log.h"
 #include "../rules.h"
 #include "../../common/timerqueue.h"
 
