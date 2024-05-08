@@ -43,7 +43,7 @@ extern String openTherm[2];
 static uint8_t parsing = 0;
 
 static struct rules_t **rules = NULL;
-static uint8_t nrrules = 0;
+uint8_t nrrules = 0;
 
 struct rule_options_t rule_options;
 

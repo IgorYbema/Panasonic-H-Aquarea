@@ -17,6 +17,8 @@
 
 #include "src/common/mem.h"
 
+extern uint8_t nrrules;
+
 void rules_boot(void);
 int rules_parse(char *file);
 void rules_setup(void);

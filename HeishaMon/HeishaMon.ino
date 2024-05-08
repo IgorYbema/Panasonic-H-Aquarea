@@ -1257,7 +1257,8 @@ void loop() {
     message += mqttReconnects;
     message += F(" ## Correct data: ");
     message += readpercentage;
-    message += F("%");
+    message += F("% nr rules active: ");
+    message += nrrules;
     log_message((char*)message.c_str());
 
     String stats;
@@ -1290,7 +1291,9 @@ void loop() {
     stats += timeoutread;
     stats += F(",\"version\":\"");
     stats += heishamon_version;
-    stats += F("\"}");
+    stats += F("\",\"nr rules active\":");
+    stats += nrrules;
+    stats += F("}");
     sprintf_P(mqtt_topic, PSTR("%s/stats"), heishamonSettings.mqtt_topic_base);
     mqtt_client.publish(mqtt_topic, stats.c_str(), MQTT_RETAIN_VALUES);
 
