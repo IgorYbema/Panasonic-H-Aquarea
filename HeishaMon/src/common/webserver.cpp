@@ -1031,7 +1031,7 @@ int http_parse_multipart_body(struct webserver_t *client, unsigned char *buf, ui
 	    client->readlen += (pos-(vlen+1));
 	    client->ptr -= (pos-(vlen+1));
             client->substep = 0;
-          } else {		  
+          } else if(client->ptr == WEBSERVER_BUFFER_SIZE) {
             uint8_t ending = 0;
             uint8_t dash = 0;
             /*
@@ -1094,7 +1094,9 @@ int http_parse_multipart_body(struct webserver_t *client, unsigned char *buf, ui
               // error
               return -1;
             }
-          }
+          } else {
+	    loop = 0;
+	  }
         } break;
       }
     }
