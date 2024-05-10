@@ -142,7 +142,7 @@ static int webserver_parse_post(struct webserver_t *client, uint16_t size) {
   if(ptrB != NULL) {
     posB = ptrB - client->buffer;
   }
-  if((ptrC != NULL) && ((ptrEnd == NULL) || ((ptrEnd-client->buffer > ptrC-client->buffer)))) {
+  if(ptrC != NULL) {
     posC = ptrC - client->buffer;
     if((ptrD == NULL) || (posD > posC)) {
       ptrF = ptrC;
