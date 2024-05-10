@@ -29,20 +29,8 @@
   #define WEBSERVER_MAX_SENDLIST 0
 #endif
 
-#ifndef WEBSERVER_SENDLIST_BUFSIZE
-  #define WEBSERVER_SENDLIST_BUFSIZE 0
-#endif
-
-#ifndef WEBSERVER_MAX_SENDLIST
-  #define WEBSERVER_MAX_SENDLIST 0
-#endif
-
-#ifndef WEBSERVER_SENDLIST_BUFSIZE
-  #define WEBSERVER_SENDLIST_BUFSIZE 0
-#endif
-
 #ifndef WEBSERVER_CLIENT_TIMEOUT
-  #define WEBSERVER_CLIENT_TIMEOUT 30000
+  #define WEBSERVER_CLIENT_TIMEOUT 5000
 #endif
 
 #ifndef WEBSERVER_CLIENT_PING_INTERVAL
@@ -94,16 +82,9 @@ typedef struct arguments_t {
 } arguments_t;
 
 typedef struct sendlist_t {
-#if WEBSERVER_SENDLIST_BUFSIZE == 0
   union {
     void *ptr;
   } data;
-#else
-  union {
-    void *ptr;
-    unsigned char fixed[WEBSERVER_SENDLIST_BUFSIZE];
-  } data;
-#endif
   uint16_t type:1;
   uint16_t size:15;
 #if WEBSERVER_MAX_SENDLIST == 0
@@ -117,6 +98,7 @@ struct WiFiClient {
   int (*write_P)(const char *, int i);
   int (*available)();
   int (*connected)();
+  void (*stop)();
   int (*read)(uint8_t *buffer, int size);
 };
   #define PGM_P unsigned char *
