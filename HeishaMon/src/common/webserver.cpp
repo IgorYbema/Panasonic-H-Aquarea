@@ -61,7 +61,7 @@
 #endif
 
 #if defined(ESP8266)
-  #define heatpumpSerial Serial
+  #define loggingSerial Serial1
 #elif defined(ESP32)
   #define loggingSerial Serial //usb serial CDC
 #endif
