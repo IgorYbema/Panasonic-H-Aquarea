@@ -1746,7 +1746,7 @@ static void webserver_client_close(struct webserver_t *client) {
   }
 #if defined(ESP8266) || defined(ESP32)
   loggingSerial.print(F("Closing webserver client: "));
-  loggingSerial.print(IPAddress(client->pcb->remote_ip.u_addr.ip4.addr).toString().c_str());
+  loggingSerial.print(client->client->remoteIP().toString().c_str());
   loggingSerial.print(F(":"));
   loggingSerial.println(client->pcb->remote_port);
   if(client->callback != NULL) {
@@ -2182,7 +2182,7 @@ err_t webserver_client(void *arg, tcp_pcb *pcb, err_t err) {
       clients[i].data.step = WEBSERVER_CLIENT_READ_HEADER;
 
       loggingSerial.print(F("New webserver client: "));
-      loggingSerial.print(IPAddress(clients[i].data.pcb->remote_ip.u_addr.ip4.addr).toString().c_str());
+      loggingSerial.print(clients[i].data.client->remoteIP().toString().c_str());
       loggingSerial.print(F(":"));
       loggingSerial.println(clients[i].data.pcb->remote_port);
 
