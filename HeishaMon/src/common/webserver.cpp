@@ -1002,7 +1002,6 @@ int http_parse_multipart_body(struct webserver_t *client, unsigned char *buf, ui
         // Value
         case 8:
         case 7: {
-			
           unsigned char *ptr = strnstr(client->buffer, "\r\n--", client->ptr);
           if(ptr != NULL && client->substep != 8) {
             uint16_t pos = (ptr-client->buffer);
@@ -1349,7 +1348,14 @@ static int webserver_process_send(struct webserver_t *client) {
       if(client->ptr == 0) {
         if(client->totallen >= tmp->size) {
           if(tmp->type == 1) {
-            memcpy_P(cpy, &((PGM_P)tmp->data.ptr)[client->ptr], tmp->size);
+#if (!defined(NON32XFER_HANDLER) && defined(MMU_SEC_HEAP))
+            uint16_t x = 0;
+            for(x=0;x<tmp->size;x++) {
+              cpy[x] = pgm_read_byte(&((PGM_P)tmp->data.ptr)[client->ptr+x]);
+            }
+#else
+             memcpy_P(cpy, &((PGM_P)tmp->data.ptr)[client->ptr], tmp->size);
+#endif
             if(client->async == 1) {
               tcp_write(client->pcb, cpy, tmp->size, TCP_WRITE_FLAG_MORE);
             } else {
@@ -1396,7 +1402,14 @@ static int webserver_process_send(struct webserver_t *client) {
           client->ptr = 0;
         } else {
           if(tmp->type == 1) {
-            memcpy_P(cpy, &((PGM_P)tmp->data.ptr)[client->ptr], client->totallen);
+#if (!defined(NON32XFER_HANDLER) && defined(MMU_SEC_HEAP))
+            uint16_t x = 0;
+            for(x=0;x<client->totallen;x++) {
+              cpy[x] = pgm_read_byte(&((PGM_P)tmp->data.ptr)[client->ptr+x]);
+            }
+#else
+             memcpy_P(cpy, &((PGM_P)tmp->data.ptr)[client->ptr], client->totallen);
+#endif
             if(client->async == 1) {
               tcp_write(client->pcb, cpy, client->totallen, TCP_WRITE_FLAG_MORE);
             } else {
@@ -1423,7 +1436,14 @@ static int webserver_process_send(struct webserver_t *client) {
         }
       } else if(client->ptr+client->totallen >= tmp->size) {
         if(tmp->type == 1) {
-          memcpy_P(cpy, &((PGM_P)tmp->data.ptr)[client->ptr], (tmp->size-client->ptr));
+#if (!defined(NON32XFER_HANDLER) && defined(MMU_SEC_HEAP))
+          uint16_t x = 0;
+          for(x=0;x<(tmp->size-client->ptr);x++) {
+            cpy[x] = pgm_read_byte(&((PGM_P)tmp->data.ptr)[client->ptr+x]);
+          }
+#else
+           memcpy_P(cpy, &((PGM_P)tmp->data.ptr)[client->ptr], (tmp->size-client->ptr));
+#endif
           if(client->async == 1) {
             tcp_write(client->pcb, cpy, (tmp->size-client->ptr), TCP_WRITE_FLAG_MORE);
           } else {
@@ -1469,7 +1489,14 @@ static int webserver_process_send(struct webserver_t *client) {
         client->ptr = 0;
       } else {
         if(tmp->type == 1) {
-          memcpy_P(cpy, &((PGM_P)tmp->data.ptr)[client->ptr], client->totallen);
+#if (!defined(NON32XFER_HANDLER) && defined(MMU_SEC_HEAP))
+          uint16_t x = 0;
+          for(x=0;x<client->totallen;x++) {
+            cpy[x] = pgm_read_byte(&((PGM_P)tmp->data.ptr)[client->ptr+x]);
+          }
+#else
+           memcpy_P(cpy, &((PGM_P)tmp->data.ptr)[client->ptr], client->totallen);
+#endif
           if(client->async == 1) {
             tcp_write(client->pcb, cpy, client->totallen, TCP_WRITE_FLAG_MORE);
           } else {
