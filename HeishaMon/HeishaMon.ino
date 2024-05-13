@@ -1581,27 +1581,6 @@ void loop() {
 #ifdef ESP8266
     message.reserve(384);
 #endif
-/* for debugging ESP32 wifi
-    Serial.println(WiFi.status());
-    Serial.println(WiFi.softAPgetStationNum());
-    int wifimode = WiFi.getMode();
-    switch (wifimode) {
-      case WIFI_MODE_STA:
-        Serial.println("WIFI_MODE_STA");
-        break;
-      case WIFI_MODE_AP:
-        Serial.println("WIFI_MODE_AP");
-        break;
-      case WIFI_MODE_APSTA:
-        Serial.println("WIFI_MODE_APSTA");
-        break;
-      default:
-        Serial.println(WiFi.getMode());
-        break;
-      
-    }
-  */
-
     message += F("Heishamon stats: Uptime: ");
     char *up = getUptime();
     message += up;
