@@ -68,6 +68,14 @@ static const char refreshJS[] PROGMEM =
   "    document.getElementById(\"cli\").value = \"\";"
   "    startWebsockets();"
   " };"
+  " var dallasAliasEdit = function() {"
+  "   var address = this.getAttribute(\"data-address\");"
+  "   var alias = this.innerText.substring(0,30);"
+  "   var xhr = new XMLHttpRequest();"
+  "   var url = \"/dallasalias?\"+address+\"=\"+alias;"
+  "   xhr.open('GET', url, true);"
+  "   xhr.send();"
+  " };"
   " function loadContent(id, url, func) {"
   "   var xhr = new XMLHttpRequest();"
   "   xhr.open('GET', url, false);" //sync request to not overload the webserver
@@ -82,7 +90,6 @@ static const char refreshJS[] PROGMEM =
   "     }"
   //"   }"  //sync request to not overload the webserver
   " }"
-
   " function refreshTable(tableName){"
   "   switch(tableName) {"
   "     case 'Heatpump':"
@@ -93,11 +100,11 @@ static const char refreshJS[] PROGMEM =
   "       break;"
   "     case 'Opentherm':"
   "       loadContent('openthermvalues', '/tablerefresh?opentherm', function(){});"
-  "       break;"
+  "       break;"  
   "     case 'Dallas':"
   "       loadContent('dallasvalues', '/tablerefresh?1wire', function()"
   "         {"
-  "           var dallas_elements = document.getElementsByClassName(\"dallas_alias\");"
+  "           var dallas_elements = document.getElementsByClassName(\"dallas_alias\");" 
   "           for (var i = 0; i < dallas_elements.length; i++) {"
   "               dallas_elements[i].addEventListener('blur', dallasAliasEdit, false);"
   "           }"
@@ -114,13 +121,14 @@ static const char refreshJS[] PROGMEM =
 static const char selectJS[] PROGMEM =
   "<script>"
   "function openTable(tableName) {"
-  "  refreshTable(tableName);"
   "  var i;"
   "  var x = document.getElementsByClassName(\"heishatable\");"
   "  for (i = 0; i < x.length; i++) {"
   "    x[i].style.display = \"none\";"
   "  }"
   "  document.getElementById(tableName).style.display = \"block\";"
+  "  clearTimeout(timeout);"
+  "  timeout=setTimeout(refreshTable, 100, tableName);"
   "}"
   "</script>";
 
@@ -225,7 +233,7 @@ static const char webBodyRootHeatpumpValues[] PROGMEM =
 static const char webBodyRootDallasValues[] PROGMEM =
   "<div id=\"Dallas\" class=\"w3-container w3-center heishatable\" style=\"display:none\">"
   "<h2>Current Dallas 1-wire values</h2>"
-  "<table class=\"w3-table-all\"><thead><tr class=\"w3-red\"><th>Sensor</th><th>Temperature</th></tr></thead><tbody id=\"dallasvalues\"><tr><td>...Loading...</td><td></td></tr></tbody></table></div>";
+  "<table class=\"w3-table-all\"><thead><tr class=\"w3-red\"><th>Sensor</th><th>Temperature</th><th>Alias</th></tr></thead><tbody id=\"dallasvalues\"><tr><td>...Loading...</td><td></td></tr></tbody></table></div>";
 
 static const char webBodyRootS0Values[] PROGMEM =
   "<div id=\"S0\" class=\"w3-container w3-center heishatable\" style=\"display:none\">"

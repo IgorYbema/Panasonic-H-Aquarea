@@ -761,7 +761,9 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
           log_message(_F("Debug URL requested"));
         } else if (strcmp_P((char *)dat, PSTR("/wifiscan")) == 0) {
           client->route = 50;
-        } else if (strcmp_P((char *)dat, PSTR("/togglelog")) == 0) {
+        } else if (strcmp((char *)dat, "/dallasalias") == 0) {
+          client->route = 60;
+        } else if (strcmp((char *)dat, "/togglelog") == 0) {
           client->route = 1;
           log_message(_F("Toggled mqtt log flag"));
           heishamonSettings.logMqtt ^= true;
@@ -822,6 +824,8 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
           client->route = 140;
         } else if (strcmp_P((char *)dat, PSTR("/rules")) == 0) {
           client->route = 160;
+        } else if (strcmp_P((char *)dat, PSTR("/scandallas")) == 0) {
+          client->route = 180;          
         } else {
           client->route = 0;
         }
@@ -839,6 +843,12 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
               } else if (strcmp_P((char *)args->name, PSTR("opentherm")) == 0) {
                 client->route = 13;
               }
+            } break;
+          case 60: {
+              sprintf_P(log_msg, PSTR("Dallas alias changed address %s to alias %s"), args->name, args->value);
+              log_message(log_msg);
+              changeDallasAlias((char *)args->name, (char *)args->value);
+              return 0;
             } break;
           case 100: {
               unsigned char cmd[256] = { 0 };
@@ -972,6 +982,9 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
           case 50: {
               return handleWifiScan(client);
             } break;
+          case 60: {
+              return 0;
+            } break;
           case 80: {
               return handleSettings(client);
             } break;
@@ -1068,6 +1081,9 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
               webserver_send(client, 301, (char *)"text/plain", 0);
 
             } break;
+          case 180: {
+              if (heishamonSettings.use_1wire) initDallasSensors(log_message, heishamonSettings.updataAllDallasTime, heishamonSettings.waitDallasTime, heishamonSettings.dallasResolution);
+            } break;            
           default: {
               webserver_send(client, 301, (char *)"text/plain", 0);
             } break;

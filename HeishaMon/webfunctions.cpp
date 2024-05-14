@@ -1222,7 +1222,12 @@ int handleJsonOutput(struct webserver_t *client, char* actData, char* actDataExt
 
       webserver_send_content_P(client, topics[topic], strlen_P(topics[topic]));
 
-      webserver_send_content_P(client, PSTR("\",\"Value\":\""), 11);
+      if (topic != 44) { //ERROR topic #44 is only one to be a string value
+        webserver_send_content_P(client, PSTR("\",\"Value\":"), 10);
+      }
+      else {
+        webserver_send_content_P(client, PSTR("\",\"Value\":\""), 11);
+      }
 
       {
         String dataValue = getDataValue(actData, topic);
@@ -1230,7 +1235,11 @@ int handleJsonOutput(struct webserver_t *client, char* actData, char* actDataExt
         webserver_send_content(client, str, strlen(str));
       }
 
-      webserver_send_content_P(client, PSTR("\",\"Description\":\""), 17);
+      if (topic != 44) { //ERROR topic #44 is only one to be a string value
+        webserver_send_content_P(client, PSTR(",\"Description\":\""), 16);
+      } else {
+        webserver_send_content_P(client, PSTR("\",\"Description\":\""), 17);
+      }
 
       int maxvalue = atoi(topicDescription[topic][0]);
       int value = actData[0] == '\0' ? 0 : getDataValue(actData, topic).toInt();
