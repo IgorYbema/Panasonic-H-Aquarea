@@ -1202,8 +1202,11 @@ void setupSerial() {
   heatpumpSerial.flush();
 #endif
   if (heishamonSettings.logSerial1) { //settings are not loaded yet, this is the startup default
-    //debug line on serial1 (D4, GPIO2)
     loggingSerial.begin(115200);
+    //debug line on serial1 (D4, GPIO2)
+#ifdef ESP32
+    delay(100); //to let USB CDC to be opened if necessary
+#endif    
     loggingSerial.print(F("Starting debugging, version: "));
     loggingSerial.println(heishamon_version);
   }
@@ -1404,7 +1407,6 @@ void setup() {
 #endif      
     }
   }
-  delay(100); //to keep WDT happy
   //double reset detect from start
   loggingSerial.println(F("Check for double reset..."));
   doubleResetDetect();
