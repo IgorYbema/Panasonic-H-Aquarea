@@ -1404,7 +1404,7 @@ void setup() {
 #endif      
     }
   }
-  delay(1); //to keep WDT happy
+  delay(100); //to keep WDT happy
   //double reset detect from start
   loggingSerial.println(F("Check for double reset..."));
   doubleResetDetect();
