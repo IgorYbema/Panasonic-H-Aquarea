@@ -1012,7 +1012,7 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
                 digitalWrite(ENABLEPIN, HIGH);
               }
               #else
-              if (!heishamonSettings.listenonly) {
+              if (heishamonSettings.listenonly) {
                 digitalWrite(ENABLEPIN, LOW);
               } else {
                 digitalWrite(ENABLEPIN, HIGH);
