@@ -234,7 +234,9 @@ int8_t rule_by_name(struct rules_t **rules, uint8_t nrrules, char *name) {
 
   for(a=0;a<nrrules;a++) {
     struct rules_t *obj = rules[a];
-    if(obj->name != NULL && strnicmp(name, obj->name, strlen(obj->name)) == 0) {
+    if(obj->name != NULL &&
+       strlen(name) == strlen(obj->name) &&
+       strnicmp(name, obj->name, strlen(obj->name)) == 0) {
       return a;
     }
   }
