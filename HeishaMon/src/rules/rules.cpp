@@ -1986,7 +1986,10 @@ static void bc_assign_slots(struct rules_t *obj) {
     }
     tmp = bc_next(obj, end);
 
-    vars = max*2;
+    /*
+     * FIXME: Quick fix in case there are too many vars
+     */
+    vars = MIN(max*2, 128);
     min = vars;
 
     /*
