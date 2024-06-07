@@ -1959,12 +1959,17 @@ static void bc_assign_slots(struct rules_t *obj) {
         if((int8_t)getval(node->a) > 0 &&
            gettype(obj->bc.buffer[a]) != OP_JMP &&
            gettype(obj->bc.buffer[a]) != OP_SETVAL) {
-          max = MAX(max, (int8_t)getval(node->a));
+          if(!(gettype(obj->bc.buffer[a]) == OP_PUSH && getval(node->c) == 1)) {
+            max = MAX(max, (int8_t)getval(node->a));
+          } else {
+            max = 1;
+          }
           start = a;
         }
       } else {
         if(gettype(obj->bc.buffer[a]) != OP_JMP &&
-           gettype(obj->bc.buffer[a]) != OP_SETVAL
+           gettype(obj->bc.buffer[a]) != OP_SETVAL &&
+           !(gettype(obj->bc.buffer[a]) == OP_PUSH && getval(node->c) == 1)
           ) {
           max = MAX(max, (int8_t)getval(node->a));
         }
@@ -1986,10 +1991,7 @@ static void bc_assign_slots(struct rules_t *obj) {
     }
     tmp = bc_next(obj, end);
 
-    /*
-     * FIXME: Quick fix in case there are too many vars
-     */
-    vars = MIN(max*2, 128);
+    vars = max*2;
     min = vars;
 
     /*
