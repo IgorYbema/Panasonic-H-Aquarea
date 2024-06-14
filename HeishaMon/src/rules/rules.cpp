@@ -1978,15 +1978,22 @@ static void bc_assign_slots(struct rules_t *obj) {
           end = bc_before(obj, a);
           break;
         }
-        if((bc_before(obj, a) >= 0) &&
+        if(((c = bc_before(obj, a)) >= 0) &&
            ((((int8_t)getval(node->a) < 0 && gettype(obj->bc.buffer[a]) != OP_PUSH)) ||
            gettype(obj->bc.buffer[a]) == OP_JMP ||
            gettype(obj->bc.buffer[a]) == OP_TEST ||
            gettype(obj->bc.buffer[a]) == OP_RET)) {
-          end = bc_before(obj, a);
+          end = c;
           break;
-        } else if(bc_next(obj, a) >= 0 &&
-          gettype(obj->bc.buffer[a]) == OP_SETVAL && gettype(obj->bc.buffer[a+4]) == OP_SETVAL) {
+        } else if((c = bc_next(obj, a)) >= 0 &&
+          gettype(obj->bc.buffer[a]) == OP_SETVAL &&
+            (gettype(obj->bc.buffer[c]) == OP_SETVAL ||
+             gettype(obj->bc.buffer[c]) == OP_GETVAL)
+          ) {
+          end = a;
+          break;
+        } else if(bc_before(obj, a) >= 0 &&
+          gettype(obj->bc.buffer[a]) == OP_SETVAL && gettype(obj->bc.buffer[a-4]) == OP_GETVAL) {
           end = a;
           break;
         }
@@ -3180,8 +3187,11 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
         if(a == TEVENT && in_child == 0) {
           if(type == TVAR) {
             uint16_t c = varstack_add(text, start+1, len, 1);
-            bc_parent(obj, OP_SETVAL, c/sizeof(struct vm_vchar_t), 0, 0);
-            mathcnt = 0;
+            uint16_t d = bc_parent(obj, OP_SETVAL, c/sizeof(struct vm_vchar_t), 0, 0);
+            int32_t e = bc_before(obj, d);
+            if(e >= 0 && gettype(obj->bc.buffer[e]) != OP_GETVAL) {
+              mathcnt = 0;
+            }
           } else {
             /* LCOV_EXCL_START*/
             logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
@@ -3336,8 +3346,11 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
 
             uint16_t a = varstack_add(text, start+1, len, 1);
 
-            bc_parent(obj, OP_SETVAL, a/sizeof(struct vm_vchar_t), val, 0);
-            mathcnt = 0;
+            uint16_t b = bc_parent(obj, OP_SETVAL, a/sizeof(struct vm_vchar_t), val, 0);
+            int32_t c = bc_before(obj, b);
+            if(c >= 0 && gettype(obj->bc.buffer[c]) != OP_GETVAL) {
+              mathcnt = 0;
+            }
             pos++;
 
             if(lexer_peek(text, pos, &type, &start, &len) < 0) {
