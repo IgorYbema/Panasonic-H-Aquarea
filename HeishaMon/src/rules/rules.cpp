@@ -1985,6 +1985,10 @@ static void bc_assign_slots(struct rules_t *obj) {
            gettype(obj->bc.buffer[a]) == OP_RET)) {
           end = bc_before(obj, a);
           break;
+        } else if(bc_next(obj, a) >= 0 &&
+          gettype(obj->bc.buffer[a]) == OP_SETVAL && gettype(obj->bc.buffer[a+4]) == OP_SETVAL) {
+          end = a;
+          break;
         }
       }
       tmp = a;
@@ -3177,6 +3181,7 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
           if(type == TVAR) {
             uint16_t c = varstack_add(text, start+1, len, 1);
             bc_parent(obj, OP_SETVAL, c/sizeof(struct vm_vchar_t), 0, 0);
+            mathcnt = 0;
           } else {
             /* LCOV_EXCL_START*/
             logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
@@ -3332,6 +3337,7 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
             uint16_t a = varstack_add(text, start+1, len, 1);
 
             bc_parent(obj, OP_SETVAL, a/sizeof(struct vm_vchar_t), val, 0);
+            mathcnt = 0;
             pos++;
 
             if(lexer_peek(text, pos, &type, &start, &len) < 0) {
