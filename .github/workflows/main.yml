@@ -54,4 +54,6 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: HeishaMon.ino.bin
-          path: HeishaMon/HeishaMon_*.[bin|elf]
+          path: |
+            HeishaMon/HeishaMon_*.bin
+            HeishaMon/HeishaMon_*.elf
