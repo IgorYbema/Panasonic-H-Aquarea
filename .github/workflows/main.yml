@@ -49,7 +49,7 @@ jobs:
       - name: Add MD5 checksum to ESP8266 debug binary
         run: cd HeishaMon && MD5=`md5sum HeishaMon.ino.bin | cut -d\  -f1` && mv HeishaMon.ino.bin HeishaMon_ESP8266-debug-$MD5.bin
         shell: bash
-  
+
       - name: Compile Sketch for ESP32
         run: cd HeishaMon && arduino-cli compile --output-dir . --fqbn=esp32:esp32:esp32s3:CDCOnBoot=cdc,PSRAM=enabled,PartitionScheme=min_spiffs  --warnings=none --verbose HeishaMon.ino
 
