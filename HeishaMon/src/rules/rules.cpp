@@ -6,11 +6,11 @@
   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
   #pragma GCC diagnostic warning "-fpermissive"
 #endif
 
-#ifndef ESP8266
+#if !defined(ESP8266) && !defined(ESP32)
   #include <stdio.h>
   #include <stdlib.h>
   #include <stdarg.h>
@@ -78,7 +78,7 @@ typedef struct vm_vchar_t {
   uint8_t len;
   uint8_t ref;
   char *value;
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
 } __attribute__((packed, aligned(4))) vm_vchar_t;
 #else
 } __attribute__((aligned(4))) vm_vchar_t;
@@ -183,7 +183,8 @@ static void print_bytecode(struct rules_t *obj);
 #endif
 /*LCOV_EXCL_STOP*/
 
-#ifndef ESP8266
+//only already defined for ESP8266, not for ESP32
+#if !defined(ESP8266)
 /*LCOV_EXCL_START*/
 uint8_t mmu_set_uint8(void *ptr, uint8_t src) { *(uint8_t *)ptr = src; return src; }
 uint8_t mmu_get_uint8(void *ptr) { return *(uint8_t *)ptr; }
@@ -193,7 +194,7 @@ uint16_t mmu_get_uint16(void *ptr) { return (*(uint16_t *)ptr); }
 #endif
 
 typedef struct rule_timer_t {
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
   uint32_t first;
   uint32_t second;
 #else
@@ -2759,7 +2760,7 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
   pos = 0;
 
   while(loop) {
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
     delay(0);
 #endif
 #ifdef DEBUG
@@ -4978,7 +4979,7 @@ int8_t rule_initialize(struct pbuf *input, struct rules_t ***rules, uint8_t *nrr
   obj->name = NULL;
 
 /*LCOV_EXCL_START*/
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
   timestamp.first = micros();
 #else
   clock_gettime(CLOCK_MONOTONIC, &timestamp.first);
@@ -4998,7 +4999,7 @@ int8_t rule_initialize(struct pbuf *input, struct rules_t ***rules, uint8_t *nrr
   }
 
 /*LCOV_EXCL_START*/
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
   timestamp.second = micros();
 
   logprintf_P(F("rule #%d was prepared in %d microseconds"), mmu_get_uint8(&obj->nr), timestamp.second - timestamp.first);
@@ -5011,7 +5012,7 @@ int8_t rule_initialize(struct pbuf *input, struct rules_t ***rules, uint8_t *nrr
 #endif
 /*LCOV_EXCL_STOP*/
 
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
   if((heapsize % 4) != 0) {
     Serial.println("Rules bytecode not 4 byte aligned!");
     exit(-1);
@@ -5092,7 +5093,7 @@ int8_t rule_initialize(struct pbuf *input, struct rules_t ***rules, uint8_t *nrr
     }
 
     /*LCOV_EXCL_START*/
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
     timestamp.first = micros();
 #else
     clock_gettime(CLOCK_MONOTONIC, &timestamp.first);
@@ -5111,7 +5112,7 @@ int8_t rule_initialize(struct pbuf *input, struct rules_t ***rules, uint8_t *nrr
     }
 
 /*LCOV_EXCL_START*/
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
     timestamp.second = micros();
 
     logprintf_P(F("rule #%d bytecode was created in %d microseconds"), getval(obj->nr), timestamp.second - timestamp.first);
@@ -5154,7 +5155,7 @@ int8_t rule_initialize(struct pbuf *input, struct rules_t ***rules, uint8_t *nrr
 
 /*LCOV_EXCL_START*/
 #ifdef DEBUG
-  #ifndef ESP8266
+  #if !defined(ESP8266) && !defined(ESP32)
     print_bytecode(obj);
     printf("\n");
     print_heap(obj);
@@ -5175,7 +5176,7 @@ int8_t rule_initialize(struct pbuf *input, struct rules_t ***rules, uint8_t *nrr
 /*LCOV_EXCL_STOP*/
 
 /*LCOV_EXCL_START*/
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
   timestamp.first = micros();
 #else
   clock_gettime(CLOCK_MONOTONIC, &timestamp.first);
@@ -5187,7 +5188,7 @@ int8_t rule_initialize(struct pbuf *input, struct rules_t ***rules, uint8_t *nrr
   }
 
 /*LCOV_EXCL_START*/
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
   timestamp.second = micros();
 
   logprintf_P(F("rule #%d was executed in %d microseconds"), getval(obj->nr), timestamp.second - timestamp.first);
@@ -5223,7 +5224,7 @@ int8_t rule_initialize(struct pbuf *input, struct rules_t ***rules, uint8_t *nrr
 
   if(stack != NULL) {
     if((getval(stack->bufsize) % 4) != 0) {
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
       Serial.printf("Rules AST not 4 byte aligned!\n");
 #else
       printf("Rules AST not 4 byte aligned!\n");
