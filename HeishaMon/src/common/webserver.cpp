@@ -2228,7 +2228,7 @@ err_t webserver_client(void *arg, tcp_pcb *pcb, err_t err) {
       clients[i].data.async = 1;
       clients[i].data.step = WEBSERVER_CLIENT_READ_HEADER;
 
-      strncpy((char *)&clients[i].data.ip, IPAddress(clients[i].data.pcb->remote_ip.addr).toString().c_str(), 17);
+      strncpy((char *)&clients[i].data.ip, clients[i].data.client->remoteIP().toString().c_str(), 17);
       clients[i].data.port = clients[i].data.pcb->remote_port;
 
       loggingSerial.print(F("New webserver client: "));
