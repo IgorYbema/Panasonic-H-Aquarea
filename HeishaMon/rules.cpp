@@ -759,6 +759,7 @@ static void rules_print_stack(struct varstack_t *table) {
 #else
     printf("%s\n", out);
 #endif
+    free(out);
   }
 }
 
