@@ -397,7 +397,7 @@ void log_message(char* string)
       mqtt_client.disconnect();
     }
   }
-  websocket_write_all(log_line, strlen(log_line));
+  websocket_write_all(log_line, strlen(log_line), NULL);
   free(log_line);
 #ifdef ESP32
   if (!inSetup) blinkNeoPixel(false);
@@ -737,8 +737,19 @@ void setupOTA() {
   ArduinoOTA.begin();
 }
 
+struct websocket_dat_t {
+  uint8_t route;
+} websocket_dat_t;
+
 int8_t webserver_cb(struct webserver_t *client, void *dat) {
   switch (client->step) {
+    case WEBSERVER_CLIENT_WEBSOCKET: {
+      struct websocket_dat_t *tmp = (struct websocket_dat_t *)dat;
+      if(tmp->route == 1) {
+        rules_stack_println((struct rule_stack_print_t *)dat);
+      }
+      return 0;
+    } break;
     case WEBSERVER_CLIENT_REQUEST_METHOD: {
         if (strcmp_P((char *)dat, PSTR("POST")) == 0) {
           client->route = 110;

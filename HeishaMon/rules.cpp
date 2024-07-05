@@ -27,6 +27,7 @@
 #include "decode.h"
 #include "HeishaOT.h"
 #include "commands.h"
+#include "rules.h"
 
 #define MAXCOMMANDSINBUFFER 10
 #define OPTDATASIZE 20
@@ -707,59 +708,88 @@ static void rules_free_stack(void) {
   }
 }
 
-static void rules_print_stack(struct varstack_t *table) {
+void rules_stack_println(struct rule_stack_print_t *tmp) {
+  char *out = NULL;
   struct array_t *array = NULL;
-  if(table == NULL) {
-    return;
-  } else {
-    char *out = NULL;
-    uint16_t x = 0, l = 0;
-    for(x=0;x<table->nr;x++) {
-      array = &table->array[x];
-      switch(array->type) {
-        case VINTEGER: {
-          l += snprintf_P(NULL, 0, PSTR("%2d %s = %d\n"), x, array->key, array->val.i);
-        } break;
-        case VFLOAT: {
-          l += snprintf_P(NULL, 0, PSTR("%2d %s = %g\n"), x, array->key, array->val.f);
-        } break;
-        case VCHAR: {
-          l += snprintf_P(NULL, 0, PSTR("%2d %s = %s\n"), x, array->key, array->val.s);
-        } break;
-        case VNULL: {
-          l += snprintf_P(NULL, 0, PSTR("%d %s = NULL\n"), x, array->key);
-        } break;
-      }
+  uint16_t l = 0;
+
+  if(tmp->idx < tmp->table->nr) {
+    array = &tmp->table->array[tmp->idx];
+    switch(array->type) {
+      case VINTEGER: {
+        l = snprintf_P(NULL, 0, PSTR("%2d %s = %d\n"), tmp->idx, array->key, array->val.i);
+      } break;
+      case VFLOAT: {
+        l = snprintf_P(NULL, 0, PSTR("%2d %s = %g\n"), tmp->idx, array->key, array->val.f);
+      } break;
+      case VCHAR: {
+        l = snprintf_P(NULL, 0, PSTR("%2d %s = %s\n"), tmp->idx, array->key, array->val.s);
+      } break;
+      case VNULL: {
+        l = snprintf_P(NULL, 0, PSTR("%d %s = NULL\n"), tmp->idx, array->key);
+      } break;
     }
+
     if((out = (char *)malloc(l+1)) == NULL) {
       logprintf_P(F("Not enough memory for rules console output %s:#%d"), __FUNCTION__, __LINE__);
       return;
     }
     memset(out, 0, l+1);
-    l = 0;
-    for(x=0;x<table->nr;x++) {
-      array = &table->array[x];
-      switch(array->type) {
-        case VINTEGER: {
-          l += sprintf_P(&out[l], PSTR("%2d %s = %d\n"), x, array->key, array->val.i);
-        } break;
-        case VFLOAT: {
-          l += sprintf_P(&out[l], PSTR("%2d %s = %g\n"), x, array->key, array->val.f);
-        } break;
-        case VCHAR: {
-          l += sprintf_P(&out[l], PSTR("%2d %s = %s\n"), x, array->key, array->val.s);
-        } break;
-        case VNULL: {
-          l += sprintf_P(&out[l], PSTR("%d %s = NULL\n"), x, array->key);
-        } break;
-      }
+
+    switch(array->type) {
+      case VINTEGER: {
+        snprintf_P(out, l, PSTR("%2d %s = %d\n"), tmp->idx, array->key, array->val.i);
+      } break;
+      case VFLOAT: {
+        snprintf_P(out, l, PSTR("%2d %s = %g\n"), tmp->idx, array->key, array->val.f);
+      } break;
+      case VCHAR: {
+        snprintf_P(out, l, PSTR("%2d %s = %s\n"), tmp->idx, array->key, array->val.s);
+      } break;
+      case VNULL: {
+        snprintf_P(out, l, PSTR("%d %s = NULL\n"), tmp->idx, array->key);
+      } break;
     }
-#ifdef ESP8266
-    logprintf_P(F("%s\n"), out);
-#else
-    printf("%s\n", out);
+
+    if(heishamonSettings.logSerial1) {
+#if defined(ESP8266)
+      Serial1.print(millis());
+      Serial1.print(": ");
+      Serial1.println(out);
+#elif defined(ESP32)
+      Serial.print(millis());
+      Serial.print(": ");
+      Serial.println(out);
 #endif
+    }
+
+    if(tmp->client == WEBSERVER_MAX_CLIENTS) {
+      if(tmp->idx == tmp->table->nr) {
+        FREE(tmp);
+      } else {
+        tmp->client = 0;
+        tmp->idx++;
+        websocket_write(&clients[tmp->client++].data, out, strlen(out), tmp);
+      }
+    } else {
+      websocket_write(&clients[tmp->client++].data, out, strlen(out), tmp);
+    }
     free(out);
+  }
+}
+
+static void rules_print_stack(struct varstack_t *table) {
+  struct array_t *array = NULL;
+  if(table == NULL) {
+    return;
+  } else {
+    struct rule_stack_print_t *tmp = (struct rule_stack_print_t *)malloc(sizeof(struct rule_stack_print_t));
+    tmp->route = 1;
+    tmp->client = 0;
+    tmp->table = table;
+    tmp->idx = 0;
+
+    rules_stack_println(tmp);
   }
 }
 

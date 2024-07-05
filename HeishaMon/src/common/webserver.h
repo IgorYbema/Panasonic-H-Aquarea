@@ -216,12 +216,14 @@ enum {
 	WEBSOCKET_OPCODE_PONG = 0xa
 };
 
+extern struct webserver_client_t clients[WEBSERVER_MAX_CLIENTS];
+
 int8_t webserver_start(int port, webserver_cb_t *callback, uint8_t async);
 void webserver_loop(void);
-void websocket_write_all_P(PGM_P data, uint16_t data_len);
-void websocket_write_all(char *data, uint16_t data_len);
-void websocket_write_P(struct webserver_t *client, PGM_P data, uint16_t data_len);
-void websocket_write(struct webserver_t *client, char *data, uint16_t data_len);
+void websocket_write_all_P(PGM_P in, uint16_t in_len, void *data);
+void websocket_write_all(char *in, uint16_t in_len, void *data);
+void websocket_write_P(struct webserver_t *client, PGM_P in, uint16_t in_len, void *data);
+void websocket_write(struct webserver_t *client, char *in, uint16_t in_len, void *data);
 void websocket_send_header(struct webserver_t *client, uint8_t opcode, uint16_t data_len);
 void webserver_send_content(struct webserver_t *client, char *buf, uint16_t len);
 void webserver_send_content_P(struct webserver_t *client, PGM_P buf, uint16_t len);

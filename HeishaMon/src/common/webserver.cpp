@@ -1552,6 +1552,11 @@ static int webserver_process_send(struct webserver_t *client) {
     client->content++;
     if(client->is_websocket == 1) {
       client->step = WEBSERVER_CLIENT_WEBSOCKET;
+      if(client->callback(client, client->userdata) == -1) {
+        client->step = WEBSERVER_CLIENT_CLOSE;
+      } else {
+        client->step = WEBSERVER_CLIENT_SENDING;
+      }
     } else {
       client->step = WEBSERVER_CLIENT_WRITE;
       if(client->callback(client, NULL) == -1) {
@@ -1559,45 +1564,49 @@ static int webserver_process_send(struct webserver_t *client) {
       } else {
         client->step = WEBSERVER_CLIENT_SENDING;
       }
+    }
 
 #if WEBSERVER_MAX_SENDLIST == 0
-      tmp = client->sendlist;
+    tmp = client->sendlist;
 #else
-      for(x=0;x<WEBSERVER_MAX_SENDLIST;x++) {
-        if(client->sendlist[x].data.ptr != NULL) {
-          tmp = &client->sendlist[x];
-          break;
-        }
+    for(x=0;x<WEBSERVER_MAX_SENDLIST;x++) {
+      if(client->sendlist[x].data.ptr != NULL) {
+        tmp = &client->sendlist[x];
+        break;
       }
+    }
 #endif
-      if(tmp == NULL) {
-        if(client->chunked == 1) {
-          if(client->async == 1) {
-            tcp_write_P(client->pcb, PSTR("0\r\n\r\n"), 5, 0);
-          } else {
-            if(client->client->write_P((char *)PSTR("0\r\n\r\n"), 5) > 0) {
-              if(client->is_websocket == 0) {
-                client->lastseen = millis();
-              }
-            }
-          }
-          i += 5;
+    if(tmp == NULL) {
+      if(client->chunked == 1) {
+        if(client->async == 1) {
+          tcp_write_P(client->pcb, PSTR("0\r\n\r\n"), 5, 0);
         } else {
-          if(client->async == 1) {
-            tcp_write_P(client->pcb, PSTR("\r\n\r\n"), 4, 0);
-          } else {
-            if(client->client->write_P((char *)PSTR("\r\n\r\n"), 4) > 0) {
-              if(client->is_websocket == 0) {
-                client->lastseen = millis();
-              }
+          if(client->client->write_P((char *)PSTR("0\r\n\r\n"), 5) > 0) {
+            if(client->is_websocket == 0) {
+              client->lastseen = millis();
             }
           }
-          i += 4;
         }
+        i += 5;
+      } else if(client->is_websocket == 0) {
+        if(client->async == 1) {
+          tcp_write_P(client->pcb, PSTR("\r\n\r\n"), 4, 0);
+        } else {
+          if(client->client->write_P((char *)PSTR("\r\n\r\n"), 4) > 0) {
+            if(client->is_websocket == 0) {
+              client->lastseen = millis();
+            }
+          }
+        }
+        i += 4;
+      }
+      if(client->is_websocket == 0) {
         client->step = WEBSERVER_CLIENT_CLOSE;
         client->userdata = NULL;
         client->ptr = 0;
         client->content = 0;
+      } else {
+        client->step = WEBSERVER_CLIENT_WEBSOCKET;
       }
     }
   }
@@ -1868,32 +1877,36 @@ static void send_websocket_handshake(struct webserver_t *client, const char *key
   }
 }
 
-void websocket_write_P(struct webserver_t *client, PGM_P data, uint16_t data_len) {
-  websocket_send_header(client, WEBSOCKET_OPCODE_TEXT, data_len);
-  webserver_send_content_P(client, data, data_len);
+void websocket_write_P(struct webserver_t *client, PGM_P in, uint16_t in_len, void *data) {
+  websocket_send_header(client, WEBSOCKET_OPCODE_TEXT, in_len);
+  webserver_send_content_P(client, in, in_len);
   client->step = WEBSERVER_CLIENT_SENDING;
+  client->userdata = data;
 }
 
-void websocket_write(struct webserver_t *client, char *data, uint16_t data_len) {
-  websocket_send_header(client, WEBSOCKET_OPCODE_TEXT, data_len);
-  webserver_send_content(client, (char *)data, data_len);
+void websocket_write(struct webserver_t *client, char *in, uint16_t in_len, void *data) {
+  websocket_send_header(client, WEBSOCKET_OPCODE_TEXT, in_len);
+  webserver_send_content(client, (char *)in, in_len);
   client->step = WEBSERVER_CLIENT_SENDING;
+  client->userdata = data;
 }
 
-void websocket_write_all(char *data, uint16_t data_len) {
+void websocket_write_all(char *in, uint16_t in_len, void *data) {
   uint8_t i = 0;
   for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
     if(clients[i].data.is_websocket == 1 && clients[i].data.step != WEBSERVER_CLIENT_CLOSE) {
-      websocket_write(&clients[i].data, data, data_len);
+      clients[i].data.userdata = data;
+      websocket_write(&clients[i].data, in, in_len, data);
     }
   }
 }
 
-void websocket_write_all_P(PGM_P data, uint16_t data_len) {
+void websocket_write_all_P(PGM_P in, uint16_t in_len, void *data) {
   uint8_t i = 0;
   for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
     if(clients[i].data.is_websocket == 1 && clients[i].data.step != WEBSERVER_CLIENT_CLOSE) {
-      websocket_write_P(&clients[i].data, data, data_len);
+      clients[i].data.userdata = data;
+      websocket_write_P(&clients[i].data, in, in_len, data);
     }
   }
 }
@@ -2298,7 +2311,22 @@ void webserver_loop(void) {
         } else if(!clients[i].data.client->connected()) {
           clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
         } else {
-          continue;
+          if(clients[i].data.callback != NULL) {
+            if(clients[i].data.step == WEBSERVER_CLIENT_WEBSOCKET) {
+              if(clients[i].data.callback(&clients[i].data, clients[i].data.userdata) == -1) {
+                clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
+              } else if(clients[i].data.content > 0) {
+                clients[i].data.step = WEBSERVER_CLIENT_SENDING;
+              } else {
+                clients[i].data.step = WEBSERVER_CLIENT_WEBSOCKET;
+                clients[i].data.content++;
+              }
+            }
+            clients[i].data.ptr = 0;
+          } else {
+            clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
+            continue;
+          }
         }
         if(size > 0) {
           clients[i].data.lastseen = millis();
