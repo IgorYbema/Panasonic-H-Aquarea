@@ -708,6 +708,21 @@ static void rules_free_stack(void) {
   }
 }
 
+static void rules_print_stack(struct varstack_t *table) {
+  struct array_t *array = NULL;
+  if(table == NULL) {
+    return;
+  } else {
+    struct rule_stack_print_t *tmp = (struct rule_stack_print_t *)malloc(sizeof(struct rule_stack_print_t));
+    tmp->route = 1;
+    tmp->client = 0;
+    tmp->table = table;
+    tmp->idx = 0;
+
+    rules_stack_println(tmp);
+  }
+}
+
 void rules_stack_println(struct rule_stack_print_t *tmp) {
   char *out = NULL;
   struct array_t *array = NULL;
@@ -751,45 +766,41 @@ void rules_stack_println(struct rule_stack_print_t *tmp) {
       } break;
     }
 
-    if(heishamonSettings.logSerial1) {
-#if defined(ESP8266)
-      Serial1.print(millis());
-      Serial1.print(": ");
-      Serial1.println(out);
-#elif defined(ESP32)
-      Serial.print(millis());
-      Serial.print(": ");
-      Serial.println(out);
-#endif
-    }
-
     if(tmp->client == WEBSERVER_MAX_CLIENTS) {
+      if(heishamonSettings.logSerial1) {
+#if defined(ESP8266)
+        Serial.print(millis());
+        Serial.print(": ");
+        Serial.println(out);
+#elif defined(ESP32)
+        Serial.print(millis());
+        Serial.print(": ");
+        Serial.println(out);
+#endif
+      }
       if(tmp->idx == tmp->table->nr) {
         FREE(tmp);
       } else {
         tmp->client = 0;
         tmp->idx++;
-        websocket_write(&clients[tmp->client++].data, out, strlen(out), tmp);
+        if(clients[tmp->client].data.is_websocket == 1) {
+          websocket_write(&clients[tmp->client++].data, out, strlen(out), tmp);
+        } else {
+          tmp->client++;
+          free(out);
+          return rules_stack_println(tmp);
+        }
       }
     } else {
-      websocket_write(&clients[tmp->client++].data, out, strlen(out), tmp);
+      if(clients[tmp->client].data.is_websocket == 1) {
+        websocket_write(&clients[tmp->client++].data, out, strlen(out), tmp);
+      } else {
+        tmp->client++;
+        free(out);
+        return rules_stack_println(tmp);
+      }
     }
     free(out);
-  }
-}
-
-static void rules_print_stack(struct varstack_t *table) {
-  struct array_t *array = NULL;
-  if(table == NULL) {
-    return;
-  } else {
-    struct rule_stack_print_t *tmp = (struct rule_stack_print_t *)malloc(sizeof(struct rule_stack_print_t));
-    tmp->route = 1;
-    tmp->client = 0;
-    tmp->table = table;
-    tmp->idx = 0;
-
-    rules_stack_println(tmp);
   }
 }
 

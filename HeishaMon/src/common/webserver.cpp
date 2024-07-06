@@ -1878,6 +1878,9 @@ static void send_websocket_handshake(struct webserver_t *client, const char *key
 }
 
 void websocket_write_P(struct webserver_t *client, PGM_P in, uint16_t in_len, void *data) {
+  if(client->is_websocket == 0) {
+    return;
+  }
   websocket_send_header(client, WEBSOCKET_OPCODE_TEXT, in_len);
   webserver_send_content_P(client, in, in_len);
   client->step = WEBSERVER_CLIENT_SENDING;
@@ -1885,6 +1888,9 @@ void websocket_write_P(struct webserver_t *client, PGM_P in, uint16_t in_len, vo
 }
 
 void websocket_write(struct webserver_t *client, char *in, uint16_t in_len, void *data) {
+  if(client->is_websocket == 0) {
+    return;
+  }
   websocket_send_header(client, WEBSOCKET_OPCODE_TEXT, in_len);
   webserver_send_content(client, (char *)in, in_len);
   client->step = WEBSERVER_CLIENT_SENDING;
@@ -2270,7 +2276,9 @@ void webserver_loop(void) {
     if(clients[i].data.step == 0 || clients[i].data.async == 1) {
       continue;
     }
-
+    if(clients[i].data.client == NULL) {
+      continue;
+    }
     if(clients[i].data.is_websocket == 1) {
       if(clients[i].data.async == 0 && (unsigned long)(millis() - clients[i].data.lastseen) > WEBSERVER_CLIENT_TIMEOUT) {
         websocket_send_header(&clients[i].data, WEBSOCKET_OPCODE_PING, 0);

@@ -744,9 +744,11 @@ struct websocket_dat_t {
 int8_t webserver_cb(struct webserver_t *client, void *dat) {
   switch (client->step) {
     case WEBSERVER_CLIENT_WEBSOCKET: {
-      struct websocket_dat_t *tmp = (struct websocket_dat_t *)dat;
-      if(tmp->route == 1) {
-        rules_stack_println((struct rule_stack_print_t *)dat);
+      if(dat != NULL) {
+        struct websocket_dat_t *tmp = (struct websocket_dat_t *)dat;
+        if(tmp->route == 1) {
+          rules_stack_println((struct rule_stack_print_t *)dat);
+        }
       }
       return 0;
     } break;
