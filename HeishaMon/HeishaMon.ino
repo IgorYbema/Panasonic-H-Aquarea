@@ -747,7 +747,7 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
       if(dat != NULL) {
         struct websocket_dat_t *tmp = (struct websocket_dat_t *)dat;
         if(tmp->route == 1) {
-          rules_stack_println((struct rule_stack_print_t *)dat);
+          rules_parse_console((void *)tmp);
         }
       }
       return 0;
