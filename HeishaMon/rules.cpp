@@ -730,8 +730,11 @@ void rules_parse_console(void *tmp) {
   #endif
           }
           dat->client = 0;
-          dat->step++;
-          return rules_parse_console(tmp);
+          free(tmp);
+          rules_free_stack();
+          loop = 0;
+          // dat->step++;
+          // return rules_parse_console(tmp);
         } else {
           if(clients[dat->client].data.is_websocket == 1) {
             return websocket_write(&clients[dat->client++].data, out, strlen(out), dat);
@@ -740,154 +743,154 @@ void rules_parse_console(void *tmp) {
           }
         }
       } break;
-      case 1: {
-        if(dat->client == WEBSERVER_MAX_CLIENTS) {
-          if(heishamonSettings.logSerial1) {
-  #if defined(ESP8266)
-            Serial.print(millis());
-            Serial.print(": ");
-            Serial.println(PSTR("\n>>> local variables\n"));
-  #elif defined(ESP32)
-            Serial.print(millis());
-            Serial.print(": ");
-            Serial.println(PSTR("\n>>> local variables\n"));
-  #endif
-          }
-          dat->client = 0;
-          dat->step++;
-        } else {
-          if(clients[dat->client].data.is_websocket == 1) {
-            loop = 0;
-            websocket_write_P(&clients[dat->client++].data, PSTR("\n>>> local variables\n"), strlen_P(PSTR("\n>>> local variables\n")), dat);
-          } else {
-            dat->client++;
-          }
-        }
-      } break;
-      case 3: {
-        if(dat->client == WEBSERVER_MAX_CLIENTS) {
-          if(heishamonSettings.logSerial1) {
-  #if defined(ESP8266)
-            Serial.print(millis());
-            Serial.print(": ");
-            Serial.println(PSTR("\n>>> global variables\n"));
-  #elif defined(ESP32)
-            Serial.print(millis());
-            Serial.print(": ");
-            Serial.println(PSTR("\n>>> global variables\n"));
-  #endif
-          }
-          dat->client = 0;
-          dat->step++;
-        } else {
-          if(clients[dat->client].data.is_websocket == 1) {
-            loop = 0;
-            websocket_write_P(&clients[dat->client++].data, PSTR("\n>>> global variables\n"), strlen_P(PSTR("\n>>> global variables\n")), dat);
-          } else {
-            dat->client++;
-          }
-        }
-      } break;
-      case 4:
-      case 2: {
-        char *out = NULL;
-        struct array_t *array = NULL;
-        uint16_t l = 0;
+      // case 1: {
+        // if(dat->client == WEBSERVER_MAX_CLIENTS) {
+          // if(heishamonSettings.logSerial1) {
+  // #if defined(ESP8266)
+            // Serial.print(millis());
+            // Serial.print(": ");
+            // Serial.println(PSTR("\n>>> local variables\n"));
+  // #elif defined(ESP32)
+            // Serial.print(millis());
+            // Serial.print(": ");
+            // Serial.println(PSTR("\n>>> local variables\n"));
+  // #endif
+          // }
+          // dat->client = 0;
+          // dat->step++;
+        // } else {
+          // if(clients[dat->client].data.is_websocket == 1) {
+            // loop = 0;
+            // websocket_write_P(&clients[dat->client++].data, PSTR("\n>>> local variables\n"), strlen_P(PSTR("\n>>> local variables\n")), dat);
+          // } else {
+            // dat->client++;
+          // }
+        // }
+      // } break;
+      // case 3: {
+        // if(dat->client == WEBSERVER_MAX_CLIENTS) {
+          // if(heishamonSettings.logSerial1) {
+  // #if defined(ESP8266)
+            // Serial.print(millis());
+            // Serial.print(": ");
+            // Serial.println(PSTR("\n>>> global variables\n"));
+  // #elif defined(ESP32)
+            // Serial.print(millis());
+            // Serial.print(": ");
+            // Serial.println(PSTR("\n>>> global variables\n"));
+  // #endif
+          // }
+          // dat->client = 0;
+          // dat->step++;
+        // } else {
+          // if(clients[dat->client].data.is_websocket == 1) {
+            // loop = 0;
+            // websocket_write_P(&clients[dat->client++].data, PSTR("\n>>> global variables\n"), strlen_P(PSTR("\n>>> global variables\n")), dat);
+          // } else {
+            // dat->client++;
+          // }
+        // }
+      // } break;
+      // case 4:
+      // case 2: {
+        // char *out = NULL;
+        // struct array_t *array = NULL;
+        // uint16_t l = 0;
 
-        if(dat->table != NULL) {
-          if(dat->idx < dat->table->nr) {
-            array = &dat->table->array[dat->idx];
-            switch(array->type) {
-              case VINTEGER: {
-                l = snprintf_P(NULL, 0, PSTR("%2d %s = %d\n"), dat->idx, array->key, array->val.i);
-              } break;
-              case VFLOAT: {
-                l = snprintf_P(NULL, 0, PSTR("%2d %s = %g\n"), dat->idx, array->key, array->val.f);
-              } break;
-              case VCHAR: {
-                l = snprintf_P(NULL, 0, PSTR("%2d %s = %s\n"), dat->idx, array->key, array->val.s);
-              } break;
-              case VNULL: {
-                l = snprintf_P(NULL, 0, PSTR("%d %s = NULL\n"), dat->idx, array->key);
-              } break;
-            }
+        // if(dat->table != NULL) {
+          // if(dat->idx < dat->table->nr) {
+            // array = &dat->table->array[dat->idx];
+            // switch(array->type) {
+              // case VINTEGER: {
+                // l = snprintf_P(NULL, 0, PSTR("%2d %s = %d\n"), dat->idx, array->key, array->val.i);
+              // } break;
+              // case VFLOAT: {
+                // l = snprintf_P(NULL, 0, PSTR("%2d %s = %g\n"), dat->idx, array->key, array->val.f);
+              // } break;
+              // case VCHAR: {
+                // l = snprintf_P(NULL, 0, PSTR("%2d %s = %s\n"), dat->idx, array->key, array->val.s);
+              // } break;
+              // case VNULL: {
+                // l = snprintf_P(NULL, 0, PSTR("%d %s = NULL\n"), dat->idx, array->key);
+              // } break;
+            // }
 
-            if((out = (char *)malloc(l+1)) == NULL) {
-              logprintf_P(F("Not enough memory for rules console output %s:#%d"), __FUNCTION__, __LINE__);
-              return;
-            }
-            memset(out, 0, l+1);
+            // if((out = (char *)malloc(l+1)) == NULL) {
+              // logprintf_P(F("Not enough memory for rules console output %s:#%d"), __FUNCTION__, __LINE__);
+              // return;
+            // }
+            // memset(out, 0, l+1);
 
-            switch(array->type) {
-              case VINTEGER: {
-                snprintf_P(out, l, PSTR("%2d %s = %d\n"), dat->idx, array->key, array->val.i);
-              } break;
-              case VFLOAT: {
-                snprintf_P(out, l, PSTR("%2d %s = %g\n"), dat->idx, array->key, array->val.f);
-              } break;
-              case VCHAR: {
-                snprintf_P(out, l, PSTR("%2d %s = %s\n"), dat->idx, array->key, array->val.s);
-              } break;
-              case VNULL: {
-                snprintf_P(out, l, PSTR("%d %s = NULL\n"), dat->idx, array->key);
-              } break;
-            }
+            // switch(array->type) {
+              // case VINTEGER: {
+                // snprintf_P(out, l, PSTR("%2d %s = %d\n"), dat->idx, array->key, array->val.i);
+              // } break;
+              // case VFLOAT: {
+                // snprintf_P(out, l, PSTR("%2d %s = %g\n"), dat->idx, array->key, array->val.f);
+              // } break;
+              // case VCHAR: {
+                // snprintf_P(out, l, PSTR("%2d %s = %s\n"), dat->idx, array->key, array->val.s);
+              // } break;
+              // case VNULL: {
+                // snprintf_P(out, l, PSTR("%d %s = NULL\n"), dat->idx, array->key);
+              // } break;
+            // }
 
-            if(dat->client == WEBSERVER_MAX_CLIENTS) {
-              if(heishamonSettings.logSerial1) {
-        #if defined(ESP8266)
-                Serial.print(millis());
-                Serial.print(": ");
-                Serial.println(out);
-        #elif defined(ESP32)
-                Serial.print(millis());
-                Serial.print(": ");
-                Serial.println(out);
-        #endif
-              }
-              if(dat->idx == dat->table->nr) {
-                if(dat->step == 2) {
-                  dat->table = &global_varstack;
-                  dat->client = 0;
-                  dat->idx = 0;
-                  dat->step++;
-                } else {
-                  loop = 0;
-                  free(tmp);
-                  rules_free_stack();
-                }
-              } else {
-                dat->client = 0;
-                dat->idx++;
-              }
-            } else {
-              if(clients[dat->client].data.is_websocket == 1) {
-                loop = 0;
-                websocket_write(&clients[dat->client++].data, out, strlen(out), tmp);
-              } else {
-                dat->client++;
-              }
-            }
-            free(out);
-          } else {
-            dat->step++;
-          }
-        } else {
-          if(dat->step == 2) {
-            dat->table = &global_varstack;
-            dat->client = 0;
-            dat->idx = 0;
-            dat->step++;
-          } else {
-            free(tmp);
-            rules_free_stack();
-            loop = 0;
-          }
-        }
-      } break;
-      case 5: {
-        loop = 0;
-      } break;
+            // if(dat->client == WEBSERVER_MAX_CLIENTS) {
+              // if(heishamonSettings.logSerial1) {
+        // #if defined(ESP8266)
+                // Serial.print(millis());
+                // Serial.print(": ");
+                // Serial.println(out);
+        // #elif defined(ESP32)
+                // Serial.print(millis());
+                // Serial.print(": ");
+                // Serial.println(out);
+        // #endif
+              // }
+              // if(dat->idx == dat->table->nr) {
+                // if(dat->step == 2) {
+                  // dat->table = &global_varstack;
+                  // dat->client = 0;
+                  // dat->idx = 0;
+                  // dat->step++;
+                // } else {
+                  // loop = 0;
+                  // free(tmp);
+                  // rules_free_stack();
+                // }
+              // } else {
+                // dat->client = 0;
+                // dat->idx++;
+              // }
+            // } else {
+              // if(clients[dat->client].data.is_websocket == 1) {
+                // loop = 0;
+                // websocket_write(&clients[dat->client++].data, out, strlen(out), tmp);
+              // } else {
+                // dat->client++;
+              // }
+            // }
+            // free(out);
+          // } else {
+            // dat->step++;
+          // }
+        // } else {
+          // if(dat->step == 2) {
+            // dat->table = &global_varstack;
+            // dat->client = 0;
+            // dat->idx = 0;
+            // dat->step++;
+          // } else {
+            // free(tmp);
+            // rules_free_stack();
+            // loop = 0;
+          // }
+        // }
+      // } break;
+      // case 5: {
+        // loop = 0;
+      // } break;
     }
   }
 }
@@ -947,7 +950,7 @@ void rules_timer_cb(int nr) {
     timestamp.second = micros();
 
     if(ret == 0) {
-      rules_print_stack(name, nr, timestamp.second - timestamp.first, (struct varstack_t *)rules[nr]->userdata);
+      // rules_print_stack(name, nr, timestamp.second - timestamp.first, (struct varstack_t *)rules[nr]->userdata);
     }
   }
   FREE(name);
@@ -1093,7 +1096,7 @@ void rules_event_cb(const char *prefix, const char *name) {
     timestamp.second = micros();
 
     if(ret == 0) {
-      rules_print_stack((char *)name, rules[nr]->nr, timestamp.second - timestamp.first, (struct varstack_t *)rules[nr]->userdata);
+      // rules_print_stack((char *)name, rules[nr]->nr, timestamp.second - timestamp.first, (struct varstack_t *)rules[nr]->userdata);
     }
 
     return;
@@ -1110,7 +1113,7 @@ void rules_boot(void) {
     timestamp.second = micros();
 
     if(ret == 0) {
-      rules_print_stack((char *)"System#Boot", nr, timestamp.second - timestamp.first, (struct varstack_t *)rules[nr]->userdata);
+      // rules_print_stack((char *)"System#Boot", nr, timestamp.second - timestamp.first, (struct varstack_t *)rules[nr]->userdata);
     }
   }
 }
