@@ -2280,17 +2280,17 @@ void webserver_loop(void) {
       continue;
     }
     if(clients[i].data.is_websocket == 1) {
-      if(clients[i].data.async == 0 && (unsigned long)(millis() - clients[i].data.lastseen) > WEBSERVER_CLIENT_TIMEOUT) {
+      if(clients[i].data.async == 0 && (unsigned long)(millis() - clients[i].data.lastping) > WEBSERVER_CLIENT_PING_INTERVAL) {
         websocket_send_header(&clients[i].data, WEBSOCKET_OPCODE_PING, 0);
         clients[i].data.lastping = millis();
       }
     }
     if((unsigned long)(millis() - clients[i].data.lastseen) > WEBSERVER_CLIENT_TIMEOUT) {
 #if defined(ESP8266) || defined(ESP32)
-        loggingSerial.print("Timeout webserver client: ");
-        loggingSerial.print(clients[i].data.ip);
-        loggingSerial.print(":");
-        loggingSerial.println(clients[i].data.port);
+      loggingSerial.print("Timeout webserver client: ");
+      loggingSerial.print(clients[i].data.ip);
+      loggingSerial.print(":");
+      loggingSerial.println(clients[i].data.port);
 #endif
       clients[i].data.step = WEBSERVER_CLIENT_CLOSE;
     }
