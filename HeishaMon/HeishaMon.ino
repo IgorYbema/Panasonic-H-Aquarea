@@ -754,8 +754,6 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
     case WEBSERVER_CLIENT_REQUEST_URI: {
         if (strcmp_P((char *)dat, PSTR("/")) == 0) {
           client->route = 1;
-        } else if (strcmp_P((char *)dat, PSTR("/tablerefresh")) == 0) {
-          client->route = 10;
         } else if (strcmp_P((char *)dat, PSTR("/json")) == 0) {
           client->route = 20;
         } else if (strcmp_P((char *)dat, PSTR("/reboot")) == 0) {
@@ -839,15 +837,6 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
     case WEBSERVER_CLIENT_ARGS: {
         struct arguments_t *args = (struct arguments_t *)dat;
         switch (client->route) {
-          case 10: {
-              if (strcmp_P((char *)args->name, PSTR("1wire")) == 0) {
-                client->route = 11;
-              } else if (strcmp_P((char *)args->name, PSTR("s0")) == 0) {
-                client->route = 12;
-              } else if (strcmp_P((char *)args->name, PSTR("opentherm")) == 0) {
-                client->route = 13;
-              }
-            } break;
           case 60: {
               sprintf_P(log_msg, PSTR("Dallas alias changed address %s to alias %s"), args->name, args->value);
               log_message(log_msg);
@@ -958,12 +947,6 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
             } break;
           case 1: {
               return handleRoot(client, readpercentage, mqttReconnects, &heishamonSettings);
-            } break;
-          case 10:
-          case 11:
-          case 12:
-          case 13: {
-              return handleTableRefresh(client, actData, actDataExtra, extraDataBlockAvailable);
             } break;
           case 20: {
               return handleJsonOutput(client, actData, actDataExtra, &heishamonSettings, extraDataBlockAvailable);
