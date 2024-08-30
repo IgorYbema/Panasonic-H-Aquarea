@@ -275,7 +275,7 @@ void check_wifi() {
       }
 
       ntpReload(&heishamonSettings);
-      logprintln_P(F("Syncing with ntp servers, check again in 5 minutes"));
+      logprintln_P(F("Try to syncing with ntp servers. Checking again in 5 minutes"));
       timerqueue_insert(300, 0, -6);
     }
 
@@ -1333,21 +1333,24 @@ void timer_cb(int nr) {
         } break;
       case -5: {
           ntpReload(&heishamonSettings);
-          logprintln_P(F("Syncing with ntp servers, check again in 5 minutes"));
-          timerqueue_insert(300, 0, -6);
+          logprintln_P(F("Resynced with NTP servers. Next sync after 24 hours."));
+          timerqueue_insert(86400, 0, -5);
         } break;
       case -6: {
           time_t now = time(NULL);
           struct tm *tm_struct = localtime(&now);
           if(tm_struct->tm_year == 70) {
+            /*
+             * No valid time yet since reboot. Retry every 5 min
+             */
             ntpReload(&heishamonSettings);
-            logprintln_P(F("Syncing with ntp servers, check again in 5 minutes"));
-            timerqueue_insert(300, 0, -5);
+            logprintln_P(F("Still trying to sync with ntp servers. Checking again in 5 minutes"));
+            timerqueue_insert(300, 0, -6);
           } else {
             /*
              * Wait 300 sec less than a full day
              */
-            logprintln_P(F("Syncing with ntp servers, check again in a day"));
+            logprintln_P(F("Successfully synced with ntp servers. Next sync after 24 hours."));
             timerqueue_insert(86100, 0, -5);
           }
         } break;
