@@ -1123,7 +1123,7 @@ int handleJsonOutput(struct webserver_t *client, char* actData, char* actDataExt
     webserver_send(client, 200, (char *)"application/json", 0);
     webserver_send_content_P(client, PSTR("{\"heatpump\":["), 13);
   } else if ((client->content - 1) < NUMBER_OF_TOPICS) {
-    for (uint8_t topic = client->content - 1; topic < NUMBER_OF_TOPICS && topic < client->content + 4 ; topic++) {  //5 TOPS per webserver run (because content was 1 at start, so makes 5)
+    for (uint8_t topic = client->content - 1; topic < NUMBER_OF_TOPICS && topic < client->content ; topic++) {  //1 TOP per webserver run (because content was 1 at start, so makes 5)
 
       webserver_send_content_P(client, PSTR("{\"Topic\":\"TOP"), 13);
 
