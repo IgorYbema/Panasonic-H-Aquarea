@@ -104,12 +104,10 @@ Adafruit_NeoPixel pixels(1, LEDPIN);
 #endif
 
 // store actual data
-String openTherm[2];
 char actData[DATASIZE] = { '\0' };
 char actDataExtra[DATASIZE] = { '\0' };
 #define OPTDATASIZE 20
 char actOptData[OPTDATASIZE]  = { '\0' };
-String RESTmsg = "";
 
 // log message to sprintf to
 char log_msg[256];
@@ -271,7 +269,7 @@ void check_wifi() {
         WiFi.psk().toCharArray(heishamonSettings.wifi_password, 40);
         JsonDocument jsonDoc;
         settingsToJson(jsonDoc, &heishamonSettings);  //stores current settings in a json document
-        saveJsonToConfig(jsonDoc);                    //save to config file
+        saveJsonToFile(jsonDoc, "config.json");     //save to config file
       }
 
       ntpReload(&heishamonSettings);

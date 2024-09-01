@@ -88,7 +88,7 @@ int handleFactoryReset(struct webserver_t *client);
 int handleReboot(struct webserver_t *client);
 int handleDebug(struct webserver_t *client, char *hex, byte hex_len);
 void settingsToJson(JsonDocument  &jsonDoc, settingsStruct *heishamonSettings);
-void saveJsonToConfig(JsonDocument  &jsonDoc);
+void saveJsonToFile(JsonDocument  &jsonDoc, const char *filename);
 void loadSettings(settingsStruct *heishamonSettings);
 int getSettings(struct webserver_t *client, settingsStruct *heishamonSettings);
 int handleSettings(struct webserver_t *client);

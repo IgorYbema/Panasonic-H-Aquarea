@@ -133,7 +133,7 @@ class OpenTherm
     unsigned long buildRequest(OpenThermMessageType type, OpenThermMessageID id, unsigned int data);
     unsigned long buildResponse(OpenThermMessageType type, OpenThermMessageID id, unsigned int data);
     OpenThermResponseStatus getLastResponseStatus();
-    const char *statusToString(OpenThermResponseStatus status);
+    //const char *statusToString(OpenThermResponseStatus status);
     void handleInterrupt();
     void process();
     void end();
@@ -141,7 +141,7 @@ class OpenTherm
     bool parity(unsigned long frame);
     OpenThermMessageType getMessageType(unsigned long message);
     OpenThermMessageID getDataID(unsigned long frame);
-    const char *messageTypeToString(OpenThermMessageType message_type);
+    //const char *messageTypeToString(OpenThermMessageType message_type);
     bool isValidRequest(unsigned long request);
     bool isValidResponse(unsigned long response);
 

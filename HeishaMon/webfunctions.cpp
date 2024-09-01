@@ -15,8 +15,6 @@
 
 #define UPTIME_OVERFLOW 4294967295 // Uptime overflow value
 
-static String wifiJsonList = "";
-
 static uint8_t ntpservers = 0;
 
 void log_message(char* string);
@@ -35,7 +33,6 @@ int dBmToQuality(int dBm) {
 
 void getWifiScanResults(int numSsid) {
   if (numSsid > 0) { //found wifi networks
-    wifiJsonList = "[";
     int indexes[numSsid];
     for (int i = 0; i < numSsid; i++) { //fill the sorted list with normal indexes first
       indexes[i] = i;
@@ -59,18 +56,19 @@ void getWifiScanResults(int numSsid) {
         }
       }
     }
-    bool firstSSID = true;
+    JsonDocument wifiJsonDoc;
+    JsonArray wifiJsonArray = wifiJsonDoc.to<JsonArray>();
     for (int i = 0; i < numSsid; i++) { //then output json
       if (indexes[i] == -1) {
         continue;
       }
-      if (!firstSSID) {
-        wifiJsonList = wifiJsonList + ",";
-      }
-      wifiJsonList = wifiJsonList + "{\"ssid\":\"" + WiFi.SSID(indexes[i]) + "\", \"rssi\": \"" + dBmToQuality(WiFi.RSSI(indexes[i])) + "%\"}";
-      firstSSID = false;
+      JsonObject wifiJsonObject = wifiJsonArray.add<JsonObject>();
+      wifiJsonObject["ssid"] = WiFi.SSID(indexes[i]);
+      String quality = String(dBmToQuality(WiFi.RSSI(indexes[i]))) + "%";
+      wifiJsonObject["rssi"] = quality;
     }
-    wifiJsonList = wifiJsonList + "]";
+    saveJsonToFile(wifiJsonDoc,"wifiscan.json");
+    WiFi.scanDelete();
   }
 }
 
@@ -461,9 +459,9 @@ void settingsToJson(JsonDocument &jsonDoc, settingsStruct *heishamonSettings) {
   jsonDoc["updataAllDallasTime"] = heishamonSettings->updataAllDallasTime;
 }
 
-void saveJsonToConfig(JsonDocument &jsonDoc) {
+void saveJsonToFile(JsonDocument &jsonDoc, const char* filename) {
   if (LittleFS.begin()) {
-    File configFile = LittleFS.open("/config.json", "w");
+    File configFile = LittleFS.open(filename, "w");
     if (configFile) {
       serializeJson(jsonDoc, configFile);
       configFile.close();
@@ -615,7 +613,7 @@ int saveSettings(struct webserver_t *client, settingsStruct *heishamonSettings) 
     jsonDoc["wifi_password"] = String(wifi_password);
   }
 
-  saveJsonToConfig(jsonDoc); //save to config file
+  saveJsonToFile(jsonDoc, "config.json"); //save to config file
   loadSettings(heishamonSettings); //load config file to current settings
 
   while (client->userdata) {
@@ -972,8 +970,18 @@ int handleWifiScan(struct webserver_t *client) {
 #endif
   if (client->content == 0) {
     webserver_send(client, 200, (char *)"application/json", 0);
-    char *str = (char *)wifiJsonList.c_str();
-    webserver_send_content(client, str, strlen(str));
+    if (LittleFS.begin()) {
+      File scanfile = LittleFS.open("wifiscan.json", "r");
+      if (scanfile) {
+        size_t size = scanfile.size();
+        // Allocate a buffer to store contents of the file.
+        std::unique_ptr<char[]> buf(new char[size]);
+        scanfile.readBytes(buf.get(), size);
+        webserver_send_content(client, buf.get(), size);
+        scanfile.close();
+      }
+    }
+
   }
   //initatie a new async scan for next try
 #if defined(ESP8266)
