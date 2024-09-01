@@ -142,7 +142,7 @@ void dallasJsonOutput(struct webserver_t *client) {
 }
 
 void changeDallasAlias(char* address, char* alias) {
-  DynamicJsonDocument jsonDoc(1024);
+  JsonDocument jsonDoc;
   for (int i = 0 ; i < dallasDevicecount; i++) {
     if (strcmp(address, actDallasData[i].address) == 0) {
       strlcpy(actDallasData[i].alias, alias, sizeof(actDallasData[i].alias));
@@ -166,7 +166,7 @@ void loadDallasAlias() {
         size_t size = configFile.size();
         std::unique_ptr<char[]> buf(new char[size]);
         configFile.readBytes(buf.get(), size);
-        DynamicJsonDocument jsonDoc(1024);
+        JsonDocument jsonDoc;
         DeserializationError error = deserializeJson(jsonDoc, buf.get());
         if (!error) {
           for (int i = 0 ; i < dallasDevicecount; i++) {
