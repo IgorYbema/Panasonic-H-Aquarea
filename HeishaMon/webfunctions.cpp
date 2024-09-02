@@ -1131,7 +1131,8 @@ int handleJsonOutput(struct webserver_t *client, char* actData, char* actDataExt
     webserver_send(client, 200, (char *)"application/json", 0);
     webserver_send_content_P(client, PSTR("{\"heatpump\":["), 13);
   } else if ((client->content - 1) < NUMBER_OF_TOPICS) {
-    for (uint8_t topic = client->content - 1; topic < NUMBER_OF_TOPICS && topic < client->content ; topic++) {  //1 TOP per webserver run (because content was 1 at start, so makes 5)
+    uint8_t maxTopics =  client->content + 4; //limit the amount of topic sent per webloop
+    for (uint8_t topic = client->content - 1; topic < NUMBER_OF_TOPICS && topic < maxTopics ; topic++) {  
 
       webserver_send_content_P(client, PSTR("{\"Topic\":\"TOP"), 13);
 
@@ -1188,7 +1189,8 @@ int handleJsonOutput(struct webserver_t *client, char* actData, char* actDataExt
     if (client->content == NUMBER_OF_TOPICS + 1) {
       webserver_send_content_P(client, PSTR("],\"heatpump extra\":["), 20);
     }
-    for (uint8_t topic = (client->content - NUMBER_OF_TOPICS - 1); topic < extraTopics && topic < (client->content - NUMBER_OF_TOPICS + 4) ; topic++) {
+    uint8_t maxTopics =  client->content - NUMBER_OF_TOPICS + 4; //limit the amount of topic sent per webloop
+    for (uint8_t topic = (client->content - NUMBER_OF_TOPICS - 1); topic < extraTopics && topic < maxTopics ; topic++) {
 
       webserver_send_content_P(client, PSTR("{\"Topic\":\"XTOP"), 14);
 
