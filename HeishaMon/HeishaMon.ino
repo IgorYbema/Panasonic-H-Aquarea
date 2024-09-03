@@ -402,8 +402,11 @@ void log_message(char* string)
       mqtt_client.disconnect();
     }
   }
-  websocket_write_all(log_line, strlen(log_line));
+  char* websocketMsg = (char *) malloc(len+12);
+  snprintf(websocketMsg, len+12, "{\"logMsg\":\"%s\"}", log_line);
   free(log_line);
+  websocket_write_all(websocketMsg, strlen(websocketMsg));
+  free(websocketMsg);
 #ifdef ESP32
   if (!inSetup) blinkNeoPixel(false);
 #endif  
