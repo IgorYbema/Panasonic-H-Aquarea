@@ -3,6 +3,8 @@
 #include "rules.h"
 #include "src/common/progmem.h"
 
+void websocket_write_all(char *data, uint16_t data_len);
+
 unsigned long lastalldatatime = 0;
 unsigned long lastallextradatatime = 0;
 unsigned long lastalloptdatatime = 0;

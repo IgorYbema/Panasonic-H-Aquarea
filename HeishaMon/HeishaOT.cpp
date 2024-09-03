@@ -129,6 +129,8 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
         if (getOTStructMember(_F("chSetpoint"))->value.f != ot.getFloat(request)) { //only publish if changed
           getOTStructMember(_F("chSetpoint"))->value.f = ot.getFloat(request);
           mqttPublish((char*)mqtt_topic_opentherm_write, _F("chSetpoint"), str);
+          sprintf_P(log_msg, PSTR("{\"data\": {\"table\": \"opentherm\", \"name\": \"%s\", \"value\": %.2f}}"), _F("chSetpoint"), getOTStructMember(_F("chSetpoint"))->value.f);
+          websocket_write_all(log_msg, strlen(log_msg));
         }
         otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::TSet, request & 0xffff);
         rules_event_cb(_F("?"), _F("chsetpoint"));
@@ -212,6 +214,8 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
         if (getOTStructMember(_F("coolingControl"))->value.f != ot.getFloat(request)) {
           getOTStructMember(_F("coolingControl"))->value.f = ot.getFloat(request);  
           mqttPublish((char*)mqtt_topic_opentherm_write, _F("coolingControl"), str);
+          sprintf_P(log_msg, PSTR("{\"data\": {\"table\": \"opentherm\", \"name\": \"%s\", \"value\": %.2f}}"), _F("coolingControl"), getOTStructMember(_F("coolingControl"))->value.f);
+          websocket_write_all(log_msg, strlen(log_msg));
         }
         otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::CoolingControl, request & 0xffff);
         rules_event_cb(_F("?"), _F("coolingControl"));
@@ -238,6 +242,8 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
         if (getOTStructMember(_F("roomTemp"))->value.f != ot.getFloat(request)) {
           mqttPublish((char*)mqtt_topic_opentherm_write, _F("roomTemp"), str);
           getOTStructMember(_F("roomTemp"))->value.f = ot.getFloat(request);
+          sprintf_P(log_msg, PSTR("{\"data\": {\"table\": \"opentherm\", \"name\": \"%s\", \"value\": %.2f}}"), _F("roomTemp"), getOTStructMember(_F("roomTemp"))->value.f);
+          websocket_write_all(log_msg, strlen(log_msg));
         }
         otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::Tr, request & 0xffff);
         rules_event_cb(_F("?"), _F("roomtemp"));
@@ -250,6 +256,8 @@ void processOTRequest(unsigned long request, OpenThermResponseStatus status) {
         if (getOTStructMember(_F("roomTempSet"))->value.f != ot.getFloat(request)) {
           getOTStructMember(_F("roomTempSet"))->value.f = ot.getFloat(request);
           mqttPublish((char*)mqtt_topic_opentherm_write, _F("roomTempSet"), str);
+          sprintf_P(log_msg, PSTR("{\"data\": {\"table\": \"opentherm\", \"name\": \"%s\", \"value\": %.2f}}"), _F("roomTempSet"), getOTStructMember(_F("roomTempSet"))->value.f);
+          websocket_write_all(log_msg, strlen(log_msg));          
         }
         otResponse = ot.buildResponse(OpenThermMessageType::WRITE_ACK, OpenThermMessageID::TrSet, request & 0xffff);
         rules_event_cb(_F("?"), _F("roomtempset"));

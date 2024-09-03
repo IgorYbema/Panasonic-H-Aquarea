@@ -102,6 +102,8 @@ void readNewDallasTemp(PubSubClient &mqtt_client, void (*log_message)(char*), ch
             sprintf_P(valueStr, PSTR("{\"Temperature\":%.2f,\"Alias\":\"%s\"}"), actDallasData[i].temperature, actDallasData[i].alias);
             sprintf_P(mqtt_topic, PSTR("%s/%s/%s"), mqtt_topic_base, mqtt_topic_1wire, actDallasData[i].address); mqtt_client.publish(mqtt_topic, valueStr, MQTT_RETAIN_VALUES);
           }
+          sprintf_P(log_msg, PSTR("{\"data\": {\"table\": \"dallasvalues\", \"sensorID\": \"%s\", \"value\": %.2f}}"), actDallasData[i].address, actDallasData[i].temperature);
+          websocket_write_all(log_msg, strlen(log_msg));          
           rules_event_cb(_F("ds18b20#"), actDallasData[i].address);
         }
       }

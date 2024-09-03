@@ -4,6 +4,8 @@
 #define MQTT_RETAIN_VALUES 1
 
 void resetlastalldatatime();
+void websocket_write_all(char *data, uint16_t data_len);
+
 
 String getDataValue(char* data, unsigned int Topic_Number);
 String getDataValueExtra(char* data, unsigned int Topic_Number);

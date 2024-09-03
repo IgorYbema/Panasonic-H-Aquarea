@@ -381,7 +381,7 @@ void log_message(char* string)
   struct tm *timeinfo = localtime(&rawtime);
   char timestring[32];
   strftime(timestring, 32, "%c", timeinfo);
-  size_t len = strlen(string) + strlen(timestring) + 20; //+20 long enough to contain millis()
+  size_t len = strlen(string) + strlen(timestring) + 32; //+32 long enough to contain millis() and the json part later for websocket mesg
   char* log_line = (char *) malloc(len);
   snprintf(log_line, len, "%s (%lu): %s", timestring, millis(), string);
 
@@ -402,11 +402,11 @@ void log_message(char* string)
       mqtt_client.disconnect();
     }
   }
-  char* websocketMsg = (char *) malloc(len+12);
-  snprintf(websocketMsg, len+12, "{\"logMsg\":\"%s\"}", log_line);
+  //send log message to websocket
+  snprintf(log_line, len+12, "{\"logMsg\":\"%s (%lu): %s\"}", timestring, millis(), string);
+  websocket_write_all(log_line, strlen(log_line));
   free(log_line);
-  websocket_write_all(websocketMsg, strlen(websocketMsg));
-  free(websocketMsg);
+  
 #ifdef ESP32
   if (!inSetup) blinkNeoPixel(false);
 #endif  
