@@ -557,6 +557,7 @@ static const char *OpModeDesc[] PROGMEM = {"9", "Heat", "Cool", "Auto(heat)", "D
 static const char *Powerfulmode[] PROGMEM = {"4", "Off", "30min", "60min", "90min"};
 static const char *Quietmode[] PROGMEM = {"4", "Off", "Level 1", "Level 2", "Level 3"};
 static const char *Valve[] PROGMEM = {"2", "Room", "DHW"};
+static const char *MixingValve[] PROGMEM = {"4", "Off", "Increase","Nothing","Decrease"};
 static const char *LitersPerMin[] PROGMEM = {"0", "l/min"};
 static const char *RotationsPerMin[] PROGMEM = {"0", "r/min"};
 static const char *Bar[] PROGMEM = {"0", "Bar"};
@@ -578,6 +579,16 @@ static const char *ZonesSensorType[] PROGMEM = {"4", "Water Temperature", "Exter
 static const char *LiquidType[] PROGMEM = {"2", "Water", "Glycol"};
 static const char *ExtPadHeaterType[] PROGMEM = {"3", "Disabled", "Type-A","Type-B"};
 
+
+static const char **opttopicDescription[] PROGMEM = {
+  OffOn,          //OPT0
+  MixingValve,    //OPT1
+  OffOn,          //OPT2
+  MixingValve,    //OPT3
+  OffOn,          //OPT4
+  OffOn,          //OPT5
+  OffOn,          //OPT6
+};
 
 static const char **xtopicDescription[] PROGMEM = {
   Watt,           //XTOP0

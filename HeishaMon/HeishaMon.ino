@@ -106,7 +106,6 @@ Adafruit_NeoPixel pixels(1, LEDPIN);
 // store actual data
 char actData[DATASIZE] = { '\0' };
 char actDataExtra[DATASIZE] = { '\0' };
-#define OPTDATASIZE 20
 char actOptData[OPTDATASIZE]  = { '\0' };
 
 // log message to sprintf to
@@ -599,7 +598,6 @@ bool readSerial()
       else if (data_length == OPTDATASIZE ) { //optional pcb acknowledge answer
         log_message(_F("Received optional PCB ack answer. Decoding this in OPT topics."));
         decode_optional_heatpump_data(data, actOptData, mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
-        memcpy(actOptData, data, OPTDATASIZE);
         data_length = 0;
         return true;
       }
@@ -949,7 +947,7 @@ int8_t webserver_cb(struct webserver_t *client, void *dat) {
               return handleRoot(client, readpercentage, mqttReconnects, &heishamonSettings);
             } break;
           case 20: {
-              return handleJsonOutput(client, actData, actDataExtra, &heishamonSettings, extraDataBlockAvailable);
+              return handleJsonOutput(client, actData, actDataExtra, actOptData, &heishamonSettings, extraDataBlockAvailable);
             } break;
           case 30: {
               return handleReboot(client);
