@@ -878,6 +878,9 @@ int rules_parse(char *file) {
 
     int ret = 0;
     while((ret = rule_initialize(&input, &rules, &nrrules, &mem, NULL)) == 0) {
+#ifdef ESP8266
+      ESP.wdtFeed();  //keep the dog happy loading large rules on the esp8266
+#endif
       input.payload = &mempool[input.len];
     }
 
