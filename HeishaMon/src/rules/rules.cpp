@@ -2760,9 +2760,10 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
   pos = 0;
 
   while(loop) {
-#if defined(ESP8266) || defined(ESP32)
-    delay(0);
+#ifdef ESP8266
+      ESP.wdtFeed();  //keep the dog happy loading large rules on the esp8266
 #endif
+
 #ifdef DEBUG
     printf("%s %d %d %d %d %s\n", __FUNCTION__, __LINE__, depth, pos, getval(obj->bc.nrbytes), token_names[go].name);
 #endif
