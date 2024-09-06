@@ -406,7 +406,6 @@ void log_message(char* string)
   snprintf(log_line, len+12, "{\"logMsg\":\"%s (%lu): %s\"}", timestring, millis(), string);
   websocket_write_all(log_line, strlen(log_line));
   free(log_line);
-  
 #ifdef ESP32
   if (!inSetup) blinkNeoPixel(false);
 #endif  
