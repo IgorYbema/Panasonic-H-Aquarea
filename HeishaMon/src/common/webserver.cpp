@@ -2405,11 +2405,10 @@ void webserver_loop(void) {
 #if defined(ESP8266) || defined(ESP32)
   if(sync_server.hasClient()) {
     for(i=0;i<WEBSERVER_MAX_CLIENTS;i++) {
-      if(clients[i].data.client == NULL) {
+      if(clients[i].data.client == NULL || !clients[i].data.client->connected()) {
         webserver_reset_client(&clients[i].data);
-        clients[i].data.client = new WiFiClient(sync_server.available());
+        clients[i].data.client = new WiFiClient(sync_server.accept());
         if(clients[i].data.client) {
-
           clients[i].data.async = 0;
           clients[i].data.lastseen = millis();
           clients[i].data.step = WEBSERVER_CLIENT_CONNECTING;
@@ -2427,6 +2426,10 @@ void webserver_loop(void) {
           break;
         }
       }
+    }
+    if(i >= WEBSERVER_MAX_CLIENTS) {
+      //no free/disconnected spot so reject
+      sync_server.accept().stop();
     }
   }
 #endif
