@@ -1471,7 +1471,7 @@ void setup() {
 #elif defined(ESP32)
   esp_reset_reason_t reset_reason = esp_reset_reason(); 
   loggingSerial.printf(PSTR("Reset reason: %d\n"), reset_reason);
-  if (reset_reason > 3 && reset_reason < 12) {  //is this correct for esp32?
+  if (heishamonSettings->force_rules == true || (reset_reason > 3 && reset_reason < 12)) {  //is this correct for esp32?
 #endif  
     loggingSerial.println("Not loading rules due to crash reboot!");
   } else {

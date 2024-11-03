@@ -219,6 +219,7 @@ void loadSettings(settingsStruct *heishamonSettings) {
           if ( jsonDoc["mqtt_password"] ) strlcpy(heishamonSettings->mqtt_password, jsonDoc["mqtt_password"], sizeof(heishamonSettings->mqtt_password));
           if ( jsonDoc["ntp_servers"] ) strlcpy(heishamonSettings->ntp_servers, jsonDoc["ntp_servers"], sizeof(heishamonSettings->ntp_servers));
           if ( jsonDoc["timezone"]) heishamonSettings->timezone = jsonDoc["timezone"];
+          heishamonSettings->force_rules = ( jsonDoc["force_rules"] == "enabled" ) ? true : false;
           heishamonSettings->use_1wire = ( jsonDoc["use_1wire"] == "enabled" ) ? true : false;
           heishamonSettings->use_s0 = ( jsonDoc["use_s0"] == "enabled" ) ? true : false;
           heishamonSettings->listenonly = ( jsonDoc["listenonly"] == "enabled" ) ? true : false;
@@ -407,6 +408,10 @@ void settingsToJson(JsonDocument &jsonDoc, settingsStruct *heishamonSettings) {
     jsonDoc["listenonly"] = "enabled";
   } else {
     jsonDoc["listenonly"] = "disabled";
+  }  if (heishamonSettings->force_rules) {
+    jsonDoc["force_rules"] = "enabled";
+  } else {
+    jsonDoc["force_rules"] = "disabled";
   }
   if (heishamonSettings->listenmqtt) {
     jsonDoc["listenmqtt"] = "enabled";
@@ -475,6 +480,7 @@ int saveSettings(struct webserver_t *client, settingsStruct *heishamonSettings) 
 
   settingsToJson(jsonDoc, heishamonSettings); //stores current settings in a json document
 
+  jsonDoc["force_rules"] = String("");
   jsonDoc["listenonly"] = String("");
   jsonDoc["listenmqtt"] = String("");
   jsonDoc["logMqtt"] = String("");
@@ -513,6 +519,8 @@ int saveSettings(struct webserver_t *client, settingsStruct *heishamonSettings) 
       }
     } else if (strcmp(tmp->name.c_str(), "listenonly") == 0) {
       jsonDoc["listenonly"] = tmp->value;
+    } else if (strcmp(tmp->name.c_str(), "force_rules") == 0) {
+      jsonDoc["force_rules"] = tmp->value;
     } else if (strcmp(tmp->name.c_str(), "listenmqtt") == 0) {
       jsonDoc["listenmqtt"] = tmp->value;
     } else if (strcmp(tmp->name.c_str(), "logMqtt") == 0) {
@@ -776,6 +784,12 @@ int getSettings(struct webserver_t *client, settingsStruct *heishamonSettings) {
 
         itoa(heishamonSettings->listenonly, str, 10);
         webserver_send_content(client, str, strlen(str));
+
+        webserver_send_content_P(client, PSTR(",\"force_rules\":"), 14);
+
+        itoa(heishamonSettings->force_rules, str, 10);
+        webserver_send_content(client, str, strlen(str));
+
       } break;
     case 6: {
         char str[20];
