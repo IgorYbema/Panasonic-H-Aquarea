@@ -1486,10 +1486,10 @@ void setup() {
   }
 
   loggingSerial.println(F("Enabling rules.."));
+  if (heishamonSettings.force_rules == false) {
 #if defined(ESP8266)
   rst_info *resetInfo = ESP.getResetInfoPtr();
   loggingSerial.printf(PSTR("Reset reason: %d, exception cause: %d\n"), resetInfo->reason, resetInfo->exccause);
-  if (heishamonSettings.force_rules == false) {
     if (resetInfo->reason > 0 && resetInfo->reason < 4) {
 #elif defined(ESP32)
       esp_reset_reason_t reset_reason = esp_reset_reason();
