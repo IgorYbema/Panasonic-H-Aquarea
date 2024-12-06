@@ -295,12 +295,12 @@ static const char topics[][MAX_TOPIC_LEN] PROGMEM = {
   "External_Heat_Cool_Control", //TOP120
   "External_Error_Signal",   //TOP121
   "External_Compressor_Control", //TOP122
-  "Z1_Pump_State",           //TOP123
-  "Z2_Pump_State",           //TOP124
+  "Z2_Pump_State",           //TOP123
+  "Z1_Pump_State",           //TOP124
   "TwoWay_Valve_State",      //TOP125
   "ThreeWay_Valve_State2",   //TOP126
-  "Z1_Valve_PID",            //TOP127
-  "Z2_Valve_PID",            //TOP128
+  "Z2_Valve_PID",            //TOP127
+  "Z1_Valve_PID",            //TOP128
 };
 
 static const byte topicBytes[] PROGMEM = { //can store the index as byte (8-bit unsigned humber) as there aren't more then 255 bytes (actually only 203 bytes) to decode

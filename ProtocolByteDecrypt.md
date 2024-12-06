@@ -179,8 +179,8 @@
 |  TOP63 | 174 | 01 | Convert to DEC (X-1) X10  | Fan 2 Motor Speed [R/Min] |
 |  TOP | 175 | 36 | Convert to DEC -1  | ?Possible EEV valve (PID) |
 |  TOP | 176 | 79 | Convert to DEC -1  | ?Possible ByPass valve |
-|  TOP127 | 177 | 01 | Convert to DEC -1  | 1 Zone mixing valve PID |
-|  TOP128 | 178 | 01 | Convert to DEC -1  | 2 Zone mixing valve PID |
+|  TOP127 | 177 | 01 | Convert to DEC -1  | 2 Zone mixing valve PID |
+|  TOP128 | 178 | 01 | Convert to DEC -1  | 1 Zone mixing valve PID |
 |  TOP12 | 179 | c3 | combine both bytes (180 byte) 08 (179 byte) be = 08be= 2238(DEC) - 1 = 2237  | number of operations |
 |  TOP12 | 180 | 02 |  look at 179 | number of operations |
 |  TOP | 181 | 00 |   | 0 byte |
