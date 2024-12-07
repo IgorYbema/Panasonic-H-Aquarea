@@ -6,11 +6,11 @@
   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-#if defined(ESP8266) || defined(ESP32)
+#ifdef ESP8266
   #pragma GCC diagnostic warning "-fpermissive"
 #endif
 
-#if !defined(ESP8266) && !defined(ESP32)
+#ifndef ESP8266
   #include <stdio.h>
   #include <stdlib.h>
   #include <stdarg.h>
@@ -78,7 +78,7 @@ typedef struct vm_vchar_t {
   uint8_t len;
   uint8_t ref;
   char *value;
-#if defined(ESP8266) || defined(ESP32)
+#ifdef ESP8266
 } __attribute__((packed, aligned(4))) vm_vchar_t;
 #else
 } __attribute__((aligned(4))) vm_vchar_t;
@@ -104,6 +104,13 @@ typedef struct vm_vfloat_t {
 } __attribute__((aligned(4))) vm_vfloat_t;
 
 static void *jmptbl[JMPSIZE] = { NULL };
+
+/*
+ * This additional category is needed to seperate
+ * the event that is used to define a new function
+ * block and when calling  an event.
+ */
+#define TCEVENT 30
 
 #if defined(DEBUG) || defined(COVERALLS)
 uint16_t memused = 0;
@@ -142,7 +149,8 @@ struct {
   "VPTR",
   "VINTEGER",
   "VFLOAT",
-  "VNULL"
+  "VNULL",
+  "TCEVENT"
 };
 
 struct {
@@ -697,7 +705,7 @@ static int8_t rule_prepare(char **text,
         pos+=2;
       }
     } else if(isdigit(current) || (current == '-' && pos < *len && isdigit(next))) {
-      if(ctx == TEVENT) {
+      if(ctx == TCEVENT) {
         /* LCOV_EXCL_START*/
         /* FIXME */
         if((*len - pos) > 5) {
@@ -952,12 +960,12 @@ static int8_t rule_prepare(char **text,
       uint16_t s = pos;
       lexer_parse_string((*text), *len, &pos);
 
-      if(ctx == TEVENT || ctx == TTHEN) {
+      if(ctx == TCEVENT || ctx == TTHEN) {
         logprintf_P(F("ERROR: nested 'on' block"));
         return -1;
       }
 
-      ctx = TEVENT;
+      ctx = TCEVENT;
 
       {
         uint16_t len = pos - s;
@@ -1034,12 +1042,12 @@ static int8_t rule_prepare(char **text,
     } else if(current == ',') {
       nrtokens++;
       *heapsize += sizeof(struct vm_vnull_t);
-      if(ctx != TEVENT) {
+      if(ctx != TCEVENT) {
         *bcsize += sizeof(struct vm_top_t);
       }
 
 #ifdef DEBUG
-      if(ctx != TEVENT) {
+      if(ctx != TCEVENT) {
         printf("[BC] OP_PUSH: %lu\n", sizeof(struct vm_top_t));
       }
       printf("[HEAP] VNULL: %lu\n", sizeof(struct vm_vnull_t));
@@ -1194,10 +1202,10 @@ static int8_t rule_prepare(char **text,
             if(ctx == TSEMICOLON) {
               *bcsize += sizeof(struct vm_top_t);
             }
-            if(ctx == TEVENT) {
+            if(ctx == TCEVENT) {
               do_clear = 0;
             }
-            if(ctx == TTHEN || ctx == TEVENT) {
+            if(ctx == TTHEN || ctx == TCEVENT) {
               *bcsize += sizeof(struct vm_top_t);
             }
             *heapsize += sizeof(struct vm_vnull_t);
@@ -1207,7 +1215,7 @@ static int8_t rule_prepare(char **text,
             if(ctx == TIF || ctx == TASSIGN || ctx == TSEMICOLON) {
               printf("[BC] OP_SETVAL: %lu\n", sizeof(struct vm_top_t));
             }
-            if(ctx == TTHEN || ctx == TEVENT) {
+            if(ctx == TTHEN || ctx == TCEVENT) {
               printf("[BC] OP_SETVAL: %lu\n", sizeof(struct vm_top_t));
             }
 #endif
@@ -1237,9 +1245,14 @@ static int8_t rule_prepare(char **text,
               printf("[BC] OP_SETVAL: %lu\n", sizeof(struct vm_top_t));
 #endif
 
+            } else if(ctx == TCEVENT) {
+#ifdef DEBUG
+              printf("[BC] OP_SETVAL: %lu\n", sizeof(struct vm_top_t));
+#endif
+              *bcsize += sizeof(struct vm_top_t);
             }
           }
-          if(ctx == TFUNCTION) {
+          if(ctx == TFUNCTION || ctx == TEVENT) {
             *bcsize += sizeof(struct vm_top_t);
 
 #ifdef DEBUG
@@ -1303,6 +1316,7 @@ static int8_t rule_prepare(char **text,
 #endif
         if(ctx != TASSIGN) {
           do_clear = 1;
+          ctx = TEVENT;
         }
       } else {
         if((*len - pos) > 5) {
