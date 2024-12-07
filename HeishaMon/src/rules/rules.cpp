@@ -10,7 +10,7 @@
   #pragma GCC diagnostic warning "-fpermissive"
 #endif
 
-#if !defined(ESP8266) || !defined(ESP32)
+#if !defined(ESP8266) && !defined(ESP32)
   #include <stdio.h>
   #include <stdlib.h>
   #include <stdarg.h>
