@@ -6,11 +6,11 @@
   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
   #pragma GCC diagnostic warning "-fpermissive"
 #endif
 
-#ifndef ESP8266
+#if !defined(ESP8266) || !defined(ESP32)
   #include <stdio.h>
   #include <stdlib.h>
   #include <stdarg.h>
@@ -78,7 +78,7 @@ typedef struct vm_vchar_t {
   uint8_t len;
   uint8_t ref;
   char *value;
-#ifdef ESP8266
+#if defined(ESP8266) || defined(ESP32)
 } __attribute__((packed, aligned(4))) vm_vchar_t;
 #else
 } __attribute__((aligned(4))) vm_vchar_t;
