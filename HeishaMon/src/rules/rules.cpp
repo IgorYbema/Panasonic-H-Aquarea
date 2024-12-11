@@ -2626,6 +2626,11 @@ static int32_t bc_parse_math_order(char **text, struct rules_t *obj, uint16_t *p
     }
 
     step = bc_parent(obj, rule_operators[idx].opcode, ++(*cnt), heap_in, d);
+    if(*cnt > 63) {
+      logprintf_P(F("ERROR: Too many stacked conditions"));
+      return -1;
+    }
+
 
     uint16_t nrbytes = getval(obj->bc.nrbytes);
     while(nrbytes > 0) {
