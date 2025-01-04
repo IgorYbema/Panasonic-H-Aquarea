@@ -99,6 +99,8 @@ byte data_length = 0;
 //for received proxied data
 char proxydata[MAXDATASIZE] = { '\0' };
 byte proxydata_length = 0;
+char proxydata2[MAXDATASIZE] = { '\0' };
+byte proxydata_length2 = 0;
 //for the neopixel
 Adafruit_NeoPixel pixels(1, LEDPIN);
 #endif
