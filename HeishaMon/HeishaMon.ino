@@ -11,7 +11,7 @@
 #elif defined(ESP32)
   #define heatpumpSerial Serial1
   #define loggingSerial Serial //usb serial CDC
-  #define uartSerial Serial0 //not used, 10x header pin
+  #define proxySerial2 Serial0 //special 2nd proxy port on 10-pin header
   #define proxySerial Serial2
   #define HEATPUMPRX 18
   #define HEATPUMPTX 17
@@ -531,6 +531,77 @@ void readProxy()
     }
   }
 }
+void readProxy2()
+{
+  int proxylen2 = 0;
+  while ((proxySerial2.available()) && ((proxydata_length2 + proxylen2) < MAXDATASIZE)) {
+    proxydata2[proxydata_length2 + proxylen2] = proxySerial2.read(); //read available data and place it after the last received data
+    proxylen2++;
+    if ((proxydata2[0] != 0x71) and  (proxydata2[0] != 0x31) and  (proxydata2[0] != 0xF1)) { //wrong header received!
+      log_message(_F("PROXY2 Received bad header. Ignoring this data!"));
+      if (heishamonSettings.logHexdump) logHex(proxydata2, proxylen2);
+      proxydata_length2 = 0;
+      return; //return so this while loop does not loop forever if there happens to be a continous invalid data stream
+    }
+  }
+  //if ((proxylen2 > 0) && (proxydata_length2 == 0 )) proxy_totalreads2++; //this is the start of a new read
+  proxydata_length2 +=  proxylen2;
+  if (proxydata_length2 > 1 ) { //should have received length part of header now
+    if ((proxydata_length2 > ( proxydata2[1] + 3)) || (proxydata_length2 >= MAXDATASIZE)) {
+      sprintf_P(log_msg, PSTR("PROXY2 Received %i bytes proxy %i\n"), proxydata_length2, proxydata2[1]);
+      log_message(log_msg);
+      log_message(_F("PROXY2 Received more data than header suggests! Ignoring this as this is bad data."));
+      proxydata_length2 = 0;
+      if (heishamonSettings.logHexdump) logHex(proxydata2, proxydata_length2);
+      return;
+    }
+    if (proxydata_length2 == (proxydata2[1] + 3)) { //we received all data (serial2_data[1] is header length field)
+      sprintf_P(log_msg, PSTR("PROXY2 Received %i bytes"), proxydata_length2); log_message(log_msg);
+      if (heishamonSettings.logHexdump) logHex(proxydata2, proxydata_length2);
+      if (! isValidReceiveChecksum(proxydata2,proxydata_length2) ) {
+        log_message(_F("PROXY2 Checksum received false!"));
+        proxydata_length2 = 0; //for next attempt
+        return;
+      }      
+      log_message(_F("PROXY2 Checksum and header received ok!"));
+      if ((proxydata2[0]==0x71 or proxydata2[0]==0xF1) and proxydata_length2 == (PANASONICQUERYSIZE+1)) { //this is a query from cztaw on proxy port
+        if (proxydata2[0]==0xf1) {  //this is a write query, just pass this message forward as new command
+          log_message(_F("PROXY2 received write query, copy message forward to heatpump"));
+          send_command((byte*)proxydata2,proxydata_length2-1); //strip CRC, will be calculated again in send_command
+          //then just reply with the current settings, for read and write it is the same as the write is only acknowledged in the next read
+          //so we just run to the next if statement
+        }
+        if (proxydata2[3] == 0x10) {
+          log_message(_F("PROXY2 requests basic data"));
+          if ((actData[0] == 0x71) && (actData[1] == 0xc8) && (actData[2] == 0x01)) { //don't answer if we don't have data
+            proxySerial2.write(actData,DATASIZE); //should contain valid checksum also
+          }
+        } else if (proxydata2[3] == 0x21 ) {
+          log_message(_F("PROXY2 requests extra data"));
+          if ((actDataExtra[0] == 0x71) && (actDataExtra[1] == 0xc8) && (actDataExtra[2] == 0x01)) { //don't answer if we don't have data
+            proxySerial2.write(actDataExtra,DATASIZE); //should containt valid checksum also
+          }
+        } else {
+          log_message(_F("PROXY2 has sent unknown query! Forwarding to heatpump!"));
+          send_command((byte *)proxydata2, proxydata_length2-1); //strip CRC from end as send_command wil recalculate it
+        }
+        proxydata_length2 = 0;
+        return;
+      } else if (proxydata2[0]==0x31) {
+        log_message(_F("PROXY2 received startup message, forwarding to heatpump!"));
+        send_command((byte *)proxydata2, proxydata_length2-1); //strip CRC from end as send_command wil recalculate it
+        proxydata_length2 = 0;
+        return;
+      } else {
+        log_message(_F("PROXY2 received unknown message, forwarding it to heatpump anyway!"));
+        send_command((byte *)proxydata2, proxydata_length2-1); //strip CRC from end as send_command wil recalculate it
+        proxydata_length2 = 0;
+        return;
+      }
+    }
+  }
+}
+
 #endif
 
 bool readSerial()
@@ -1243,6 +1314,10 @@ void switchSerial() {
   proxySerial.end();
   proxySerial.begin(9600, SERIAL_8E1,PROXYRX,PROXYTX);
   proxySerial.flush();  
+  proxySerial2.flush();
+  proxySerial2.end();
+  proxySerial2.begin(9600, SERIAL_8E1,PROXYRX,PROXYTX);
+  proxySerial2.flush();  
 #endif
 
   setupGPIO(heishamonSettings.gpioSettings); //switch extra GPIOs to configured mode
