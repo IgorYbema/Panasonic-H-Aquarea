@@ -223,6 +223,7 @@ void check_wifi() {
       }
       if ((wifistatus == WL_STOPPED) && (WiFi.softAPgetStationNum() == 0)) {
         log_message(_F("Retrying configured WiFi, ..."));
+        WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN); //select best AP with same SSID
 #endif
         if (heishamonSettings.wifi_password[0] == '\0') {
           WiFi.begin(heishamonSettings.wifi_ssid);
@@ -1486,16 +1487,21 @@ void setup() {
   }
 
   loggingSerial.println(F("Enabling rules.."));
+  if (heishamonSettings.force_rules == false) {
 #if defined(ESP8266)
   rst_info *resetInfo = ESP.getResetInfoPtr();
   loggingSerial.printf(PSTR("Reset reason: %d, exception cause: %d\n"), resetInfo->reason, resetInfo->exccause);
-  if (resetInfo->reason > 0 && resetInfo->reason < 4) {
+    if (resetInfo->reason > 0 && resetInfo->reason < 4) {
 #elif defined(ESP32)
-  esp_reset_reason_t reset_reason = esp_reset_reason(); 
-  loggingSerial.printf(PSTR("Reset reason: %d\n"), reset_reason);
-  if (reset_reason > 3 && reset_reason < 12) {  //is this correct for esp32?
+      esp_reset_reason_t reset_reason = esp_reset_reason();
+      loggingSerial.printf(PSTR("Reset reason: %d\n"), reset_reason);
+    if (reset_reason > 3 && reset_reason < 12) {  //is this correct for esp32?
 #endif  
-    loggingSerial.println("Not loading rules due to crash reboot!");
+        loggingSerial.println("Not loading rules due to crash reboot!");
+    } else {
+      rules_parse((char *)"/rules.txt");
+      rules_boot();
+    }
   } else {
     rules_parse((char *)"/rules.txt");
     rules_boot();
@@ -1532,8 +1538,8 @@ void send_panasonic_query() {
     send_command(panasonicQuery, PANASONICQUERYSIZE);
     panasonicQuery[3] = 0x10; //setting 4th back to 0x10 for normal data request next time
   } else  {
-    if ((actData[0] == 0x71) && (actData[1] == 0xc8) && (actData[2] == 0x01) && (actData[193] == 0)  && (actData[195] == 0)  && (actData[197] == 0) ) { //do we have valid data but 0 value in heat consumptiom power, then assume K or L series
-    //can be replaced with: if ((actData[0] == 0x71) && (actData[0xc7] >= 3) ) { //do we have valid header and byte 0xc7 is more or equal 3 then assume K&L series
+    //if ((actData[0] == 0x71) && (actData[1] == 0xc8) && (actData[2] == 0x01) && (actData[193] == 0)  && (actData[195] == 0)  && (actData[197] == 0) ) { //do we have valid data but 0 value in heat consumptiom power, then assume K or L series
+    if ((actData[0] == 0x71) && (actData[0xc7] >= 3) ) { //do we have valid header and byte 0xc7 is more or equal 3 then assume K&L and more series
       log_message(_F("Assuming K or L heatpump type due to missing heat/cool/dhw power data"));
       extraDataBlockAvailable = true; //request for extra data next run
     }
@@ -1728,6 +1734,12 @@ void loop() {
     stats += timeoutread;
     stats += F(",\"version\":\"");
     stats += heishamon_version;
+    stats += F(",\"board\":\"");
+#ifdef ESP8266
+    stats += F("\"ESP8266\"");
+#else
+    stats += F("\"ESP32\"");
+#endif
     stats += F("\",\"rules active\":");
     stats += nrrules;
     stats += F("}");
