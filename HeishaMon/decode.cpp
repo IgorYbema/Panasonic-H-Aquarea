@@ -314,6 +314,15 @@ void decode_heatpump_data(char* data, char* actData, PubSubClient &mqtt_client, 
   memcpy(actData, data, DATASIZE);
   for (unsigned int Topic_Number = 0 ; Topic_Number < NUMBER_OF_TOPICS ; Topic_Number++) {
     if(updateTopic[Topic_Number]) {
+      char log_msg[256];
+      int maxvalue = atoi(topicDescription[Topic_Number][0]);
+      String dataValue = getDataValue(actData, Topic_Number);
+      if (maxvalue == 0) { //this takes the special case where the description is a real value description instead of a mode, so get description index 1
+        sprintf_P(log_msg, PSTR("{\"data\": {\"heishavalues\": {\"topic\": \"TOP%s\", \"value\": \"%s\", \"description\": %s}}}"), Topic_Number, dataValue.c_str(),topicDescription[Topic_Number][1]);
+      } else {
+        sprintf_P(log_msg, PSTR("{\"data\": {\"heishavalues\": {\"topic\": \"TOP%s\", \"value\": \"%s\", \"description\": %s}}}"), Topic_Number, dataValue.c_str(),topicDescription[Topic_Number][dataValue.toInt() + 1]);
+      }
+      websocket_write_all(log_msg, strlen(log_msg));          
       rules_event_cb(_F("@"), topics[Topic_Number]);
     }
   }
