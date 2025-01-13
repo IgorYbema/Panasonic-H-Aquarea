@@ -359,6 +359,15 @@ void decode_heatpump_data_extra(char* data, char* actDataExtra, PubSubClient &mq
   memcpy(actDataExtra, data, DATASIZE);
   for (unsigned int Topic_Number = 0 ; Topic_Number < NUMBER_OF_TOPICS_EXTRA ; Topic_Number++) {
     if(updateTopic[Topic_Number]) {
+      char log_msg[256];
+      int maxvalue = atoi(xtopicDescription[Topic_Number][0]);
+      String dataValue = getDataValueExtra(actDataExtra, Topic_Number);
+      if (maxvalue == 0) { //this takes the special case where the description is a real value description instead of a mode, so get description index 1
+        sprintf_P(log_msg, PSTR("{\"data\": {\"heishavalues\": {\"topic\": \"XTOP%u\", \"value\": %s, \"description\": \"%s\"}}}"), Topic_Number, dataValue.c_str(),xtopicDescription[Topic_Number][1]);
+      } else {
+        sprintf_P(log_msg, PSTR("{\"data\": {\"heishavalues\": {\"topic\": \"XTOP%u\", \"value\": %s, \"description\": \"%s\"}}}"), Topic_Number, dataValue.c_str(),xtopicDescription[Topic_Number][dataValue.toInt() + 1]);
+      }
+      websocket_write_all(log_msg, strlen(log_msg));         
       rules_event_cb(_F("@"), xtopics[Topic_Number]);
     }
   }
@@ -399,6 +408,14 @@ void decode_optional_heatpump_data(char* data, char* actOptData, PubSubClient & 
   memcpy(actOptData, data, OPTDATASIZE);
   for (unsigned int Topic_Number = 0 ; Topic_Number < NUMBER_OF_OPT_TOPICS ; Topic_Number++) {
     if(updateTopic[Topic_Number]) {
+      char log_msg[256];
+      int maxvalue = atoi(opttopicDescription[Topic_Number][0]);
+      String dataValue = getOptDataValue(actOptData, Topic_Number);
+      if (maxvalue == 0) { //this takes the special case where the description is a real value description instead of a mode, so get description index 1
+        sprintf_P(log_msg, PSTR("{\"data\": {\"heishavalues\": {\"topic\": \"OPTTOP%u\", \"value\": %s, \"description\": \"%s\"}}}"), Topic_Number, dataValue.c_str(),opttopicDescription[Topic_Number][1]);
+      } else {
+        sprintf_P(log_msg, PSTR("{\"data\": {\"heishavalues\": {\"topic\": \"OPTTOP%u\", \"value\": %s, \"description\": \"%s\"}}}"), Topic_Number, dataValue.c_str(),opttopicDescription[Topic_Number][dataValue.toInt() + 1]);
+      }      
       rules_event_cb(_F("@"), optTopics[Topic_Number]);
     }
   }
