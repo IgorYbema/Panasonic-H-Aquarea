@@ -802,7 +802,7 @@ int getSettings(struct webserver_t *client, settingsStruct *heishamonSettings) {
       } break;
     case 7: {
         char str[20];
-        webserver_send_content_P(client, PSTR("\",\"logMqtt\":"), 12);
+        webserver_send_content_P(client, PSTR(",\"logMqtt\":"), 11);
 
         itoa(heishamonSettings->logMqtt, str, 10);
         webserver_send_content(client, str, strlen(str));
