@@ -356,11 +356,10 @@ void mqtt_reconnect()
         resetlastalldatatime(); //resend all heatpump values to mqtt
       }
       //use this to receive valid heishamon raw data from other heishamon to debug this OT code
-#define OTDEBUG
-#ifdef OTDEBUG
-      if ( heishamonSettings.listenonly && heishamonSettings.listenmqtt ) {
-        sprintf(topic, "%s/raw/data", heishamonSettings.mqtt_topic_listen);
-        mqtt_client.subscribe(topic); //subscribe to raw heatpump data over MQTT
+#define RAWDEBUG
+#ifdef RAWDEBUG
+      if ( heishamonSettings.listenonly) {
+        mqtt_client.subscribe((char*)"panasonic_heat_pump/raw/data"); //subscribe to raw heatpump data over MQTT
       }
 #endif
     }
@@ -710,8 +709,8 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
       send_heatpump_command(topic_sendcommand, msg, send_command, log_message, heishamonSettings.optionalPCB);
     }
     //use this to receive valid heishamon raw data from other heishamon to debug this OT code
-#ifdef OTDEBUG
-    else if (strcmp((char*)"panasonic_heat_pump/data", topic) == 0) {  // check for raw heatpump input
+#ifdef RAWDEBUG
+    else if (strcmp((char*)"panasonic_heat_pump/raw/data", topic) == 0) {  // check for raw heatpump input
       sprintf_P(log_msg, PSTR("Received raw heatpump data from MQTT"));
       log_message(log_msg);
       decode_heatpump_data(msg, actData, mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
