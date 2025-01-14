@@ -356,11 +356,10 @@ void mqtt_reconnect()
         resetlastalldatatime(); //resend all heatpump values to mqtt
       }
       //use this to receive valid heishamon raw data from other heishamon to debug this OT code
-#define OTDEBUG
-#ifdef OTDEBUG
-      if ( heishamonSettings.listenonly && heishamonSettings.listenmqtt ) {
-        sprintf(topic, "%s/raw/data", heishamonSettings.mqtt_topic_listen);
-        mqtt_client.subscribe(topic); //subscribe to raw heatpump data over MQTT
+//#define RAWDEBUG
+#ifdef RAWDEBUG
+      if ( heishamonSettings.listenonly) {
+        mqtt_client.subscribe((char*)"panasonic_heat_pump/raw/data"); //subscribe to raw heatpump data over MQTT
       }
 #endif
     }
@@ -389,7 +388,7 @@ void log_message(char* string)
   struct tm *timeinfo = localtime(&rawtime);
   char timestring[32];
   strftime(timestring, 32, "%c", timeinfo);
-  size_t len = strlen(string) + strlen(timestring) + 20; //+20 long enough to contain millis()
+  size_t len = strlen(string) + strlen(timestring) + 32; //+32 long enough to contain millis() and the json part later for websocket mesg
   char* log_line = (char *) malloc(len);
   snprintf(log_line, len, "%s (%lu): %s", timestring, millis(), string);
 
@@ -410,11 +409,10 @@ void log_message(char* string)
       mqtt_client.disconnect();
     }
   }
-  char* websocketMsg = (char *) malloc(len+12);
-  snprintf(websocketMsg, len+12, "{\"logMsg\":\"%s\"}", log_line);
+  //send log message to websocket
+  snprintf(log_line, len+12, "{\"logMsg\":\"%s (%lu): %s\"}", timestring, millis(), string);
+  websocket_write_all(log_line, strlen(log_line));
   free(log_line);
-  websocket_write_all(websocketMsg, strlen(websocketMsg));
-  free(websocketMsg);
 #ifdef ESP32
   if (!inSetup) blinkNeoPixel(false);
 #endif  
@@ -709,10 +707,9 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
     {
       char* topic_sendcommand = topic_command + strlen(mqtt_topic_commands) + 1; //strip the first 9 "commands/" from the topic to get what we need
       send_heatpump_command(topic_sendcommand, msg, send_command, log_message, heishamonSettings.optionalPCB);
-    }
     //use this to receive valid heishamon raw data from other heishamon to debug this OT code
-#ifdef OTDEBUG
-    else if (strcmp((char*)"panasonic_heat_pump/data", topic) == 0) {  // check for raw heatpump input
+#ifdef RAWDEBUG
+    } else if (strcmp((char*)"panasonic_heat_pump/raw/data", topic) == 0) {  // check for raw heatpump input
       sprintf_P(log_msg, PSTR("Received raw heatpump data from MQTT"));
       log_message(log_msg);
       decode_heatpump_data(msg, actData, mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);

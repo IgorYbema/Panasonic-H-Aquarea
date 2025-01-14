@@ -179,6 +179,9 @@ void s0Loop(PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_to
       sprintf(valueStr, "%u",  actS0Data[i].watt);
       sprintf(mqtt_topic, PSTR("%s/%s/Watt/%d"), mqtt_topic_base, mqtt_topic_s0, (i + 1));
       mqtt_client.publish(mqtt_topic, valueStr, MQTT_RETAIN_VALUES);
+      //update GUI over websocket
+      sprintf_P(log_msg, PSTR("{\"data\": {\"s0values\": {\"s0port\": %d, \"Watt\": %u, \"Watthour\": %.2f, \"WatthourTotal\": %.2f}}}"), i+1, actS0Data[i].watt,Watthour,WatthourTotal);
+      websocket_write_all(log_msg, strlen(log_msg));         
     }
   }
 }
