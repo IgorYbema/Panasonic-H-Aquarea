@@ -108,7 +108,7 @@ static void *jmptbl[JMPSIZE] = { NULL };
 /*
  * This additional category is needed to seperate
  * the event that is used to define a new function
- * block and when calling  an event.
+ * block and when calling an event.
  */
 #define TCEVENT 30
 
@@ -191,7 +191,6 @@ static void print_bytecode(struct rules_t *obj);
 #endif
 /*LCOV_EXCL_STOP*/
 
-//only already defined for ESP8266, not for ESP32
 #if !defined(ESP8266)
 /*LCOV_EXCL_START*/
 uint8_t mmu_set_uint8(void *ptr, uint8_t src) { *(uint8_t *)ptr = src; return src; }
@@ -304,7 +303,7 @@ static int8_t lexer_parse_number(char *text, uint16_t len, uint16_t *pos) {
      * The dot cannot be the first character
      * and we cannot have more than 1 dot
      */
-    while(*pos <= len &&
+    while(*pos < len &&
         (
           isdigit(current) ||
           (i == 0 && current == '-') ||
@@ -328,7 +327,7 @@ static int8_t lexer_parse_number(char *text, uint16_t len, uint16_t *pos) {
 static uint16_t lexer_parse_string(char *text, uint16_t len, uint16_t *pos) {
   char current = getval(text[*pos]);
 
-  while(*pos <= len &&
+  while(*pos < len &&
       (current != ' ' &&
       current != ',' &&
       current != ';' &&
@@ -371,7 +370,7 @@ static int8_t lexer_parse_quoted_string(char *text, uint16_t len, uint16_t *pos)
 static int8_t lexer_parse_skip_characters(char *text, uint16_t len, uint16_t *pos) {
   char current = getval(text[*pos]);
 
-  while(*pos <= len &&
+  while(*pos < len &&
       (current == ' ' ||
       current == '\n' ||
       current == '\t' ||
@@ -2232,6 +2231,9 @@ static void bc_math_move_closest(struct rules_t *obj, int16_t limit) {
         tmp1B = tmp1;
         while((tmp1B = bc_before(obj, tmp1B)) != -1 && tmp1B >= limit) {
           struct vm_top_t *xB = (struct vm_top_t *)&obj->bc.buffer[tmp1B];
+          if(gettype(xB->type) == OP_GETVAL) {
+            continue;
+          }
           if(getval(x->a) == getval(xB->c) && gettype(xB->type) != OP_GETVAL) {
             break;
           }
@@ -2269,7 +2271,8 @@ static void bc_math_move_closest(struct rules_t *obj, int16_t limit) {
           while(tmp1C != -1) {
             struct vm_top_t *z = (struct vm_top_t *)&obj->bc.buffer[tmp1C];
 
-            if(gettype(z->type) != OP_GETVAL) {
+            if(gettype(z->type) != OP_GETVAL &&
+               gettype(z->type) != OP_CALL) {
               if(getval(z->c) == xA) {
                 setval(z->c, yA);
               } else if(getval(z->c) == yA) {
@@ -2286,7 +2289,6 @@ static void bc_math_move_closest(struct rules_t *obj, int16_t limit) {
         }
       }
     }
-
     x = (struct vm_top_t *)&obj->bc.buffer[nrbytes];
     if(gettype(x->type) == OP_GETVAL) {
       tmp1 = nrbytes;
@@ -2296,6 +2298,9 @@ static void bc_math_move_closest(struct rules_t *obj, int16_t limit) {
         tmp1B = tmp1;
         while((tmp1B = bc_before(obj, tmp1B)) != -1 && tmp1B >= limit) {
           struct vm_top_t *xB = (struct vm_top_t *)&obj->bc.buffer[tmp1B];
+          if(gettype(xB->type) == OP_GETVAL) {
+            continue;
+          }
           if(getval(x->a) == getval(xB->b)) {
             break;
           }
@@ -2333,7 +2338,8 @@ static void bc_math_move_closest(struct rules_t *obj, int16_t limit) {
           while(tmp1C != -1) {
             struct vm_top_t *z = (struct vm_top_t *)&obj->bc.buffer[tmp1C];
 
-            if(gettype(z->type) != OP_GETVAL) {
+            if(gettype(z->type) != OP_GETVAL &&
+               gettype(z->type) != OP_CALL) {
               if(getval(z->c) == xA) {
                 setval(z->c, yA);
               } else if(getval(z->c) == yA) {
@@ -2350,6 +2356,7 @@ static void bc_math_move_closest(struct rules_t *obj, int16_t limit) {
         }
       }
     }
+
     x = (struct vm_top_t *)&obj->bc.buffer[nrbytes];
     if(is_op_and_math(gettype(x->type))) {
       tmp1 = nrbytes;
@@ -2407,7 +2414,8 @@ static void bc_math_move_closest(struct rules_t *obj, int16_t limit) {
             while(tmp1B != -1) {
               struct vm_top_t *z = (struct vm_top_t *)&obj->bc.buffer[tmp1B];
 
-              if(gettype(z->type) != OP_GETVAL) {
+              if(gettype(z->type) != OP_GETVAL &&
+                 gettype(z->type) != OP_CALL) {
                 if(getval(z->c) == xA) {
                   setval(z->c, yA);
                 } else if(getval(z->c) == yA) {
@@ -2483,7 +2491,8 @@ static void bc_math_move_closest(struct rules_t *obj, int16_t limit) {
             while(tmp1C != -1) {
               struct vm_top_t *z = (struct vm_top_t *)&obj->bc.buffer[tmp1C];
 
-              if(gettype(z->type) != OP_GETVAL) {
+              if(gettype(z->type) != OP_GETVAL &&
+                 gettype(z->type) != OP_CALL) {
                 if(getval(z->c) == xA) {
                   setval(z->c, yA);
                 } else if(getval(z->c) == yA) {
@@ -2597,6 +2606,7 @@ static int32_t bc_parse_math_order(char **text, struct rules_t *obj, uint16_t *p
         } break;
         case TVAR:
         case VNULL:
+        case TSTRING:
         case TNUMBER1:
         case TNUMBER2:
         case TNUMBER3:
@@ -2626,11 +2636,11 @@ static int32_t bc_parse_math_order(char **text, struct rules_t *obj, uint16_t *p
     }
 
     step = bc_parent(obj, rule_operators[idx].opcode, ++(*cnt), heap_in, d);
-    if(*cnt > 63) {
+
+    if(*cnt > (INT8_MAX/2)) {
       logprintf_P(F("ERROR: Too many stacked conditions"));
       return -1;
     }
-
 
     uint16_t nrbytes = getval(obj->bc.nrbytes);
     while(nrbytes > 0) {
@@ -3001,9 +3011,8 @@ static int16_t rule_create(char **text, struct rules_t *obj) {
 
   while(loop) {
 #ifdef ESP8266
-      ESP.wdtFeed();  //keep the dog happy loading large rules on the esp8266
+    ESP.wdtFeed();;
 #endif
-
 #ifdef DEBUG
     printf("%s %d %d %d %d %s\n", __FUNCTION__, __LINE__, depth, pos, getval(obj->bc.nrbytes), token_names[go].name);
 #endif
@@ -4181,7 +4190,7 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
     uint8_t b = vm_val_pos((int8_t)getval(node->b));
     uint8_t c = vm_val_pos((int8_t)getval(node->c));
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(COVERALLS)
     if((int8_t)getval(node->a) >= 0) {
       logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
       return -1;
@@ -4194,11 +4203,11 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
       logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
       return -1;
     }
-    if(b > obj->heap->nrbytes) {
+    if(b > getval(obj->heap->nrbytes)) {
       logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
       return -1;
     }
-    if(c > obj->heap->nrbytes) {
+    if(c > getval(obj->heap->nrbytes)) {
       logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
       return -1;
     }
@@ -4481,7 +4490,7 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
 /*****************/
   STEP_JMP: {
     struct vm_top_t *node = (struct vm_top_t *)&obj->bc.buffer[pos];
-#ifdef DEBUG
+#if defined(DEBUG) || defined(COVERALLS)
     /* LCOV_EXCL_START*/
     if((uint8_t)getval(node->a) <= 0) {
       logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
@@ -4564,7 +4573,7 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
     uint16_t b = (int8_t)getval(node->b)*sizeof(struct vm_vchar_t);
     uint16_t a = vm_val_pos(getval(node->a));
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(COVERALLS)
     if((int8_t)getval(node->b) < 0) {
       logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
       return -1;
@@ -4573,7 +4582,7 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
       logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
       return -1;
     }
-    if(a > obj->heap->nrbytes) {
+    if(a > getval(obj->heap->nrbytes)) {
       logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
       return -1;
     }
@@ -4583,7 +4592,7 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
 
     rule_options.vm_value_get(obj);
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(COVERALLS)
     /* LCOV_EXCL_START*/
     if(rules_gettop(obj) < 2) {
       logprintf_P(F("FATAL: Internal error in %s #%d"), __FUNCTION__, __LINE__);
@@ -4657,7 +4666,7 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
   STEP_SETVAL: {
     struct vm_top_t *node = (struct vm_top_t *)&obj->bc.buffer[pos];
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(COVERALLS)
     if((int8_t)getval(node->a) < 0) {
       logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
       return -1;
@@ -4672,12 +4681,14 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
       uint16_t a = (int8_t)getval(node->a)*sizeof(struct vm_vchar_t);
       uint16_t b = vm_val_pos((int8_t)getval(node->b));
 
-#ifdef DEBUG
-      if(b > obj->heap->nrbytes) {
+#if defined(DEBUG) || defined(COVERALLS)
+      if(b > getval(obj->heap->nrbytes)) {
         logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
         return -1;
       }
+#endif
 
+#ifdef DEBUG
       struct vm_vchar_t *var = (struct vm_vchar_t *)&varstack->buffer[a];
       switch(gettype(obj->heap->buffer[b])) {
         case VINTEGER: {
@@ -4714,7 +4725,7 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
       uint16_t a = (int8_t)getval(node->a)*sizeof(struct vm_vchar_t);
       uint16_t b = (int8_t)(getval(node->b)-1)*sizeof(struct vm_vchar_t);
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(COVERALLS)
       if(b > varstack->nrbytes) {
         logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
         return -1;
@@ -4759,8 +4770,8 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
     if((int8_t)getval(node->a) < 0) {
       uint16_t a = vm_val_pos((int8_t)getval(node->a));
 
-#ifdef DEBUG
-      if(a > obj->heap->nrbytes) {
+#if defined(DEBUG) || defined(COVERALLS)
+      if(a > getval(obj->heap->nrbytes)) {
         logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
         return -1;
       }
@@ -4770,7 +4781,7 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
     } else {
       uint16_t a = (uint8_t)(getval(node->a)-1)*sizeof(struct vm_vchar_t);
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(COVERALLS)
       if(a > varstack->nrbytes) {
         logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
         return -1;
@@ -4793,7 +4804,7 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
     uint16_t b = (int8_t)getval(node->b);
     uint16_t c = (int8_t)getval(node->c);
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(COVERALLS)
     if((int8_t)getval(node->a) >= 0) {
       logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
       return -1;
@@ -4806,7 +4817,7 @@ int8_t rule_run(struct rules_t *obj, uint8_t validate) {
       logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
       return -1;
     }
-    if(a > obj->heap->nrbytes) {
+    if(a > getval(obj->heap->nrbytes)) {
       logprintf_P(F("FATAL: Internal error in %s #%d pos (%d)"), __FUNCTION__, __LINE__, pos/4);
       return -1;
     }
@@ -5091,7 +5102,6 @@ static void print_bytecode(struct rules_t *obj) {
     printf("\n");
   }
 }
-/*LCOV_EXCL_STOP*/
 #endif
 
 #if defined(DEBUG) || defined(COVERALLS)
